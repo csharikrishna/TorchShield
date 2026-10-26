@@ -58,7 +58,10 @@ class SecureModelCheckpoint:
             contiguous = tensor.detach().to(device="cpu").contiguous()
             dtype_str = str(tensor.dtype).replace("torch.", "")
             shape_list = list(tensor.shape)
-            raw_bytes = contiguous.view(torch.uint8).numpy().tobytes()
+            if contiguous.numel() == 0:
+                raw_bytes = b""
+            else:
+                raw_bytes = contiguous.clone().reshape(-1).view(torch.uint8).numpy().tobytes()
             total_raw = len(raw_bytes)
 
             num_chunks = max(1, math.ceil(total_raw / chunk_bytes)) if total_raw > 0 else 1
@@ -194,9 +197,15 @@ class SecureModelCheckpoint:
                 restored_state[name] = tensor
 
                 if target_model is not None:
-                    # Stream directly into model parameter if matching
-                    curr_param = target_model.get_parameter(name) if hasattr(target_model, "get_parameter") else None
-                    if curr_param is not None:
+                    # Stream directly into model parameter or buffer if matching
+                    try:
+                        curr_param = target_model.get_parameter(name)
                         curr_param.data.copy_(tensor)
+                    except (AttributeError, KeyError):
+                        try:
+                            curr_buf = target_model.get_buffer(name)
+                            curr_buf.copy_(tensor)
+                        except (AttributeError, KeyError):
+                            pass
 
         return restored_state

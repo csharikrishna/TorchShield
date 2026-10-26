@@ -17,8 +17,15 @@ import json
 import os
 import secrets
 import statistics
+import sys
 import time
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+# Ensure project root is in sys.path
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 import torch
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM

@@ -6,7 +6,15 @@ Runs comprehensive checks on the active NVIDIA GPU:
 - Device residency verification (no implicit CPU fallback)
 - Mathematical parity between CPU and CUDA
 """
+import os
 import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 import torch
 from ahcc.engine import AHCC_Engine, SUPPORTED_PRIMES
 

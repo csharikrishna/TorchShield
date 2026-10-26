@@ -9,8 +9,16 @@ D. Experimental AHCC tensor encryption (Research Prototype).
 Demonstrates timing, memory behavior, layer-by-layer streaming, and tamper detection.
 """
 import os
+import sys
 import tempfile
 import time
+from pathlib import Path
+
+# Ensure project root is in sys.path
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 import torch
 import torch.nn as nn
 

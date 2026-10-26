@@ -110,3 +110,69 @@ def test_checkpoint_detects_truncation():
 
         with pytest.raises(AuthenticationError):
             SecureModelCheckpoint.load_checkpoint(truncated_path, key)
+
+
+def test_checkpoint_batchnorm_buffers_and_target_streaming():
+    """Verify models with BatchNorm (scalars, buffers) serialize and stream into target_model."""
+    class ConvBNNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Conv2d(3, 8, 3, padding=1)
+            self.bn = nn.BatchNorm2d(8)
+
+        def forward(self, x):
+            return self.bn(self.conv(x))
+
+    model = ConvBNNet()
+    # Populate non-trivial values
+    model.bn.running_mean.fill_(0.75)
+    model.bn.running_var.fill_(1.25)
+    model.bn.num_batches_tracked.fill_(100)
+
+    key = os.urandom(32)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ckpt_path = os.path.join(tmpdir, "conv_bn.ahcc_ckpt")
+        SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key)
+
+        target = ConvBNNet()
+        # Ensure target has different initial values
+        target.bn.running_mean.zero_()
+        target.bn.num_batches_tracked.zero_()
+
+        restored_state = SecureModelCheckpoint.load_checkpoint(ckpt_path, key, target_model=target)
+
+        # Check restored state dict
+        for k, v in model.state_dict().items():
+            assert torch.equal(v, restored_state[k]), f"Mismatch in state_dict {k}"
+
+        # Check target model parameters and buffers were updated
+        assert torch.equal(target.bn.running_mean, model.bn.running_mean)
+        assert torch.equal(target.bn.num_batches_tracked, model.bn.num_batches_tracked)
+
+
+def test_checkpoint_scalars_empty_and_multidtype():
+    """Verify state dict containing 0-dim scalars, empty tensors, and multiple dtypes."""
+    state_dict = {
+        "scalar_float": torch.tensor(3.14159, dtype=torch.float32),
+        "scalar_int64": torch.tensor(42, dtype=torch.int64),
+        "scalar_bool": torch.tensor(True, dtype=torch.bool),
+        "empty_tensor": torch.empty((0, 8), dtype=torch.float32),
+        "bfloat16_tensor": torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.bfloat16),
+        "int16_tensor": torch.tensor([10, -20, 30], dtype=torch.int16),
+        "sliced_tensor": torch.randn(10, 10)[2:5, 3:7],
+    }
+
+    key = os.urandom(32)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ckpt_path = os.path.join(tmpdir, "complex.ahcc_ckpt")
+        SecureModelCheckpoint.save_checkpoint(state_dict, ckpt_path, key)
+
+        restored = SecureModelCheckpoint.load_checkpoint(ckpt_path, key)
+
+        for name, orig in state_dict.items():
+            assert name in restored, f"Missing key {name}"
+            rec = restored[name]
+            assert rec.shape == orig.shape, f"Shape mismatch for {name}: {rec.shape} vs {orig.shape}"
+            assert rec.dtype == orig.dtype, f"Dtype mismatch for {name}: {rec.dtype} vs {orig.dtype}"
+            assert torch.equal(rec, orig), f"Value mismatch for {name}"
+

@@ -1,8 +1,8 @@
 {
   "model_params": 4202496,
   "model_bytes": 16809984,
-  "plain_load_ms": 13.486900000316382,
-  "whole_file_load_ms": 28.51005000047735,
-  "chunked_load_ms": 36.138800000117044,
-  "ahcc_single_layer_ms": 50.52334999982122
+  "plain_load_ms": 13.704400000278838,
+  "whole_file_load_ms": 30.696800000441726,
+  "chunked_load_ms": 37.647249999281485,
+  "ahcc_single_layer_ms": 50.511449999248725
 }

@@ -8,6 +8,15 @@ Demonstrates and verifies:
 5. Deterministic ECB-like leakage across identical blocks.
 """
 import math
+import os
+import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 import torch
 from ahcc.engine import AHCC_Engine, SUPPORTED_PRIMES
 
@@ -103,5 +112,13 @@ def run_all_attacks():
     print("=" * 70)
 
 
+# PyTest discoverable functions
+test_key_schedule_entropy_collapse = run_key_schedule_entropy_collapse_experiment
+test_key_schedule_reversibility = run_key_schedule_reversibility_experiment
+test_ciphertext_malleability = run_ciphertext_malleability_experiment
+test_ecb_leakage = run_ecb_leakage_experiment
+
+
 if __name__ == "__main__":
     run_all_attacks()
+
