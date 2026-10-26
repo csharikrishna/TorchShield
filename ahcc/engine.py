@@ -21,11 +21,16 @@ from __future__ import annotations
 
 import math
 import secrets
+import warnings
 from typing import Optional, Tuple
 
 import torch
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+
+class InsecureCipherWarning(UserWarning):
+    """Warning emitted when the experimental, unauthenticated AHCC cipher is used."""
 
 
 SUPPORTED_PRIMES = (2_147_483_579, 4_294_967_291)  # 2**32 - 5 is the paper's target.
@@ -140,6 +145,16 @@ class AHCC_Engine:
         self.d = pow(3, -1, self.p - 1)
 
         self.M, self.M_inv = self._build_cauchy_mds_matrices()
+        self.is_experimental = True
+        self.is_production_secure = False
+        warnings.warn(
+            "AHCC_Engine is an experimental research cipher that provides NO message authentication, "
+            "is vulnerable to algebraic and ECB analysis, and is NOT secure for production use. "
+            "Use ahcc.checkpoint.SecureModelCheckpoint or ahcc.secure.AESGCMEnvelope for production security.",
+            category=InsecureCipherWarning,
+            stacklevel=2,
+        )
+
         if self.master_seed is not None:
             self.round_keys = self._generate_chaotic_round_keys(self.master_seed)
         else:
@@ -420,6 +435,14 @@ class TensorCipherWrapper:
         if not isinstance(engine, AHCC_Engine):
             raise TypeError("engine must be an AHCC_Engine instance.")
         self.engine = engine
+        self.is_experimental = True
+        self.is_production_secure = False
+        warnings.warn(
+            "TensorCipherWrapper uses the experimental, unauthenticated AHCC cipher. "
+            "It is NOT secure for production use. Use ahcc.checkpoint.SecureModelCheckpoint instead.",
+            category=InsecureCipherWarning,
+            stacklevel=2,
+        )
 
     def encrypt_tensor(self, tensor: torch.Tensor) -> Tuple[torch.Tensor, dict]:
         if not isinstance(tensor, torch.Tensor):

@@ -1,0 +1,1730 @@
+[
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 0,
+    "enc_time_ms": 0.0092999980552122,
+    "dec_time_ms": 0.014100001862971112
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 1,
+    "enc_time_ms": 0.009800001862458885,
+    "dec_time_ms": 0.008800001523923129
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 2,
+    "enc_time_ms": 0.008700000762473792,
+    "dec_time_ms": 0.008300001354655251
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 3,
+    "enc_time_ms": 0.009499999578110874,
+    "dec_time_ms": 0.008200000593205914
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 4,
+    "enc_time_ms": 0.008400002116104588,
+    "dec_time_ms": 0.00839999847812578
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 5,
+    "enc_time_ms": 0.00839999847812578,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 6,
+    "enc_time_ms": 0.008700000762473792,
+    "dec_time_ms": 0.008600000001024455
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 7,
+    "enc_time_ms": 0.008400002116104588,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 8,
+    "enc_time_ms": 0.008400002116104588,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 9,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 10,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 11,
+    "enc_time_ms": 0.008200000593205914,
+    "dec_time_ms": 0.008200000593205914
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 12,
+    "enc_time_ms": 0.008200000593205914,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 13,
+    "enc_time_ms": 0.008499999239575118,
+    "dec_time_ms": 0.008000002708286047
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 14,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 15,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.007800001185387373
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 16,
+    "enc_time_ms": 0.00799999907030724,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 17,
+    "enc_time_ms": 0.00839999847812578,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 18,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 19,
+    "enc_time_ms": 0.00799999907030724,
+    "dec_time_ms": 0.00790000194683671
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 20,
+    "enc_time_ms": 0.008199996955227107,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 21,
+    "enc_time_ms": 0.008499999239575118,
+    "dec_time_ms": 0.00839999847812578
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 22,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 23,
+    "enc_time_ms": 0.007899998308857903,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 24,
+    "enc_time_ms": 0.008499999239575118,
+    "dec_time_ms": 0.008099999831756577
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 25,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 26,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.01049999991664663
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 27,
+    "enc_time_ms": 0.012200001947348937,
+    "dec_time_ms": 0.008600000001024455
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 28,
+    "enc_time_ms": 0.008099999831756577,
+    "dec_time_ms": 0.00799999907030724
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 29,
+    "enc_time_ms": 0.00799999907030724,
+    "dec_time_ms": 0.00790000194683671
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 0,
+    "enc_time_ms": 3.0977999995229766,
+    "dec_time_ms": 11.557199999515433
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 1,
+    "enc_time_ms": 5.288699998345692,
+    "dec_time_ms": 12.706199999229284
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 2,
+    "enc_time_ms": 3.226700002414873,
+    "dec_time_ms": 12.417899997672066
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 3,
+    "enc_time_ms": 3.2485999981872737,
+    "dec_time_ms": 12.519300002168166
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 4,
+    "enc_time_ms": 3.422199999477016,
+    "dec_time_ms": 11.848899997858098
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 0,
+    "enc_time_ms": 4.637499998352723,
+    "dec_time_ms": 22.689099998387974
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 1,
+    "enc_time_ms": 4.644299999199575,
+    "dec_time_ms": 23.111700000299606
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 2,
+    "enc_time_ms": 4.55839999995078,
+    "dec_time_ms": 22.132100002636435
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 3,
+    "enc_time_ms": 4.548000000795582,
+    "dec_time_ms": 21.623500000714557
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 4,
+    "enc_time_ms": 4.493500000535278,
+    "dec_time_ms": 23.888199997600168
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 5,
+    "enc_time_ms": 4.565200000797631,
+    "dec_time_ms": 22.12340000187396
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 6,
+    "enc_time_ms": 4.601000000548083,
+    "dec_time_ms": 21.817699998791795
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 7,
+    "enc_time_ms": 4.487899997911882,
+    "dec_time_ms": 22.117000000434928
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 8,
+    "enc_time_ms": 4.532599999947706,
+    "dec_time_ms": 21.532499999011634
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 9,
+    "enc_time_ms": 4.666499997256324,
+    "dec_time_ms": 22.10940000077244
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 10,
+    "enc_time_ms": 4.602500001055887,
+    "dec_time_ms": 22.480499999801395
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 11,
+    "enc_time_ms": 4.471199998079101,
+    "dec_time_ms": 26.637499999196734
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 12,
+    "enc_time_ms": 5.034699999669101,
+    "dec_time_ms": 21.67589999953634
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 13,
+    "enc_time_ms": 4.561800000374205,
+    "dec_time_ms": 22.15499999874737
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "run": 14,
+    "enc_time_ms": 4.52190000214614,
+    "dec_time_ms": 21.88200000091456
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 0,
+    "enc_time_ms": 0.049700000090524554,
+    "dec_time_ms": 0.024099997972371057
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 1,
+    "enc_time_ms": 0.023600001441081986,
+    "dec_time_ms": 0.022799998987466097
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 2,
+    "enc_time_ms": 0.04640000042854808,
+    "dec_time_ms": 0.023699998564552516
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 3,
+    "enc_time_ms": 0.02300000051036477,
+    "dec_time_ms": 0.02269999822601676
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 4,
+    "enc_time_ms": 0.022899999748915434,
+    "dec_time_ms": 0.022899999748915434
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 5,
+    "enc_time_ms": 0.023100001271814108,
+    "dec_time_ms": 0.026599998818710446
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 6,
+    "enc_time_ms": 0.05160000000614673,
+    "dec_time_ms": 0.02470000254106708
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 7,
+    "enc_time_ms": 0.023299999156733975,
+    "dec_time_ms": 0.023399999918183312
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 8,
+    "enc_time_ms": 0.022799998987466097,
+    "dec_time_ms": 0.02260000110254623
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 9,
+    "enc_time_ms": 0.022700001863995567,
+    "dec_time_ms": 0.022700001863995567
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 10,
+    "enc_time_ms": 0.02359999780310318,
+    "dec_time_ms": 0.02269999822601676
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 11,
+    "enc_time_ms": 0.022799998987466097,
+    "dec_time_ms": 0.023199998395284638
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 12,
+    "enc_time_ms": 0.02300000051036477,
+    "dec_time_ms": 0.023100001271814108
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 13,
+    "enc_time_ms": 0.030300001526484266,
+    "dec_time_ms": 0.023299999156733975
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 14,
+    "enc_time_ms": 0.022899999748915434,
+    "dec_time_ms": 0.022599997464567423
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 15,
+    "enc_time_ms": 0.0230999976338353,
+    "dec_time_ms": 0.02269999822601676
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 16,
+    "enc_time_ms": 0.023699998564552516,
+    "dec_time_ms": 0.023600001441081986
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 17,
+    "enc_time_ms": 0.026500001695239916,
+    "dec_time_ms": 0.02429999949526973
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 18,
+    "enc_time_ms": 0.023299999156733975,
+    "dec_time_ms": 0.02300000051036477
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 19,
+    "enc_time_ms": 0.022800002625444904,
+    "dec_time_ms": 0.022899999748915434
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 20,
+    "enc_time_ms": 0.02300000051036477,
+    "dec_time_ms": 0.022899999748915434
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 21,
+    "enc_time_ms": 0.023199998395284638,
+    "dec_time_ms": 0.023199998395284638
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 22,
+    "enc_time_ms": 0.02300000051036477,
+    "dec_time_ms": 0.0230999976338353
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 23,
+    "enc_time_ms": 0.022899999748915434,
+    "dec_time_ms": 0.02269999822601676
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 24,
+    "enc_time_ms": 0.022700001863995567,
+    "dec_time_ms": 0.022799998987466097
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 25,
+    "enc_time_ms": 0.02559999848017469,
+    "dec_time_ms": 0.026699999580159783
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 26,
+    "enc_time_ms": 0.02349999704165384,
+    "dec_time_ms": 0.023299999156733975
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 27,
+    "enc_time_ms": 0.023100001271814108,
+    "dec_time_ms": 0.023299999156733975
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 28,
+    "enc_time_ms": 0.02300000051036477,
+    "dec_time_ms": 0.022800002625444904
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 29,
+    "enc_time_ms": 0.02269999822601676,
+    "dec_time_ms": 0.022700001863995567
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 0,
+    "enc_time_ms": 35.223999999288935,
+    "dec_time_ms": 121.63770000188379
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 1,
+    "enc_time_ms": 37.1938999996928,
+    "dec_time_ms": 116.6975000014645
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 2,
+    "enc_time_ms": 36.796500000491505,
+    "dec_time_ms": 114.37840000144206
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 3,
+    "enc_time_ms": 35.06349999952363,
+    "dec_time_ms": 115.5813000004855
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 4,
+    "enc_time_ms": 35.395599999901606,
+    "dec_time_ms": 115.3701999974146
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 0,
+    "enc_time_ms": 4.6698999976797495,
+    "dec_time_ms": 21.04719999988447
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 1,
+    "enc_time_ms": 4.447299997991649,
+    "dec_time_ms": 20.699700002296595
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 2,
+    "enc_time_ms": 4.33329999941634,
+    "dec_time_ms": 23.30470000015339
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 3,
+    "enc_time_ms": 4.493799999181647,
+    "dec_time_ms": 21.32550000169431
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 4,
+    "enc_time_ms": 4.41809999756515,
+    "dec_time_ms": 22.97270000053686
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 5,
+    "enc_time_ms": 4.852199999731965,
+    "dec_time_ms": 25.224900000466732
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 6,
+    "enc_time_ms": 4.639799997676164,
+    "dec_time_ms": 29.127499998139683
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 7,
+    "enc_time_ms": 4.517200002737809,
+    "dec_time_ms": 21.280299999489216
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 8,
+    "enc_time_ms": 4.515500000707107,
+    "dec_time_ms": 21.650899998348905
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 9,
+    "enc_time_ms": 4.540699999779463,
+    "dec_time_ms": 25.065099998755613
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 10,
+    "enc_time_ms": 4.711600002337946,
+    "dec_time_ms": 28.50620000026538
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 11,
+    "enc_time_ms": 4.541099999187281,
+    "dec_time_ms": 24.167699997633463
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 12,
+    "enc_time_ms": 4.946999997628154,
+    "dec_time_ms": 22.768099999666447
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 13,
+    "enc_time_ms": 4.560100001981482,
+    "dec_time_ms": 22.23480000247946
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "run": 14,
+    "enc_time_ms": 4.789599999639904,
+    "dec_time_ms": 25.195999998686602
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 0,
+    "enc_time_ms": 0.7108999998308718,
+    "dec_time_ms": 0.8637999999336898
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 1,
+    "enc_time_ms": 0.9180000015476253,
+    "dec_time_ms": 0.8149000022967812
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 2,
+    "enc_time_ms": 1.0293999985151459,
+    "dec_time_ms": 0.7702999973844271
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 3,
+    "enc_time_ms": 0.8382000014535151,
+    "dec_time_ms": 0.7642000018677209
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 4,
+    "enc_time_ms": 0.8008999975572806,
+    "dec_time_ms": 0.869700001203455
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 5,
+    "enc_time_ms": 0.8211999993363861,
+    "dec_time_ms": 0.8570999998482876
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 6,
+    "enc_time_ms": 0.7910999993328005,
+    "dec_time_ms": 0.7702000002609566
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 7,
+    "enc_time_ms": 0.7908000006864313,
+    "dec_time_ms": 0.7777999999234453
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 8,
+    "enc_time_ms": 0.782199997047428,
+    "dec_time_ms": 0.7636000009370036
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 9,
+    "enc_time_ms": 0.7031999994069338,
+    "dec_time_ms": 0.7216999983938877
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 10,
+    "enc_time_ms": 0.7932000007713214,
+    "dec_time_ms": 0.8689999995112885
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 11,
+    "enc_time_ms": 0.9927999999490567,
+    "dec_time_ms": 1.116899999033194
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 12,
+    "enc_time_ms": 0.7651000014448073,
+    "dec_time_ms": 0.7880000011937227
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 13,
+    "enc_time_ms": 0.8549999984097667,
+    "dec_time_ms": 0.6853000013506971
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 14,
+    "enc_time_ms": 0.8453999980702065,
+    "dec_time_ms": 0.8076999984041322
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 15,
+    "enc_time_ms": 0.8044000023801345,
+    "dec_time_ms": 0.9558999990986194
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 16,
+    "enc_time_ms": 0.8235999994212762,
+    "dec_time_ms": 0.7880000011937227
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 17,
+    "enc_time_ms": 0.7714999992458615,
+    "dec_time_ms": 0.8001999995030928
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 18,
+    "enc_time_ms": 0.8587000011175405,
+    "dec_time_ms": 0.7313999994948972
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 19,
+    "enc_time_ms": 0.7540000005974434,
+    "dec_time_ms": 1.082999999198364
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 20,
+    "enc_time_ms": 0.9701000017230399,
+    "dec_time_ms": 0.7884000006015413
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 21,
+    "enc_time_ms": 0.7415000000037253,
+    "dec_time_ms": 0.8443000006082002
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 22,
+    "enc_time_ms": 0.8625999980722554,
+    "dec_time_ms": 0.7027999999991152
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 23,
+    "enc_time_ms": 0.8089000002655666,
+    "dec_time_ms": 0.7966000011947472
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 24,
+    "enc_time_ms": 0.8434000010311138,
+    "dec_time_ms": 0.8760000018810388
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 25,
+    "enc_time_ms": 0.9306000029027928,
+    "dec_time_ms": 0.7229999973787926
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 26,
+    "enc_time_ms": 0.8181000011973083,
+    "dec_time_ms": 0.8053999990806915
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 27,
+    "enc_time_ms": 0.6732000001647975,
+    "dec_time_ms": 0.7851000009395648
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 28,
+    "enc_time_ms": 0.8039999993343372,
+    "dec_time_ms": 0.7130999983928632
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 29,
+    "enc_time_ms": 0.7665999983146321,
+    "dec_time_ms": 0.937999997404404
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 0,
+    "enc_time_ms": 814.2970999979298,
+    "dec_time_ms": 1293.7982000003103
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 1,
+    "enc_time_ms": 797.7948000007018,
+    "dec_time_ms": 1306.1667000001762
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 2,
+    "enc_time_ms": 845.4834000003757,
+    "dec_time_ms": 1271.7367000004742
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 0,
+    "enc_time_ms": 31.36080000331276,
+    "dec_time_ms": 52.63629999899422
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 1,
+    "enc_time_ms": 31.040100002428517,
+    "dec_time_ms": 52.51040000075591
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 2,
+    "enc_time_ms": 31.384300000354415,
+    "dec_time_ms": 52.394499998627
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 3,
+    "enc_time_ms": 31.147800000326242,
+    "dec_time_ms": 52.53869999796734
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 4,
+    "enc_time_ms": 31.129800001508556,
+    "dec_time_ms": 52.37649999980931
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 5,
+    "enc_time_ms": 31.136800000240328,
+    "dec_time_ms": 52.61719999907655
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 6,
+    "enc_time_ms": 31.190799996693386,
+    "dec_time_ms": 52.39189999701921
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 7,
+    "enc_time_ms": 31.123299999308074,
+    "dec_time_ms": 52.88329999893904
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 8,
+    "enc_time_ms": 31.18400000312249,
+    "dec_time_ms": 53.07689999972354
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 9,
+    "enc_time_ms": 31.29310000076657,
+    "dec_time_ms": 53.014400000392925
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 10,
+    "enc_time_ms": 31.47729999909643,
+    "dec_time_ms": 52.767699999094475
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 11,
+    "enc_time_ms": 31.362499998067506,
+    "dec_time_ms": 52.74140000256011
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 12,
+    "enc_time_ms": 31.08779999820399,
+    "dec_time_ms": 52.400299999135314
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 13,
+    "enc_time_ms": 31.175999996776227,
+    "dec_time_ms": 52.87789999783854
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "run": 14,
+    "enc_time_ms": 31.34400000271853,
+    "dec_time_ms": 52.86839999826043
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 0,
+    "enc_time_ms": 11.842600000818493,
+    "dec_time_ms": 11.351300003298093
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 1,
+    "enc_time_ms": 12.098399998649256,
+    "dec_time_ms": 11.549999999260763
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 2,
+    "enc_time_ms": 11.844100001326296,
+    "dec_time_ms": 13.958600000478327
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 3,
+    "enc_time_ms": 13.548499999160413,
+    "dec_time_ms": 12.15779999984079
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 4,
+    "enc_time_ms": 12.24509999883594,
+    "dec_time_ms": 11.764300001232186
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 5,
+    "enc_time_ms": 12.190100002044346,
+    "dec_time_ms": 12.287599998671794
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 6,
+    "enc_time_ms": 11.372200002369937,
+    "dec_time_ms": 11.915600000065751
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 7,
+    "enc_time_ms": 11.568599999009166,
+    "dec_time_ms": 11.400399998819921
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 8,
+    "enc_time_ms": 11.269500002526911,
+    "dec_time_ms": 12.144000000262167
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 9,
+    "enc_time_ms": 12.768299999152077,
+    "dec_time_ms": 11.633699999947567
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 10,
+    "enc_time_ms": 11.161500002344837,
+    "dec_time_ms": 11.336499999742955
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 11,
+    "enc_time_ms": 11.919600001419894,
+    "dec_time_ms": 12.028299999656156
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 12,
+    "enc_time_ms": 11.201200002687983,
+    "dec_time_ms": 10.916499999439111
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 13,
+    "enc_time_ms": 11.135000000649597,
+    "dec_time_ms": 12.455000000045402
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 14,
+    "enc_time_ms": 11.579800000617979,
+    "dec_time_ms": 11.880199999723118
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 15,
+    "enc_time_ms": 11.309299999993527,
+    "dec_time_ms": 11.522500000864966
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 16,
+    "enc_time_ms": 12.22799999959534,
+    "dec_time_ms": 13.0388999969
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 17,
+    "enc_time_ms": 13.373599998885766,
+    "dec_time_ms": 15.272700002242345
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 18,
+    "enc_time_ms": 12.630600002012216,
+    "dec_time_ms": 11.77069999903324
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 19,
+    "enc_time_ms": 12.643200003367383,
+    "dec_time_ms": 12.178900000435533
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 20,
+    "enc_time_ms": 11.790399999881629,
+    "dec_time_ms": 14.907299999322277
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 21,
+    "enc_time_ms": 13.136500001564855,
+    "dec_time_ms": 11.002899998857174
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 22,
+    "enc_time_ms": 11.542200001713354,
+    "dec_time_ms": 13.337199998204596
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 23,
+    "enc_time_ms": 11.88719999845489,
+    "dec_time_ms": 12.547199999971781
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 24,
+    "enc_time_ms": 11.723999999958323,
+    "dec_time_ms": 12.853500000346685
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 25,
+    "enc_time_ms": 12.255099998583319,
+    "dec_time_ms": 11.721099999704165
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 26,
+    "enc_time_ms": 11.443499999586493,
+    "dec_time_ms": 13.794599999528145
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 27,
+    "enc_time_ms": 11.564999997062841,
+    "dec_time_ms": 11.79289999708999
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 28,
+    "enc_time_ms": 11.750300000130665,
+    "dec_time_ms": 10.931600001640618
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 29,
+    "enc_time_ms": 11.930199998460012,
+    "dec_time_ms": 13.034399999014568
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 0,
+    "enc_time_ms": 490.60129999998026,
+    "dec_time_ms": 797.9058000018995
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 1,
+    "enc_time_ms": 490.00579999847105,
+    "dec_time_ms": 797.7699000002758
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 2,
+    "enc_time_ms": 490.1183999973,
+    "dec_time_ms": 797.4408000009134
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 3,
+    "enc_time_ms": 490.0597000014386,
+    "dec_time_ms": 797.4966000001587
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "run": 4,
+    "enc_time_ms": 489.8628999981156,
+    "dec_time_ms": 797.4854999993113
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 0,
+    "enc_time_ms": 46.428300000115996,
+    "dec_time_ms": 45.046800001728116
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 1,
+    "enc_time_ms": 45.21699999895645,
+    "dec_time_ms": 43.81019999709679
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 2,
+    "enc_time_ms": 43.94440000032773,
+    "dec_time_ms": 47.30550000022049
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 3,
+    "enc_time_ms": 52.79289999816683,
+    "dec_time_ms": 45.54830000051879
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 4,
+    "enc_time_ms": 53.66099999810103,
+    "dec_time_ms": 48.577499997918494
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 5,
+    "enc_time_ms": 50.39549999855808,
+    "dec_time_ms": 45.56909999882919
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 6,
+    "enc_time_ms": 47.71170000094571,
+    "dec_time_ms": 48.08919999777572
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 7,
+    "enc_time_ms": 46.68099999980768,
+    "dec_time_ms": 48.64820000148029
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 8,
+    "enc_time_ms": 51.753600000665756,
+    "dec_time_ms": 52.49829999957001
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 9,
+    "enc_time_ms": 46.675199999299366,
+    "dec_time_ms": 45.617800002219155
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 10,
+    "enc_time_ms": 49.75909999848227,
+    "dec_time_ms": 65.241899999819
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 11,
+    "enc_time_ms": 53.30299999695853,
+    "dec_time_ms": 50.96199999752571
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 12,
+    "enc_time_ms": 51.54210000182502,
+    "dec_time_ms": 55.40280000059283
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 13,
+    "enc_time_ms": 56.06920000354876,
+    "dec_time_ms": 50.561099997139536
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 14,
+    "enc_time_ms": 50.78030000004219,
+    "dec_time_ms": 63.69990000166581
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 15,
+    "enc_time_ms": 63.53300000046147,
+    "dec_time_ms": 47.185600000375416
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 16,
+    "enc_time_ms": 51.10229999991134,
+    "dec_time_ms": 46.40360000121291
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 17,
+    "enc_time_ms": 46.9688999983191,
+    "dec_time_ms": 47.72009999942384
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 18,
+    "enc_time_ms": 48.18950000117184,
+    "dec_time_ms": 47.4194999987958
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 19,
+    "enc_time_ms": 46.39759999918169,
+    "dec_time_ms": 47.219600000971695
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 20,
+    "enc_time_ms": 53.667399999540066,
+    "dec_time_ms": 46.81720000007772
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 21,
+    "enc_time_ms": 48.20760000075097,
+    "dec_time_ms": 64.14970000332687
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 22,
+    "enc_time_ms": 64.31599999996251,
+    "dec_time_ms": 67.1290999998746
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 23,
+    "enc_time_ms": 65.96870000066701,
+    "dec_time_ms": 65.44149999899673
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 24,
+    "enc_time_ms": 50.38280000007944,
+    "dec_time_ms": 45.16620000140392
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 25,
+    "enc_time_ms": 46.15180000109831,
+    "dec_time_ms": 44.79200000059791
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 26,
+    "enc_time_ms": 43.9756000014313,
+    "dec_time_ms": 44.00739999982761
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 27,
+    "enc_time_ms": 44.6845000005851,
+    "dec_time_ms": 44.0803000019514
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 28,
+    "enc_time_ms": 43.941399999312125,
+    "dec_time_ms": 43.77279999971506
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 29,
+    "enc_time_ms": 43.55550000036601,
+    "dec_time_ms": 46.994600001198705
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 0,
+    "enc_time_ms": 1957.6056000005337,
+    "dec_time_ms": 3171.4934000010544
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 1,
+    "enc_time_ms": 1952.4378000023717,
+    "dec_time_ms": 3153.8667999993777
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "run": 2,
+    "enc_time_ms": 1943.613200000982,
+    "dec_time_ms": 3154.071400000248
+  }
+]

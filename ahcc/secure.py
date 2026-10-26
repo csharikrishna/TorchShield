@@ -20,7 +20,7 @@ import json
 import math
 import secrets
 import sys
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from cryptography.exceptions import InvalidTag
@@ -55,12 +55,28 @@ class AESGCMEnvelope:
         return AESGCM.generate_key(bit_length=256)
 
     @classmethod
-    def encrypt(cls, plaintext: BytesLike, key: BytesLike, associated_data: BytesLike = b"") -> bytes:
-        """Encrypt bytes and authenticate the envelope plus optional metadata."""
+    def encrypt(
+        cls,
+        plaintext: BytesLike,
+        key: BytesLike,
+        associated_data: BytesLike = b"",
+        explicit_nonce: Optional[bytes] = None,
+    ) -> bytes:
+        """Encrypt bytes and authenticate the envelope plus optional metadata.
+
+        If explicit_nonce is provided, it must be exactly 12 bytes and unique
+        under this key (e.g. deterministic chunk sequence counter).
+        Otherwise, a fresh 96-bit cryptographically secure random nonce is generated.
+        """
         plaintext_bytes = cls._require_bytes(plaintext, "plaintext")
         key_bytes = cls._validate_key(key)
         aad = cls._require_bytes(associated_data, "associated_data")
-        nonce = secrets.token_bytes(cls.NONCE_SIZE)
+        if explicit_nonce is not None:
+            if not isinstance(explicit_nonce, (bytes, bytearray, memoryview)) or len(explicit_nonce) != cls.NONCE_SIZE:
+                raise ValueError(f"explicit_nonce must be exactly {cls.NONCE_SIZE} bytes.")
+            nonce = bytes(explicit_nonce)
+        else:
+            nonce = secrets.token_bytes(cls.NONCE_SIZE)
         authenticated_header = cls.HEADER + nonce + aad
         encrypted = AESGCM(key_bytes).encrypt(nonce, plaintext_bytes, authenticated_header)
         return cls.HEADER + nonce + encrypted

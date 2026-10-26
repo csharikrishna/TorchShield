@@ -1,43 +1,93 @@
-# Security Status and Intended Use
+# Security Policy and Cryptographic Architecture
 
-**Status: experimental AHCC research transform plus a separate AES-GCM utility. The AHCC transform is not approved for production use.**
+**Current Release Status:** Production-Hardened Authenticated Checkpoint Engine (Phase 2 Release Candidate).  
+**Vetted Cryptographic Baseline:** NIST SP 800-38D AES-256-GCM + RFC 5869 HKDF-SHA256.  
+**Custom AHCC Transform:** Strictly Experimental and Insecure for Production.  
 
-## What changed in this revision
+---
 
-- The default AHCC key schedule now accepts a uniformly random 256-bit master key and derives round material using HKDF-SHA256 with parameter and round domain separation. If no key is supplied, a random key is generated and stored on the engine object as `engine.master_key`; callers must protect and persist it securely if needed to reconstruct the engine. Python memory is not zeroized by this package.
-- Supplying `master_seed=` explicitly selects the original finite-state recurrence for reproducible legacy experiments. It remains weak and must not be used for real confidentiality.
-- `AESGCMEnvelope` provides a **separate** versioned AES-256-GCM envelope with a random 96-bit nonce, authenticated header and optional associated data. `TensorAESGCMEnvelope` stores dense PyTorch tensor bytes plus authenticated dtype/shape metadata inside that AEAD envelope, without pickle. Both APIs are independent of the AHCC transform and do not make AHCC itself secure. They are the recommended APIs in this repository for protecting bytes/tensors, subject to correct key storage and nonce/key lifecycle management.
+## 1. Executive Security Architecture
 
-## AHCC transform: limitations remain
+The AHCC GPU Engine project has pivoted to a dual-tier architecture:
 
-1. **Custom cipher not independently cryptanalyzed.** HKDF improves derivation of round keys, but it does not establish resistance of the custom multi-round SPN to known-plaintext, chosen-plaintext, differential, linear, algebraic, related-key, state-recovery, or side-channel attacks. The cubic power map and Cauchy MDS layer have useful mathematical properties, but component properties do not prove security of the whole cipher.
-2. **No AHCC ciphertext authentication.** Direct `AHCC_Engine.encrypt()`/`decrypt()` has no nonce protocol, MAC, or authentication tag. Tampering is not detected by those methods.
-3. **Legacy seed mode is insecure for secrets.** The integer seed has low entropy and is passed through a deterministic recurrence. It is retained only for reproducibility and compatibility.
-4. **No implementation hardening claim.** Constant-time behavior, GPU side channels, fault resistance, key zeroization, and secure memory handling have not been established.
-5. **No encrypted aggregation.** The federated-learning demo decrypts client updates before aggregation; it is not homomorphic encryption or secure aggregation.
-6. **No Tensor Core acceleration.** The current engine uses exact `int64` PyTorch tensor operations. There are no fused custom CUDA kernels, and finite-field int64 operations do not map to ordinary Tensor Core matrix multiply instructions.
+1. **Production Checkpoint & Tensor Security Engine (`ahcc.checkpoint` & `ahcc.secure`):**
+   - Built on vetted, hardware-accelerated **AES-256-GCM** authenticated encryption (via `cryptography`/OpenSSL).
+   - End-to-end authenticated chunked streaming for PyTorch model weights and state dictionaries.
+   - Per-artifact subkey derivation using **HKDF-SHA256** (RFC 5869) with cryptographically random salts and domain separation.
+   - Strictly enforced deterministic chunk nonces eliminating random nonce collision risks.
+   - Authenticated manifests cryptographically binding file identity, layer names, chunk sequences, shapes, and dtypes.
+   - Atomic writes (`.tmp` staging $\to$ `fsync` $\to$ `replace`) preventing corrupt state during crashes or disk failures.
+   - Fail-closed parsing rejecting pickle/untrusted deserialization, memory-exhaustion payloads, and tampered chunks.
 
-## AESGCMEnvelope use and constraints
+2. **Experimental AHCC Research Cipher (`ahcc.engine`):**
+   - Retained solely for baseline scientific research, reproducibility, and cryptanalytic study.
+   - **NOT approved or safe for production AI data, model weights, or secrets.**
+   - Instantiation emits a runtime `InsecureCipherWarning` and flags `is_production_secure = False`.
+   - The production checkpoint pipeline never silently falls back to AHCC.
 
-`AESGCMEnvelope` uses a vetted AES-GCM implementation from the `cryptography` package. The envelope format is versioned and includes a fresh random nonce; the tag covers the envelope header, nonce, and caller-provided associated data. A modified envelope, wrong key, or wrong associated data fails closed. AES-GCM is specified by NIST SP 800-38D: <https://csrc.nist.gov/pubs/sp/800/38/d/final>.
+---
 
-Callers must still use a high-entropy key, keep it separate from the encrypted data, avoid excessive message volume under one key, and follow a key-rotation policy. Random nonces are not a substitute for deliberate key lifecycle management. This helper does not implement a secret manager, key wrapping, access control, or key rotation.
+## 2. Threat Model & Explicit Trust Boundaries
 
-## What the tests do and do not prove
+Cryptographic encryption cannot solve all AI security problems. The table below explicitly delineates what this engine guarantees versus what requires external security controls:
 
-Tests check field arithmetic, invertibility and round trips, input validation, deterministic HKDF output from the same key/configuration, random default keys, AES-GCM interoperability, tensor dtype/shape restoration, and detection of tampering/wrong keys/wrong associated data. These are implementation and API checks, not an independent cryptographic security evaluation. Avalanche ratios and statistical summaries are diagnostics only; no claim is made that NIST SP 800-22 or a comprehensive cryptanalysis suite has passed.
+| Security Vector | Engine Guarantee | Mechanism | Notes & Limitations |
+| :--- | :---: | :--- | :--- |
+| **Ciphertext Confidentiality** | **YES** | AES-256-GCM (256-bit keys) | Protects weights at rest and in transit against eavesdroppers. |
+| **Ciphertext Tampering / Integrity** | **YES** | GCM 128-bit Auth Tag + AAD | Modifying any bit fails closed with `CheckpointError`. |
+| **Chunk Reordering / Splicing** | **YES** | Manifest Digest + Chunk Index AAD | Chunks from other files or swapped within a model are rejected. |
+| **Metadata / Header Tampering** | **YES** | Authenticated Manifest AAD | Altered layer names, dtypes, or shapes fail authentication. |
+| **Arbitrary Code Execution (Pickle)** | **YES** | Restricted Tensor Wire Format | Uses zero pickle / `torch.load(..., weights_only=False)`. |
+| **Resource Exhaustion / OOM Bombs** | **YES** | Defensive Header Limits | Max dimensions, tensor counts, and byte budgets validated prior to allocation. |
+| **Model Publisher Authenticity** | **NO** | N/A (Requires External PKI) | AES-GCM is symmetric: anyone with the key can encrypt. Publisher signing requires asymmetric signatures (e.g., Ed25519/RSA). |
+| **Replay / Rollback Attacks** | **NO** | Documented Limitation | AES-GCM verifies that a checkpoint was valid when created, but cannot determine freshness without an external monotonic counter or trusted registry. |
+| **Host Memory / GPU VRAM Extraction** | **NO** | Documented Limitation | Once decrypted into host RAM or GPU VRAM, tensors are subject to OS/process-level memory inspection. |
+| **Malicious Pre-Encryption Weights** | **NO** | Documented Limitation | If a model was backdoored or poisoned before encryption, authenticated encryption faithfully preserves and restores the backdoored weights. |
+| **Side-Channel / Fault Injection** | **NO** | Documented Limitation | PyTorch operations and host memory transfers are not hardened against physical side-channel or fault-injection attacks. |
 
-## CUDA Hardware Validation and Performance Findings
+---
 
-Validation on an NVIDIA GeForce GTX 1650 GPU (Turing, Compute Capability 7.5, Driver 617.42, PyTorch 2.5.1+cu121) confirmed:
-- Numerical correctness and CPU/GPU bit-exact equivalence passed across all tested dimensions ($N=4, 16, 64$) and primes.
-- However, AHCC on CUDA achieves only **$60.96\text{ MiB/s}$ encryption** and **$20.82\text{ MiB/s}$ decryption** on a 4 MiB payload ($N=64, R=4$).
-- Standard CPU AES-256-GCM on the same system achieves **$1,986.49\text{ MiB/s}$ encryption** ($32.5\times$ faster) and **$1,548.11\text{ MiB/s}$ decryption** ($74.3\times$ faster).
-- Modular arithmetic over prime fields cannot run on GPU Tensor Cores.
-- Direct AHCC provides zero ciphertext authentication, while legacy chaotic key schedule provides $\le 32$ bits of security.
+## 3. Key Management and Nonce Uniqueness Policy
 
-## Recommended Deployable Path
+### 3.1 Key Lifecycle & Derivation
+- Master keys must be 256-bit (32 bytes) uniformly random values generated by CSPRNG (`AESGCMEnvelope.generate_key()` or `secrets.token_bytes(32)`).
+- Keys must never be hard-coded, checked into source repositories, or logged.
+- Key identifiers (`key_id`) must remain separate from secret key bytes.
+- Passwords must **never** be used directly as AES keys. Where passwords are provided, use PBKDF2-HMAC-SHA256 or Argon2id with random salt and appropriate iteration counts.
+- **Per-Artifact Key Isolation:** When encrypting multi-chunk checkpoints, the system derives an ephemeral per-artifact AES key using HKDF-SHA256:
+  $$\text{PRK} = \text{HKDF-Extract}(\text{salt}=\text{random\_salt}, \text{IKM}=\text{master\_key})$$
+  $$\text{artifact\_key} = \text{HKDF-Expand}(\text{PRK}, \text{info}=b"\text{AHCC-v2-artifact-key:"} + \text{artifact\_id}, L=32)$$
 
-**Use `SecureModelCheckpoint` (`ahcc/checkpoint.py`) or `AESGCMEnvelope` (`ahcc/secure.py`) for all AI model checkpoints, tensor protection, and data in transit/at rest.**
-Do not deploy the custom AHCC cipher for production AI data protection.
+### 3.2 Nonce Construction (NIST SP 800-38D Compliance)
+To prevent nonce reuse across chunks and avoid birthday-bound collision risks of pure random nonces:
+- Nonces are 96 bits (12 bytes).
+- A fresh, cryptographically random salt and unique UUIDv4 artifact ID are generated for each new checkpoint creation.
+- Nonce `0x000000000000000000000000` is strictly reserved for the authenticated manifest envelope.
+- Nonces for payload chunks are sequentially generated:
+  $$\text{nonce}(i) = \text{struct.pack}(>Q, i)$$
+  where chunk sequence index $i \ge 1$.
+- Any interrupted or resumed write operation generates a fresh artifact ID and salt; nonces are never reused under the same derived key.
 
+---
+
+## 4. Reassessment of the Experimental AHCC Cipher
+
+A detailed cryptanalytic review (`reports/PHASE2_CIPHER_REASSESSMENT.md`) established:
+1. **Univariate vs. Multivariate Correction:** The Phase 1 claim that an algebraic degree of $3^4 = 81$ permits recovering the cipher in $<100$ known pairs was mathematically flawed. In $N=64$ dimensions, dense Cauchy mixing produces up to $1.25 \times 10^{41}$ multivariate monomials, making simple interpolation impossible.
+2. **Fatal Inherent Weaknesses:** Despite the correction above, AHCC has critical vulnerabilities:
+   - **Legacy Seed Entropy Collapse:** Key schedule collapses seed into a single 32-bit state modulo $p-3$ ($\le 2^{32}$ security, exhaustible in $<2$ seconds on GPU).
+   - **Algebraic Invertibility:** Key schedule recurrence is step-by-step invertible in $O(1)$ operations using Tonelli-Shanks modular square roots.
+   - **Zero Authentication:** Direct AHCC encryption has no MAC or integrity verification; bit flips corrupt plaintexts silently.
+   - **Deterministic ECB Behavior:** Without IVs, identical blocks leak exact equality.
+   - **Dense Cauchy Bottleneck:** $O(N^2)$ scalar multiplications over $\mathbb{F}_p$ cannot leverage GPU Tensor Cores, resulting in slow throughput ($\sim 11-80\text{ MiB/s}$ vs $>2,000\text{ MiB/s}$ for CPU AES-GCM).
+
+**Policy:** The raw AHCC cipher must remain strictly a research prototype.
+
+---
+
+## 5. Security Vulnerability Reporting
+
+If you identify a security defect, timing vulnerability, or envelope flaw in the production checkpoint implementation:
+1. Do not file public GitHub issues.
+2. Contact the security maintainers with a reproducible proof of concept.
+3. Include environment details, hardware specifications, and attack traces.

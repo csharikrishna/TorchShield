@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ahcc-gpu-engine"
-version = "0.2.0"
-description = "Experimental exact-integer AHCC research prototype"
+version = "0.3.0"
+description = "Production-hardened authenticated AI checkpoint and tensor streaming engine with experimental AHCC research baseline"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["torch>=2.0.0", "cryptography>=42.0"]

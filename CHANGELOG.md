@@ -2,6 +2,21 @@
 
 All notable changes to the AHCC GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.3.0-phase2-rc1] - 2026-10-26
+
+### Security & Cryptographic Remediation
+- **Cryptanalysis Correction:** Formally corrected the univariate interpolation claim in `reports/PHASE2_CIPHER_REASSESSMENT.md`. Proved that an $N=64$ dense SPN contains $\approx 1.25 \times 10^{41}$ multivariate monomials, refuting the claim of a $<100$-query break while confirming that $R=4$ rounds remain inadequate for algebraic security.
+- **Strict Insecurity Warnings:** Instantiation of `AHCC_Engine` or `TensorCipherWrapper` emits a runtime `InsecureCipherWarning` and flags `is_production_secure = False`. The production checkpoint API cannot invoke raw AHCC under any circumstances.
+- **Per-Artifact HKDF-SHA256 Subkey Isolation:** Each checkpoint generation derives an isolated 256-bit AES-GCM subkey using RFC 5869 HKDF-SHA256 with 128-bit random salt and domain separation.
+- **Deterministic 96-bit Chunk Nonce Policy:** NIST SP 800-38D compliant monotonic chunk nonces eliminate random nonce collision risks. Nonce 0 is reserved exclusively for the authenticated manifest.
+- **Atomic File Operations & Crash Resilience:** Checkpoints write to temporary staging files (`.tmp.<uuid>`), flush with `os.fsync()`, and perform atomic `os.replace()`. Unfinished or crashed writes safely clean up without corrupting prior valid checkpoints.
+- **Defensive Tensor Deserialization:** Zero pickle dependency. Enforces strict limits on tensor count ($500,000$), rank ($16$), dimension size ($2^{48}$), and memory allocation ($100\text{ GiB}$) to prevent host OOM denial of service.
+
+### Added Tests & Benchmarks
+- **Phase 2 Test Suites:** Added 27 new tests across `test_phase2_aead_security.py`, `test_phase2_nonce_policy.py`, `test_phase2_manifest_integrity.py`, `test_phase2_chunk_integrity.py`, `test_phase2_atomic_write.py`, `test_phase2_tensor_validation.py`, `test_phase2_pytorch_integration.py`, `test_phase2_cuda_correctness.py`, `test_phase2_fault_injection.py`, and `fuzz_phase2_envelope.py` (total test suite expanded to 160 passing tests).
+- **Comprehensive Hardware Validation:** Physical CUDA verification script `benchmarks/validate_phase2_cuda.py` verifying VRAM residency and device parity on NVIDIA GeForce GTX 1650.
+- **Pipeline Profiling & Benchmarking:** Detailed latency and throughput profiling in `benchmarks/benchmark_checkpoint_pipeline.py` and standardized backend comparison in `benchmarks/benchmark_aead_backends.py`.
+
 ## [2.0.0-audited] - 2026-10-26
 
 ### Added

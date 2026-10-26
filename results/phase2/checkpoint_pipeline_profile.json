@@ -1,0 +1,39 @@
+{
+  "model_size_mib": 25.09,
+  "device": "cuda",
+  "plaintext_save": {
+    "median_ms": 42.36,
+    "p95_ms": 61.32,
+    "mean_ms": 41.78
+  },
+  "plaintext_load": {
+    "median_ms": 51.49,
+    "p95_ms": 272.28,
+    "mean_ms": 63.31
+  },
+  "whole_file_save": {
+    "median_ms": 173.58,
+    "p95_ms": 272.02,
+    "mean_ms": 180.93
+  },
+  "whole_file_load": {
+    "median_ms": 101.56,
+    "p95_ms": 168.93,
+    "mean_ms": 103.75
+  },
+  "chunked_streaming_save": {
+    "median_ms": 247.57,
+    "p95_ms": 305.85,
+    "mean_ms": 242.84
+  },
+  "chunked_streaming_load": {
+    "median_ms": 292.59,
+    "p95_ms": 614.18,
+    "mean_ms": 316.94
+  },
+  "time_to_first_inference": {
+    "median_ms": 317.35,
+    "p95_ms": 635.22,
+    "mean_ms": 350.03
+  }
+}
