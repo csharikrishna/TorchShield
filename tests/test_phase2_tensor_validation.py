@@ -89,7 +89,7 @@ def test_overflow_safe_tensor_dimensions_rejection(tmp_path):
     key = secrets.token_bytes(32)
     state = {"valid": torch.randn(4, 4)}
     path = str(tmp_path / "model.ahcc")
-    SecureModelCheckpoint.save_checkpoint(state, path, key)
+    SecureModelCheckpoint.save_checkpoint(state, path, key, format_version=2)
 
     with open(path, "rb") as f:
         data = f.read()

@@ -27,7 +27,7 @@ def base_checkpoint(tmp_path):
         "bias": torch.randn(32),
     }
     path = str(tmp_path / "valid.ahcc")
-    SecureModelCheckpoint.save_checkpoint(state, path, key, chunk_bytes=4096)
+    SecureModelCheckpoint.save_checkpoint(state, path, key, chunk_bytes=4096, format_version=2)
     with open(path, "rb") as f:
         raw_bytes = f.read()
     return {"key": key, "raw_bytes": raw_bytes, "tmp_path": tmp_path}

@@ -33,7 +33,7 @@ def generate_valid_fuzz_checkpoint(path: str, key: bytes) -> bytes:
         "encoder.bias": torch.randn(8),
         "fc.weight": torch.randn(16, 72),
     }
-    SecureModelCheckpoint.save_checkpoint(state, path, key, chunk_bytes=1024)
+    SecureModelCheckpoint.save_checkpoint(state, path, key, chunk_bytes=1024, format_version=2)
     with open(path, "rb") as f:
         return f.read()
 

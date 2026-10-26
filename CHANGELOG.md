@@ -2,6 +2,28 @@
 
 All notable changes to the AHCC GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.5.0-phase4-final] - 2026-10-26
+
+### Cryptographic Protocol Hardening & Independent Verification
+- **Corrected Nonce Design:** Formally replaced truncated hashing claims with a deterministic, auditable 96-bit sequence counter (`b"CHNK" + uint64_be`), eliminating birthday bound collision probabilities within single-key lifetimes under NIST SP 800-38D.
+- **RFC 5869 HKDF Domain Separation:** Derived independent 256-bit keys for manifest encryption (`manifest_key`) and payload chunk encryption (`chunk_key`) using distinct context strings.
+- **Dedicated Manifest Nonce Domain:** Assigned dedicated manifest nonce (`b"MANI" + 8 zero bytes`) under the isolated manifest key.
+- **Canonical Manifest Specification Binding:** Decomposed the manifest into a Canonical Manifest Specification ($\mathcal{M}_{\text{spec}}$) and container manifest, verifying `SHA-256(canonical_json(M_spec))` upon load before decrypting any chunk payload. Eliminates circular dependencies.
+- **Strict Canonical JSON & Duplicate Key Rejection:** Added `_strict_json_loads` parser rejecting duplicate JSON keys, non-object roots, and ambiguous encodings.
+- **Controlled Crypto Session:** Introduced internal `_ChunkCryptoSession` encapsulating sequence generation and sealing to eliminate explicit nonce handling from public and package APIs.
+
+### Resource Ceilings & DoS Prevention
+- **Configurable ResourceLimits:** Introduced immutable `ResourceLimits` configuration dataclass controlling maximum file size (128 GiB), raw bytes (64 GiB), single tensor bytes (16 GiB), manifest length (16 MiB), tensor count (50,000), tensor rank (8), chunk count (1,000,000), chunk bytes (64 MiB), and dimension elements (100,000,000).
+- **Pre-Allocation Bounds Validation:** Verified dimension products and element item sizes against bounds *before* allocating buffer memory, preventing crafted header DoS attacks.
+
+### Performance Optimization & Streaming DMA
+- **Fine-Grained Latency Profile:** Benchmark suite (`benchmarks/benchmark_phase4_checkpoint.py`) instrumented every pipeline step. Reduced 25.09 MiB Transformer CUDA loading latency to **131.54 ms** (55.0% reduction vs Phase 2 baseline) and time to first inference to **138.06 ms** (56.5% reduction vs Phase 2).
+- **Pinned Host-to-Device Streaming:** Validated memory-sharing semantics of `torch.frombuffer` and non-blocking pinned DMA staging.
+
+### Test Suite Expansion & Durability
+- **Added Phase 4 Test Suites:** 24 new tests across `test_phase4_nonce_protocol.py`, `test_phase4_manifest_protocol.py`, `test_phase4_resource_limits.py`, `test_phase4_crash_recovery.py`, and `test_phase4_public_api_and_integrity.py` (total test suite expanded to **186 passing tests**).
+- **Crash & Durability Verification:** Validated atomic file staging (`.tmp.<uuid>`), filesystem sync (`os.fsync`), atomic replacement (`os.replace`), and automatic cleanup on failure.
+
 ## [0.4.0-phase3-final] - 2026-10-26
 
 ### Security Hardening & Protocol Verification

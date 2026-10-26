@@ -27,7 +27,7 @@ def test_manifest_layer_metadata_tampering(tmp_path):
         "layer_b": torch.randn(5),
     }
     path = str(tmp_path / "model.ahcc")
-    SecureModelCheckpoint.save_checkpoint(state_dict, path, key)
+    SecureModelCheckpoint.save_checkpoint(state_dict, path, key, format_version=2)
 
     with open(path, "rb") as f:
         data = bytearray(f.read())
@@ -59,8 +59,8 @@ def test_cross_checkpoint_manifest_swap(tmp_path):
     path1 = str(tmp_path / "model1.ahcc")
     path2 = str(tmp_path / "model2.ahcc")
 
-    SecureModelCheckpoint.save_checkpoint(state1, path1, key)
-    SecureModelCheckpoint.save_checkpoint(state2, path2, key)
+    SecureModelCheckpoint.save_checkpoint(state1, path1, key, format_version=2)
+    SecureModelCheckpoint.save_checkpoint(state2, path2, key, format_version=2)
 
     with open(path1, "rb") as f1, open(path2, "rb") as f2:
         d1 = f1.read()

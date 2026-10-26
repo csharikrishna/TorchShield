@@ -51,8 +51,8 @@ def test_fresh_key_and_nonce_per_rewrite(tmp_path):
     path1 = str(tmp_path / "model1.ahcc")
     path2 = str(tmp_path / "model2.ahcc")
 
-    SecureModelCheckpoint.save_checkpoint(state_dict, path1, master_key)
-    SecureModelCheckpoint.save_checkpoint(state_dict, path2, master_key)
+    SecureModelCheckpoint.save_checkpoint(state_dict, path1, master_key, format_version=2)
+    SecureModelCheckpoint.save_checkpoint(state_dict, path2, master_key, format_version=2)
 
     with open(path1, "rb") as f1, open(path2, "rb") as f2:
         hdr1 = f1.read(8 + 1 + 16 + 1 + 36)
@@ -78,7 +78,7 @@ def test_nonce_sequence_uniqueness_across_many_chunks(tmp_path):
     state_dict = {f"layer_{i}": torch.randn(512, 1024) for i in range(5)}
     path = str(tmp_path / "multi_chunk.ahcc")
 
-    SecureModelCheckpoint.save_checkpoint(state_dict, path, master_key, chunk_bytes=512 * 1024)
+    SecureModelCheckpoint.save_checkpoint(state_dict, path, master_key, chunk_bytes=512 * 1024, format_version=2)
 
     # Inspect the manifest
     with open(path, "rb") as f:

@@ -28,7 +28,7 @@ def multi_chunk_setup(tmp_path):
         "layer_2": torch.randn(256, 512),
     }
     path = str(tmp_path / "model.ahcc")
-    SecureModelCheckpoint.save_checkpoint(state_dict, path, key, chunk_bytes=256 * 1024)
+    SecureModelCheckpoint.save_checkpoint(state_dict, path, key, chunk_bytes=256 * 1024, format_version=2)
 
     with open(path, "rb") as f:
         file_bytes = f.read()
@@ -140,8 +140,8 @@ def test_cross_checkpoint_chunk_substitution(tmp_path):
     p1 = str(tmp_path / "m1.ahcc")
     p2 = str(tmp_path / "m2.ahcc")
 
-    SecureModelCheckpoint.save_checkpoint(state1, p1, key, chunk_bytes=1024)
-    SecureModelCheckpoint.save_checkpoint(state2, p2, key, chunk_bytes=1024)
+    SecureModelCheckpoint.save_checkpoint(state1, p1, key, chunk_bytes=1024, format_version=2)
+    SecureModelCheckpoint.save_checkpoint(state2, p2, key, chunk_bytes=1024, format_version=2)
 
     with open(p1, "rb") as f1, open(p2, "rb") as f2:
         d1 = bytearray(f1.read())
