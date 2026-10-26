@@ -4,14 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ahcc-gpu-engine"
-version = "0.5.0"
-description = "Production-hardened authenticated AI checkpoint and tensor streaming engine with experimental AHCC research baseline"
+version = "0.6.0"
+description = "Production-hardened authenticated AI checkpoint, training state, and distributed streaming platform"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["torch>=2.0.0", "cryptography>=42.0"]
+dependencies = ["torch>=2.0.0", "cryptography>=42.0", "numpy>=1.24.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+aws = ["boto3>=1.28.0"]
+
+[project.scripts]
+ahcc = "ahcc.cli:main"
 
 [tool.setuptools]
 py-modules = ["run_all"]

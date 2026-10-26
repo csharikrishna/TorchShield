@@ -2,6 +2,36 @@
 
 All notable changes to the AHCC GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.6.0-phase5-final] - 2026-10-26
+
+### Safe, Pickle-Free AI Training State Engine
+- **Complete Training State Protection:** Created `ahcc/training_state.py` capturing model parameters, non-trainable buffers (BatchNorm running_mean/var), optimizer moment buffers (`exp_avg`, `exp_avg_sq`), learning rate schedulers, mixed-precision gradient scalers (`GradScaler`), and complete RNG states.
+- **Zero-Pickle Serialization Contract:** Eliminated Python `pickle` completely. Numerical weights are stored as dense raw binary buffers; metadata and hyperparameters are stored as allowlisted canonical JSON (`RFC 8785`). Deserialization involves zero executable code.
+- **Stable Parameter Mapping:** Mapped transient PyTorch integer parameter pointers to stable canonical model parameter names (`model.named_parameters()`), guaranteeing 100% portable state restoration across separate process invocations.
+- **Full Deterministic RNG Preservation:** Implemented safe non-pickle serializers/deserializers for Python `random` (625 uint32 keys), NumPy `np.random` (MT19937 state array), PyTorch CPU RNG (`torch.get_rng_state()`), and PyTorch CUDA RNG per GPU device.
+- **Bit-for-Bit Deterministic Resume:** Proved exact numerical equivalence between an uninterrupted 30-step reference training run and an interrupted, checkpointed, restarted, and resumed run (`tests/test_training_resume_equivalence.py`, `examples/resumable_training_demo.py`).
+
+### Enterprise Key Management Service (KMS) & Envelope Encryption
+- **Pluggable `KeyProvider` Architecture:** Created `ahcc/key_providers/base.py` defining the client-side envelope encryption interface.
+- **AWS KMS Provider:** Implemented `AWSKMSProvider` utilizing AWS KMS client-side envelope encryption (`GenerateDataKey`, `Decrypt`, `ReEncrypt`) with authenticated encryption context validation.
+- **Local Dev Key Provider:** Implemented `LocalDevKeyProvider` with AES-256-GCM envelope wrapping for unit testing and offline development.
+- **Safe KEK Rotation:** Validated zero-payload re-encryption of Data Encryption Keys without re-encrypting multi-gigabyte tensor payloads.
+
+### Publisher Provenance & Monotonic Anti-Rollback
+- **Ed25519 Digital Signatures:** Implemented `ahcc/provenance.py` providing RFC 8032 Ed25519 digital signature signing and verification over canonical manifest specifications.
+- **Transitive Parameter Protection:** Since the manifest specification digest is bound into every chunk's AEAD Associated Authenticated Data (AAD), modifying even a single float32 weight invalidates both the AEAD tag and the Ed25519 signature.
+- **Monotonic Freshness Ledger:** Implemented `FreshnessLedger` tracking `(run_id, max_step, max_epoch)` with atomic staging and fsync persistence. Defensively detects and blocks model rollback / downgrade attacks.
+
+### Secure Distributed & Sharded Checkpointing
+- **Multi-Rank Parallel Saving:** Created `ahcc/distributed.py` enabling $W$ ranks to save individual shards (`shard_{rank:05d}_of_{world_size:05d}.ahcc`) simultaneously with $O(1)$ memory scaling per node.
+- **Global Inventory Manifest:** Aggregates all $W$ shard file sizes and SHA-256 digests into a single coordinator-signed `global_manifest.json`.
+- **Completeness Enforcement:** Fails closed if any shard is missing, corrupted, or has an unexpected SHA-256 hash before loading weights into memory.
+
+### Container Version 5 Format & CLI Tooling
+- **Version 5 Container Header (`b"AHCCMOD5"`):** Extends container header with wrapped DEK length and ciphertext blob, eliminating circular key dependencies.
+- **AHCC Management CLI (`ahcc/cli.py`):** Added commands `ahcc inspect`, `ahcc verify-distributed`, and `ahcc version` for offline inspection without exposing decryption keys.
+- **Expanded Test Suite:** 26 new Phase 5 tests (total suite expanded to **212 passing tests**).
+
 ## [0.5.0-phase4-final] - 2026-10-26
 
 ### Cryptographic Protocol Hardening & Independent Verification

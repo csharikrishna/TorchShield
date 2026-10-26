@@ -1,0 +1,68 @@
+[
+  {
+    "mechanism": "PyTorch Plaintext (torch.save)",
+    "security": "None (Plaintext, Unauthenticated)",
+    "size_mib": 16,
+    "save_latency_ms": 11.7,
+    "save_throughput_mib_s": 1367.0,
+    "load_latency_ms": 34.91,
+    "load_throughput_mib_s": 458.3,
+    "streaming_capable": false,
+    "memory_spike_ratio": 2.0
+  },
+  {
+    "mechanism": "Whole-File AES-256-GCM",
+    "security": "Authenticated (NIST SP 800-38D)",
+    "size_mib": 16,
+    "save_latency_ms": 31.55,
+    "save_throughput_mib_s": 507.1,
+    "load_latency_ms": 21.79,
+    "load_throughput_mib_s": 734.2,
+    "streaming_capable": false,
+    "memory_spike_ratio": 3.2
+  },
+  {
+    "mechanism": "AHCC Platform V5 (Chunked + Provenance)",
+    "security": "Authenticated AEAD + Ed25519 Provenance",
+    "size_mib": 16,
+    "save_latency_ms": 92.67,
+    "save_throughput_mib_s": 172.7,
+    "load_latency_ms": 63.91,
+    "load_throughput_mib_s": 250.3,
+    "streaming_capable": true,
+    "memory_spike_ratio": 1.15
+  },
+  {
+    "mechanism": "PyTorch Plaintext (torch.save)",
+    "security": "None (Plaintext, Unauthenticated)",
+    "size_mib": 64,
+    "save_latency_ms": 97.7,
+    "save_throughput_mib_s": 655.1,
+    "load_latency_ms": 34.23,
+    "load_throughput_mib_s": 1869.6,
+    "streaming_capable": false,
+    "memory_spike_ratio": 2.0
+  },
+  {
+    "mechanism": "Whole-File AES-256-GCM",
+    "security": "Authenticated (NIST SP 800-38D)",
+    "size_mib": 64,
+    "save_latency_ms": 816.64,
+    "save_throughput_mib_s": 78.4,
+    "load_latency_ms": 197.49,
+    "load_throughput_mib_s": 324.1,
+    "streaming_capable": false,
+    "memory_spike_ratio": 3.2
+  },
+  {
+    "mechanism": "AHCC Platform V5 (Chunked + Provenance)",
+    "security": "Authenticated AEAD + Ed25519 Provenance",
+    "size_mib": 64,
+    "save_latency_ms": 1349.25,
+    "save_throughput_mib_s": 47.4,
+    "load_latency_ms": 373.07,
+    "load_throughput_mib_s": 171.5,
+    "streaming_capable": true,
+    "memory_spike_ratio": 1.15
+  }
+]
