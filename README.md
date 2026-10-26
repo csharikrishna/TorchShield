@@ -82,24 +82,37 @@ assert torch.equal(field_values, recovered)
 
 This example demonstrates AHCC round-trip correctness only. Direct AHCC encryption has no authentication and the custom cipher has not been proven secure. For sensitive bytes, use the separate standard AES-GCM envelope:
 
+### Production Model Checkpoint Encryption
+
+For production AI checkpoint protection, use `SecureModelCheckpoint` (`ahcc/checkpoint.py`), which provides chunked authenticated streaming with tamper detection:
+
 ```python
-from ahcc import AESGCMEnvelope, TensorAESGCMEnvelope
+from ahcc.checkpoint import SecureModelCheckpoint
+from ahcc.secure import AESGCMEnvelope
 
-key = AESGCMEnvelope.generate_key()  # Store it securely; never save it with the envelope.
-envelope = AESGCMEnvelope.encrypt(b"synthetic example", key, associated_data=b"asset=weights-v1")
-plaintext = AESGCMEnvelope.decrypt(envelope, key, associated_data=b"asset=weights-v1")
-assert plaintext == b"synthetic example"
+key = AESGCMEnvelope.generate_key()
+# Encrypts model with authenticated manifest and per-chunk AES-256-GCM
+SecureModelCheckpoint.save_checkpoint(model.state_dict(), "model.ahcc_ckpt", key)
 
-# For tensor weights, dtype and shape are authenticated inside the encrypted payload.
-weight_envelope = TensorAESGCMEnvelope.encrypt_tensor(
-    field_values, key, associated_data=b"model=toy;tensor=field_values-v1"
-)
-restored = TensorAESGCMEnvelope.decrypt_tensor(
-    weight_envelope, key, associated_data=b"model=toy;tensor=field_values-v1"
-)
-assert torch.equal(field_values, restored)
+# Stream decrypts layer-by-layer directly into GPU VRAM
+state_dict = SecureModelCheckpoint.load_checkpoint("model.ahcc_ckpt", key, device="cuda")
+model.load_state_dict(state_dict)
 ```
 
-AES-GCM is a standard authenticated-encryption mode described by [NIST SP 800-38D](https://csrc.nist.gov/pubs/sp/800/38/d/final). Manage keys and nonce usage responsibly. The AES-GCM API does not use or validate the AHCC transform.
+## Research Audit Deliverables & Reports
 
-See [`SECURITY.md`](SECURITY.md), [`AUDIT_REPORT.md`](AUDIT_REPORT.md), [`GPU_VALIDATION.md`](GPU_VALIDATION.md), and [`docs/CRYPTANALYSIS_NOTES.md`](docs/CRYPTANALYSIS_NOTES.md) for security limits and validation plans.
+Full reproducible reports and research audits are available in `reports/`:
+- [`BASELINE_AUDIT.md`](reports/BASELINE_AUDIT.md): Initial snapshot and baseline verification.
+- [`MATHEMATICAL_CORRECTNESS.md`](reports/MATHEMATICAL_CORRECTNESS.md): Finite field arithmetic, S-box algebra, and Cauchy MDS verification.
+- [`THREAT_MODEL.md`](reports/THREAT_MODEL.md): AI data protection threat model and security bounds.
+- [`CRYPTOGRAPHIC_SECURITY_AUDIT.md`](reports/CRYPTOGRAPHIC_SECURITY_AUDIT.md): Detailed cryptanalytic findings and attack analysis.
+- [`ATTACK_EXPERIMENTS.md`](reports/ATTACK_EXPERIMENTS.md): Empirical verification of key collapse, reversibility, and malleability.
+- [`STANDARD_AEAD_VALIDATION.md`](reports/STANDARD_AEAD_VALIDATION.md): NIST SP 800-38D and RFC 5869 KAT verification.
+- [`CUDA_VALIDATION.md`](reports/CUDA_VALIDATION.md): Hardware validation on NVIDIA GTX 1650.
+- [`PERFORMANCE_EVALUATION.md`](reports/PERFORMANCE_EVALUATION.md): Fair benchmark comparing AHCC against AES-256-GCM.
+- [`STATISTICAL_ANALYSIS.md`](reports/STATISTICAL_ANALYSIS.md): Confidence intervals, speedup ratios, and hypothesis tests.
+- [`FEDERATED_LEARNING_EVALUATION.md`](reports/FEDERATED_LEARNING_EVALUATION.md): Analysis of secure aggregation vs in-transit encryption.
+- [`PRIOR_ART_REVIEW.md`](reports/PRIOR_ART_REVIEW.md): Literature comparison against MiMC, Poseidon, and GPU-AES.
+- [`RESEARCH_HYPOTHESES.md`](reports/RESEARCH_HYPOTHESES.md): Pre-registered hypotheses and empirical falsification.
+- [`FINAL_VERIFICATION.md`](reports/FINAL_VERIFICATION.md): Master decision matrix and final pivot recommendation.
+

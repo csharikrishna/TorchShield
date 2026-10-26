@@ -27,8 +27,17 @@ Callers must still use a high-entropy key, keep it separate from the encrypted d
 
 Tests check field arithmetic, invertibility and round trips, input validation, deterministic HKDF output from the same key/configuration, random default keys, AES-GCM interoperability, tensor dtype/shape restoration, and detection of tampering/wrong keys/wrong associated data. These are implementation and API checks, not an independent cryptographic security evaluation. Avalanche ratios and statistical summaries are diagnostics only; no claim is made that NIST SP 800-22 or a comprehensive cryptanalysis suite has passed.
 
-## CUDA and performance
+## CUDA Hardware Validation and Performance Findings
 
-Run `python -m benchmarks.check_cuda` on the target CUDA machine. This runtime's PyTorch build is CPU-only, so CUDA execution cannot be certified from this environment. `python -m benchmarks.benchmark_crypto --device cuda` measures AHCC on CUDA if available; unless a separately verified GPU AES-GCM adapter is supplied with `--aesgcm-module`, the AES-GCM side still runs on CPU and the result is not a GPU-vs-GPU comparison. The included adapter benchmark requires ciphertext/tag bytes to match PyCA AES-GCM exactly before timing, but actual device usage must be verified independently.
+Validation on an NVIDIA GeForce GTX 1650 GPU (Turing, Compute Capability 7.5, Driver 617.42, PyTorch 2.5.1+cu121) confirmed:
+- Numerical correctness and CPU/GPU bit-exact equivalence passed across all tested dimensions ($N=4, 16, 64$) and primes.
+- However, AHCC on CUDA achieves only **$60.96\text{ MiB/s}$ encryption** and **$20.82\text{ MiB/s}$ decryption** on a 4 MiB payload ($N=64, R=4$).
+- Standard CPU AES-256-GCM on the same system achieves **$1,986.49\text{ MiB/s}$ encryption** ($32.5\times$ faster) and **$1,548.11\text{ MiB/s}$ decryption** ($74.3\times$ faster).
+- Modular arithmetic over prime fields cannot run on GPU Tensor Cores.
+- Direct AHCC provides zero ciphertext authentication, while legacy chaotic key schedule provides $\le 32$ bits of security.
 
-**Do not use the AHCC transform itself to protect sensitive data until independent cryptanalysis, a complete threat model/specification, and security review have been completed.** For real data in this package, use `AESGCMEnvelope` or another vetted AEAD implementation.
+## Recommended Deployable Path
+
+**Use `SecureModelCheckpoint` (`ahcc/checkpoint.py`) or `AESGCMEnvelope` (`ahcc/secure.py`) for all AI model checkpoints, tensor protection, and data in transit/at rest.**
+Do not deploy the custom AHCC cipher for production AI data protection.
+
