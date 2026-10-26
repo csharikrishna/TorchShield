@@ -2,38 +2,38 @@
   "model_size_mib": 25.09,
   "device": "cuda",
   "plaintext_save": {
-    "median_ms": 42.36,
-    "p95_ms": 61.32,
-    "mean_ms": 41.78
+    "median_ms": 26.17,
+    "p95_ms": 33.06,
+    "mean_ms": 26.81
   },
   "plaintext_load": {
-    "median_ms": 51.49,
-    "p95_ms": 272.28,
-    "mean_ms": 63.31
+    "median_ms": 35.21,
+    "p95_ms": 141.7,
+    "mean_ms": 40.25
   },
   "whole_file_save": {
-    "median_ms": 173.58,
-    "p95_ms": 272.02,
-    "mean_ms": 180.93
+    "median_ms": 111.8,
+    "p95_ms": 129.2,
+    "mean_ms": 114.43
   },
   "whole_file_load": {
-    "median_ms": 101.56,
-    "p95_ms": 168.93,
-    "mean_ms": 103.75
+    "median_ms": 58.34,
+    "p95_ms": 76.18,
+    "mean_ms": 59.59
   },
   "chunked_streaming_save": {
-    "median_ms": 247.57,
-    "p95_ms": 305.85,
-    "mean_ms": 242.84
+    "median_ms": 139.49,
+    "p95_ms": 164.05,
+    "mean_ms": 144.5
   },
   "chunked_streaming_load": {
-    "median_ms": 292.59,
-    "p95_ms": 614.18,
-    "mean_ms": 316.94
+    "median_ms": 156.17,
+    "p95_ms": 176.42,
+    "mean_ms": 155.94
   },
   "time_to_first_inference": {
-    "median_ms": 317.35,
-    "p95_ms": 635.22,
-    "mean_ms": 350.03
+    "median_ms": 170.24,
+    "p95_ms": 285.93,
+    "mean_ms": 171.5
   }
 }

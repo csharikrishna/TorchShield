@@ -2,6 +2,18 @@
 
 All notable changes to the AHCC GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.4.0-phase3-final] - 2026-10-26
+
+### Security Hardening & Protocol Verification
+- **Eliminated Public `explicit_nonce`:** Removed custom nonce parameter from the public `AESGCMEnvelope.encrypt` API to prevent accidental nonce reuse. Nonce management is now fully automatic (CSPRNG 96-bit). Deterministic chunk nonces are restricted to an internal package-private helper (`_encrypt_with_explicit_nonce`).
+- **Defensive Resource Ceilings:** Tightened resource boundaries: max tensor count 50,000, max tensor rank 8, max manifest length 10 MiB, max dimension size $2^{31}-1$. Overflow-safe dimension multiplication prevents integer overflow attacks.
+- **Sustained Property-Based Fuzzing:** Expanded fuzz testing (`tests/fuzz_phase2_envelope.py`) to 200+ sustained randomized mutations and semantic JSON vectors. Verified 100% fail-closed rejection without crashes or leaks.
+
+### Performance Optimizations
+- **Direct-to-Buffer Reconstruction:** Eliminated 3 redundant buffer copies during model loading by preallocating layer bytearrays and writing decrypted chunks directly into place.
+- **Pinned Host-to-Device Streaming:** Enabled non-blocking pinned DMA transfers when loading to CUDA devices.
+- **Measured Results:** Reduced model loading latency from 292.59 ms to 156.17 ms (46.6% latency reduction / 1.87x speedup on 25.09 MiB Transformer). Time to first inference reduced from 317.35 ms to 170.24 ms.
+
 ## [0.3.0-phase2-rc1] - 2026-10-26
 
 ### Security & Cryptographic Remediation

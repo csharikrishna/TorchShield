@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import struct
 import pytest
 import torch
 
@@ -75,9 +76,58 @@ def test_rejection_of_excessive_dimensions(tmp_path):
     """Verify rejection of unreasonable or malformed dimensions."""
     key = secrets.token_bytes(32)
 
-    # Tensor with rank > 16
-    bad_rank_shape = [1] * 17
+    # Tensor with rank > 8 (MAX_TENSOR_RANK = 8)
+    bad_rank_shape = [1] * 9
     bad_rank_tensor = torch.zeros(bad_rank_shape)
 
     with pytest.raises(ValueError, match="exceeds maximum"):
         SecureModelCheckpoint.save_checkpoint({"bad_rank": bad_rank_tensor}, str(tmp_path / "bad.ahcc"), key)
+
+
+def test_overflow_safe_tensor_dimensions_rejection(tmp_path):
+    """Verify that astronomical dimensions in manifest trigger arithmetic overflow rejection."""
+    key = secrets.token_bytes(32)
+    state = {"valid": torch.randn(4, 4)}
+    path = str(tmp_path / "model.ahcc")
+    SecureModelCheckpoint.save_checkpoint(state, path, key)
+
+    with open(path, "rb") as f:
+        data = f.read()
+
+    # Tamper with the shape inside the encrypted manifest
+    # Extract salt, artifact_id to derive artifact key
+    salt = data[9:25]
+    art_id = data[26:62]
+    art_key = SecureModelCheckpoint.derive_artifact_key(key, salt, art_id)
+
+    offset = 8 + 1 + 16 + 1 + 36 + 1
+    m_len = struct.unpack(">I", data[offset:offset + 4])[0]
+    enc_m = data[offset + 4:offset + 4 + m_len]
+
+    from ahcc.secure import AESGCMEnvelope
+    import json
+    m_json = json.loads(AESGCMEnvelope.decrypt(enc_m, art_key, associated_data=art_id + b"::MANIFEST::v2").decode("utf-8"))
+
+    # Inject astronomical dimension causing overflow: [2**30, 2**30]
+    m_json["layers"][0]["shape"] = [2**30, 2**30]
+    new_m_bytes = json.dumps(m_json, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    new_enc_m = AESGCMEnvelope._encrypt_with_explicit_nonce(
+        new_m_bytes,
+        art_key,
+        nonce=SecureModelCheckpoint.derive_chunk_nonce(0),
+        associated_data=art_id + b"::MANIFEST::v2",
+    )
+
+    tampered_bytes = (
+        data[:offset]
+        + struct.pack(">I", len(new_enc_m))
+        + new_enc_m
+        + data[offset + 4 + m_len:]
+    )
+    tampered_path = str(tmp_path / "overflow.ahcc")
+    with open(tampered_path, "wb") as f:
+        f.write(tampered_bytes)
+
+    with pytest.raises(CheckpointError, match="overflow in tensor dimension"):
+        SecureModelCheckpoint.load_checkpoint(tampered_path, key)
+

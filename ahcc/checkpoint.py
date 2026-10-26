@@ -50,10 +50,11 @@ ALLOWED_DTYPES: Dict[str, torch.dtype] = {
 }
 
 # Defensive resource bounds preventing allocation denial-of-service
-MAX_TENSOR_COUNT: int = 500_000
-MAX_TENSOR_RANK: int = 16
-MAX_DIM_SIZE: int = 2**48
-MAX_TOTAL_RAW_BYTES: int = 100 * 1024 * 1024 * 1024  # 100 GiB ceiling
+MAX_TENSOR_COUNT: int = 50_000
+MAX_TENSOR_RANK: int = 8
+MAX_DIM_SIZE: int = 2**31 - 1
+MAX_MANIFEST_LEN: int = 10 * 1024 * 1024  # 10 MiB maximum manifest
+MAX_TOTAL_RAW_BYTES: int = 16 * 1024 * 1024 * 1024  # 16 GiB default ceiling
 
 
 class SecureModelCheckpoint:
@@ -203,11 +204,11 @@ class SecureModelCheckpoint:
                     + b"::offset=" + struct.pack(">Q", start)
                     + b"::shape=" + json.dumps(shape_list).encode("utf-8")
                 )
-                encrypted_chunk = AESGCMEnvelope.encrypt(
+                encrypted_chunk = AESGCMEnvelope._encrypt_with_explicit_nonce(
                     chunk_slice,
                     artifact_key,
+                    nonce=chunk_nonce,
                     associated_data=aad,
-                    explicit_nonce=chunk_nonce,
                 )
                 chunk_records.append({
                     "chunk_seq": global_chunk_seq,
@@ -244,11 +245,11 @@ class SecureModelCheckpoint:
 
         manifest_nonce = cls.derive_chunk_nonce(0)  # Nonce 0 reserved for manifest
         manifest_aad = artifact_id + b"::MANIFEST::v2"
-        encrypted_manifest = AESGCMEnvelope.encrypt(
+        encrypted_manifest = AESGCMEnvelope._encrypt_with_explicit_nonce(
             final_manifest_payload,
             artifact_key,
+            nonce=manifest_nonce,
             associated_data=manifest_aad,
-            explicit_nonce=manifest_nonce,
         )
 
         # Phase 5: Atomic file writing with temporary staging & fsync
@@ -353,8 +354,8 @@ class SecureModelCheckpoint:
         if len(manifest_len_bytes) < 4:
             raise CheckpointError("Truncated checkpoint manifest length.")
         manifest_len = struct.unpack(">I", manifest_len_bytes)[0]
-        if manifest_len <= 0 or manifest_len > 100 * 1024 * 1024:
-            raise CheckpointError(f"Invalid manifest length: {manifest_len}")
+        if manifest_len <= 0 or manifest_len > MAX_MANIFEST_LEN:
+            raise CheckpointError(f"Invalid manifest length: {manifest_len} (limit: {MAX_MANIFEST_LEN})")
 
         encrypted_manifest = f.read(manifest_len)
         if len(encrypted_manifest) != manifest_len:
@@ -410,9 +411,13 @@ class SecureModelCheckpoint:
             shape = tuple(layer["shape"])
             if len(shape) > MAX_TENSOR_RANK:
                 raise CheckpointError(f"Shape rank {len(shape)} exceeds maximum {MAX_TENSOR_RANK}.")
+            expected_numel = 1
             for dim in shape:
                 if dim < 0 or dim > MAX_DIM_SIZE:
                     raise CheckpointError(f"Invalid dimension size {dim} in layer '{name}'.")
+                expected_numel *= dim
+                if expected_numel > MAX_DIM_SIZE:
+                    raise CheckpointError(f"Arithmetic overflow in tensor dimension calculation for '{name}'.")
 
             num_chunks = layer["num_chunks"]
             total_raw = layer["raw_len"]
@@ -420,7 +425,10 @@ class SecureModelCheckpoint:
             if len(chunk_records) != num_chunks:
                 raise CheckpointError(f"Chunk count mismatch for '{name}': declared {num_chunks}, found {len(chunk_records)}.")
 
-            chunks_raw = []
+            # Optimized preallocated layer buffer: writes chunk slices directly into place,
+            # avoiding b''.join() reallocations, temporary chunk lists, and intermediate buffer clones.
+            layer_buf = bytearray(total_raw) if total_raw > 0 else None
+
             for chunk_info in chunk_records:
                 chunk_seq = chunk_info["chunk_seq"]
                 chunk_idx = chunk_info["chunk_idx"]
@@ -460,17 +468,21 @@ class SecureModelCheckpoint:
                 if expected_sha256 and hashlib.sha256(decrypted_slice).hexdigest() != expected_sha256:
                     raise CheckpointError(f"Digest mismatch on chunk {chunk_seq} in layer '{name}'.")
 
-                chunks_raw.append(decrypted_slice)
+                if layer_buf is not None:
+                    layer_buf[offset : offset + len(decrypted_slice)] = decrypted_slice
                 expected_chunk_seq += 1
 
-            layer_bytes = b"".join(chunks_raw)
-            if len(layer_bytes) != total_raw:
-                raise CheckpointError(f"Corrupted layer bytes length for '{name}': {len(layer_bytes)} != {total_raw}")
-
             if total_raw > 0:
-                tensor = torch.frombuffer(bytearray(layer_bytes), dtype=dtype).clone().reshape(shape)
+                assert layer_buf is not None
+                tensor = torch.frombuffer(layer_buf, dtype=dtype).reshape(shape)
             else:
                 tensor = torch.empty(shape, dtype=dtype)
+
+            # Accelerated device placement with pinned memory when streaming to CUDA
+            if device != "cpu" and torch.cuda.is_available() and str(device).startswith("cuda"):
+                tensor = tensor.pin_memory().to(device, non_blocking=True)
+            else:
+                tensor = tensor.to(device)
 
             tensor = tensor.to(device)
             restored_state[name] = tensor

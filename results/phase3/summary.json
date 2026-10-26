@@ -1,0 +1,119 @@
+[
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "median_enc_ms": 0.008,
+    "median_dec_ms": 0.008,
+    "enc_throughput_mib_s": 476.37,
+    "dec_throughput_mib_s": 482.25
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "median_enc_ms": 3.249,
+    "median_dec_ms": 12.418,
+    "enc_throughput_mib_s": 1.2,
+    "dec_throughput_mib_s": 0.31
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 4096,
+    "payload_label": "4 KiB",
+    "median_enc_ms": 4.562,
+    "median_dec_ms": 22.123,
+    "enc_throughput_mib_s": 0.86,
+    "dec_throughput_mib_s": 0.18
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "median_enc_ms": 0.023,
+    "median_dec_ms": 0.023,
+    "enc_throughput_mib_s": 2705.63,
+    "dec_throughput_mib_s": 2705.63
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "median_enc_ms": 35.396,
+    "median_dec_ms": 115.581,
+    "enc_throughput_mib_s": 1.77,
+    "dec_throughput_mib_s": 0.54
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 65536,
+    "payload_label": "64 KiB",
+    "median_enc_ms": 4.541,
+    "median_dec_ms": 22.973,
+    "enc_throughput_mib_s": 13.76,
+    "dec_throughput_mib_s": 2.72
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "median_enc_ms": 0.809,
+    "median_dec_ms": 0.797,
+    "enc_throughput_mib_s": 1236.25,
+    "dec_throughput_mib_s": 1255.34
+  },
+  {
+    "backend": "AHCC (CPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "median_enc_ms": 814.297,
+    "median_dec_ms": 1293.798,
+    "enc_throughput_mib_s": 1.23,
+    "dec_throughput_mib_s": 0.77
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 1048576,
+    "payload_label": "1 MiB",
+    "median_enc_ms": 31.184,
+    "median_dec_ms": 52.636,
+    "enc_throughput_mib_s": 32.07,
+    "dec_throughput_mib_s": 19.0
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "median_enc_ms": 11.844,
+    "median_dec_ms": 12.028,
+    "enc_throughput_mib_s": 1350.88,
+    "dec_throughput_mib_s": 1330.2
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 16777216,
+    "payload_label": "16 MiB",
+    "median_enc_ms": 490.06,
+    "median_dec_ms": 797.497,
+    "enc_throughput_mib_s": 32.65,
+    "dec_throughput_mib_s": 20.06
+  },
+  {
+    "backend": "AES-256-GCM (CPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "median_enc_ms": 49.759,
+    "median_dec_ms": 47.306,
+    "enc_throughput_mib_s": 1286.2,
+    "dec_throughput_mib_s": 1352.91
+  },
+  {
+    "backend": "AHCC (GPU)",
+    "payload_bytes": 67108864,
+    "payload_label": "64 MiB",
+    "median_enc_ms": 1952.438,
+    "median_dec_ms": 3154.071,
+    "enc_throughput_mib_s": 32.78,
+    "dec_throughput_mib_s": 20.29
+  }
+]

@@ -55,31 +55,47 @@ class AESGCMEnvelope:
         return AESGCM.generate_key(bit_length=256)
 
     @classmethod
-    def encrypt(
-        cls,
-        plaintext: BytesLike,
-        key: BytesLike,
-        associated_data: BytesLike = b"",
-        explicit_nonce: Optional[bytes] = None,
-    ) -> bytes:
+    def encrypt(cls, plaintext: BytesLike, key: BytesLike, associated_data: BytesLike = b"") -> bytes:
         """Encrypt bytes and authenticate the envelope plus optional metadata.
 
-        If explicit_nonce is provided, it must be exactly 12 bytes and unique
-        under this key (e.g. deterministic chunk sequence counter).
-        Otherwise, a fresh 96-bit cryptographically secure random nonce is generated.
+        Always generates a fresh, cryptographically secure 96-bit random nonce.
+        Ordinary callers cannot supply an explicit nonce, preventing accidental
+        nonce reuse vulnerabilities under the same key.
         """
         plaintext_bytes = cls._require_bytes(plaintext, "plaintext")
         key_bytes = cls._validate_key(key)
         aad = cls._require_bytes(associated_data, "associated_data")
-        if explicit_nonce is not None:
-            if not isinstance(explicit_nonce, (bytes, bytearray, memoryview)) or len(explicit_nonce) != cls.NONCE_SIZE:
-                raise ValueError(f"explicit_nonce must be exactly {cls.NONCE_SIZE} bytes.")
-            nonce = bytes(explicit_nonce)
-        else:
-            nonce = secrets.token_bytes(cls.NONCE_SIZE)
+        nonce = secrets.token_bytes(cls.NONCE_SIZE)
         authenticated_header = cls.HEADER + nonce + aad
         encrypted = AESGCM(key_bytes).encrypt(nonce, plaintext_bytes, authenticated_header)
         return cls.HEADER + nonce + encrypted
+
+    @classmethod
+    def _encrypt_with_explicit_nonce(
+        cls,
+        plaintext: BytesLike,
+        key: BytesLike,
+        nonce: bytes,
+        associated_data: BytesLike = b"",
+    ) -> bytes:
+        """Package-private encryption with an explicit nonce.
+
+        INTERNAL USE ONLY: Strictly for controlled protocols (such as
+        SecureModelCheckpoint) where nonce uniqueness is mathematically proven
+        under an isolated, single-artifact key. Must never be exposed as an
+        unrestricted public encryption interface.
+        """
+        plaintext_bytes = cls._require_bytes(plaintext, "plaintext")
+        key_bytes = cls._validate_key(key)
+        aad = cls._require_bytes(associated_data, "associated_data")
+        if not isinstance(nonce, (bytes, bytearray, memoryview)):
+            raise TypeError("nonce must be bytes-like.")
+        if len(nonce) != cls.NONCE_SIZE:
+            raise ValueError(f"nonce must be exactly {cls.NONCE_SIZE} bytes.")
+        nonce_bytes = bytes(nonce)
+        authenticated_header = cls.HEADER + nonce_bytes + aad
+        encrypted = AESGCM(key_bytes).encrypt(nonce_bytes, plaintext_bytes, authenticated_header)
+        return cls.HEADER + nonce_bytes + encrypted
 
     @classmethod
     def decrypt(cls, envelope: BytesLike, key: BytesLike, associated_data: BytesLike = b"") -> bytes:

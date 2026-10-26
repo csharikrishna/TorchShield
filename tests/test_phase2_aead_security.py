@@ -171,3 +171,36 @@ def test_production_path_never_invokes_ahcc_engine(monkeypatch, tmp_path):
     loaded = SecureModelCheckpoint.load_checkpoint(path, key)
     assert torch.equal(loaded["linear.weight"], state["linear.weight"])
 
+
+def test_public_encrypt_disallows_explicit_nonce():
+    """Verify that AESGCMEnvelope.encrypt does not allow callers to supply custom nonces."""
+    key = secrets.token_bytes(32)
+    plaintext = b"sensitive data"
+    custom_nonce = b"\x00" * 12
+
+    # Public API must not accept explicit_nonce
+    with pytest.raises(TypeError):
+        AESGCMEnvelope.encrypt(plaintext, key, explicit_nonce=custom_nonce)  # type: ignore
+
+
+def test_private_encrypt_explicit_nonce_validation():
+    """Verify validation on the internal _encrypt_with_explicit_nonce helper."""
+    key = secrets.token_bytes(32)
+    plaintext = b"chunk slice"
+
+    # Valid 12-byte nonce works
+    valid_nonce = b"\x01" * 12
+    enc = AESGCMEnvelope._encrypt_with_explicit_nonce(plaintext, key, nonce=valid_nonce)
+    assert len(enc) >= AESGCMEnvelope.MIN_ENVELOPE_SIZE
+    assert AESGCMEnvelope.decrypt(enc, key) == plaintext
+
+    # Invalid nonce lengths rejected
+    for bad_len in [0, 8, 11, 13, 16]:
+        with pytest.raises(ValueError, match="nonce must be exactly 12 bytes"):
+            AESGCMEnvelope._encrypt_with_explicit_nonce(plaintext, key, nonce=b"X" * bad_len)
+
+    # Invalid nonce type rejected
+    with pytest.raises(TypeError):
+        AESGCMEnvelope._encrypt_with_explicit_nonce(plaintext, key, nonce=12345)  # type: ignore
+
+
