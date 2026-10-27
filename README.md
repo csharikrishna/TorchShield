@@ -99,6 +99,61 @@ state_dict = SecureModelCheckpoint.load_checkpoint("model.ahcc_ckpt", key, devic
 model.load_state_dict(state_dict)
 ```
 
+### End-to-End Secure Training State Checkpoint & Recovery (v0.7.0+)
+
+Save, inspect, and resume complete training state (model parameters, BatchNorm buffers, AdamW/SGD optimizer moments, learning rate schedulers, GradScaler, and all RNG states) with zero pickle and authenticated AES-256-GCM encryption directly via top-level imports:
+
+```python
+import torch
+import torch.nn as nn
+from ahcc import (
+    save_training_checkpoint,
+    load_training_checkpoint,
+    inspect_training_checkpoint,
+    TrainingProgress,
+    AESGCMEnvelope,
+)
+
+# 1. Initialize model, optimizer, scheduler
+model = nn.Sequential(nn.Linear(10, 4), nn.ReLU(), nn.Linear(4, 2))
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5)
+key = AESGCMEnvelope.generate_key()
+
+# 2. Save complete training state mid-epoch
+progress = TrainingProgress(global_step=100, epoch=2, batch_idx=14, loss=0.42)
+save_training_checkpoint(
+    output_path="checkpoint.ahcc",
+    model=model,
+    optimizer=optimizer,
+    scheduler=scheduler,
+    progress=progress,
+    key=key,
+)
+
+# 3. Inspect checkpoint header without keys (zero-key header inspection)
+header = inspect_training_checkpoint("checkpoint.ahcc")
+print(header["format"], header["file_size"])  # AHCC-SafeTrainingCheckpoint-v5
+
+# 4. Authenticate manifest metadata with key (no tensor weights loaded)
+manifest = inspect_training_checkpoint("checkpoint.ahcc", key=key)
+print(f"Step: {manifest['global_step']}, Loss: {manifest['loss']}")
+
+# 5. Restore into fresh process
+model_resumed = nn.Sequential(nn.Linear(10, 4), nn.ReLU(), nn.Linear(4, 2))
+optimizer_resumed = torch.optim.AdamW(model_resumed.parameters(), lr=1e-3)
+scheduler_resumed = torch.optim.lr_scheduler.StepLR(optimizer_resumed, step_size=5)
+
+restored_prog = load_training_checkpoint(
+    input_path="checkpoint.ahcc",
+    model=model_resumed,
+    optimizer=optimizer_resumed,
+    scheduler=scheduler_resumed,
+    key=key,
+)
+print(f"Resumed at Step {restored_prog.global_step}, Epoch {restored_prog.epoch}, Batch {restored_prog.batch_idx}")
+```
+
 ## Research Audit Deliverables & Reports
 
 Full reproducible reports and research audits are available in `reports/`:

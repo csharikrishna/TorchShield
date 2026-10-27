@@ -57,3 +57,11 @@ When `load_sharded_checkpoint` is called on any rank:
 3. **World Size Match:** Ensures the executing cluster's `world_size` exactly matches the checkpoint's `world_size`.
 4. **Signature Verification:** Verifies the Ed25519 digital signature over the entire inventory.
 5. **Anti-Rollback:** Consults `FreshnessLedger` to prevent loading an older iteration.
+
+---
+
+## 4. Architectural Boundaries and Limitations
+
+1. **Custom Multi-Rank Sharding:** This module implements custom sharded file management with cryptographic inventory sealing. It is **NOT** an implementation of PyTorch's native `torch.distributed.checkpoint` (DCP) plugin interface.
+2. **No Dynamic Resharding:** A checkpoint saved with world size $W$ must be loaded with world size $W$. Loading a 4-shard checkpoint onto 2 ranks or 8 ranks is strictly rejected.
+3. **Shared Storage Dependency:** Multi-node clusters require shards to be written to a shared distributed filesystem (NFS, Lustre, GPFS, CephFS, or cloud-mounted object storage).

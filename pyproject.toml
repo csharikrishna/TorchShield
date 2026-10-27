@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ahcc-gpu-engine"
-version = "0.6.0"
+version = "0.7.0"
 description = "Production-hardened authenticated AI checkpoint, training state, and distributed streaming platform"
 readme = "README.md"
 requires-python = ">=3.10"

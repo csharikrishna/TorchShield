@@ -43,6 +43,18 @@ class CheckpointError(AuthenticationError):
     """Raised when checkpoint manifest, chunk authentication, or validation fails."""
 
 
+__all__ = [
+    "SecureModelCheckpoint",
+    "ChunkCryptoSession",
+    "_ChunkCryptoSession",
+    "CheckpointError",
+    "ResourceLimits",
+    "DEFAULT_LIMITS",
+    "ALLOWED_DTYPES",
+    "DTYPE_ITEMSIZE",
+]
+
+
 # Allow-listed PyTorch dtypes for strict tensor deserialization
 ALLOWED_DTYPES: Dict[str, torch.dtype] = {
     "float32": torch.float32,
@@ -121,7 +133,7 @@ def _strict_json_loads(data: bytes) -> dict:
     return parsed
 
 
-class _ChunkCryptoSession:
+class ChunkCryptoSession:
     """Controlled single-pass chunk encryptor enforcing monotonic nonces and domain separation.
     
     NIST SP 800-38D requires that no two distinct invocations of AES-GCM under the same key
@@ -165,6 +177,10 @@ class _ChunkCryptoSession:
     def seal(self) -> int:
         self._sealed = True
         return self._seq
+
+
+# Backward compatibility alias
+_ChunkCryptoSession = ChunkCryptoSession
 
 
 class SecureModelCheckpoint:

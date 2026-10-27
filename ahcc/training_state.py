@@ -18,6 +18,7 @@ import json
 import os
 import random
 import secrets
+import struct
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -434,3 +435,227 @@ def load_training_checkpoint(
         learning_rate=training_meta.get("learning_rate"),
         config=training_meta.get("config", {}),
     )
+
+
+def inspect_training_checkpoint(
+    input_path: str,
+    key: Optional[bytes] = None,
+    key_provider: Optional[KeyProvider] = None,
+    encryption_context: Optional[Dict[str, str]] = None,
+    expected_signer_public_key: Optional[bytes] = None,
+    limits: Optional[ResourceLimits] = None,
+) -> Dict[str, Any]:
+    """Inspect an AHCC training checkpoint header and optional authenticated metadata.
+
+    If key/key_provider is provided, authenticates the manifest and returns the full
+    training metadata (global step, epoch, loss, config, optimizer state summary, tensor inventory)
+    without reading full weight tensors.
+    If no key is provided, extracts unauthenticated container headers (format, version,
+    artifact ID, key ID, wrapped key size, file size) without requiring cryptographic credentials.
+    """
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Checkpoint file not found: {input_path}")
+
+    file_size = os.path.getsize(input_path)
+    lim = limits or ResourceLimits()
+    if file_size > lim.max_file_size:
+        raise CheckpointError(f"File size {file_size} exceeds maximum limit {lim.max_file_size}.")
+
+    with open(input_path, "rb") as f:
+        magic = f.read(8)
+        if magic == SecureModelCheckpoint.MAGIC_V5:
+            ver_bytes = f.read(1)
+            if len(ver_bytes) < 1:
+                raise CheckpointError("Truncated checkpoint header.")
+            ver = ver_bytes[0]
+            if ver != SecureModelCheckpoint.VERSION_V5:
+                raise CheckpointError(f"Unsupported checkpoint version: {ver}")
+            salt = f.read(SecureModelCheckpoint.SALT_SIZE_V5)
+            if len(salt) != SecureModelCheckpoint.SALT_SIZE_V5:
+                raise CheckpointError("Truncated checkpoint salt.")
+            art_id_len_bytes = f.read(1)
+            if len(art_id_len_bytes) < 1:
+                raise CheckpointError("Truncated artifact ID length.")
+            art_id_len = art_id_len_bytes[0]
+            if art_id_len == 0 or art_id_len > 64:
+                raise CheckpointError(f"Invalid artifact ID length: {art_id_len}")
+            art_id = f.read(art_id_len)
+            if len(art_id) != art_id_len:
+                raise CheckpointError("Truncated artifact ID.")
+            key_id_len_bytes = f.read(1)
+            if len(key_id_len_bytes) < 1:
+                raise CheckpointError("Truncated key ID length.")
+            key_id_len = key_id_len_bytes[0]
+            key_id_bytes = f.read(key_id_len)
+            if len(key_id_bytes) != key_id_len:
+                raise CheckpointError("Truncated key ID.")
+            key_id = key_id_bytes.decode("utf-8", errors="replace")
+            wrapped_key_len_bytes = f.read(2)
+            if len(wrapped_key_len_bytes) < 2:
+                raise CheckpointError("Truncated wrapped key length.")
+            wrapped_key_len = struct.unpack(">H", wrapped_key_len_bytes)[0]
+            wrapped_key = f.read(wrapped_key_len)
+            if len(wrapped_key) != wrapped_key_len:
+                raise CheckpointError("Truncated wrapped key.")
+            manifest_len_bytes = f.read(4)
+            if len(manifest_len_bytes) < 4:
+                raise CheckpointError("Truncated manifest length.")
+            manifest_len = struct.unpack(">I", manifest_len_bytes)[0]
+            if manifest_len <= 0 or manifest_len > lim.max_manifest_bytes:
+                raise CheckpointError(f"Invalid manifest length: {manifest_len} (limit: {lim.max_manifest_bytes})")
+            if f.tell() + manifest_len > file_size:
+                raise CheckpointError(f"Truncated checkpoint: file size {file_size} is smaller than header and manifest ({f.tell() + manifest_len} bytes).")
+
+            info: Dict[str, Any] = {
+                "format": "AHCC-SafeTrainingCheckpoint-v5",
+                "version": ver,
+                "file_size": file_size,
+                "artifact_id": art_id.hex(),
+                "key_id": key_id,
+                "has_wrapped_key": wrapped_key_len > 0,
+                "encrypted_manifest_len": manifest_len,
+                "authenticated": False,
+            }
+
+            if key is not None or key_provider is not None:
+                from ahcc.secure import AESGCMEnvelope, AuthenticationError
+                from ahcc.checkpoint import _strict_json_loads
+                resolved_key = key
+                if resolved_key is None and key_provider is not None:
+                    if wrapped_key_len == 0:
+                        raise CheckpointError("Checkpoint header contains no wrapped key, but key was not provided.")
+                    resolved_key = key_provider.unwrap_key(
+                        wrapped_key,
+                        encryption_context=encryption_context,
+                    )
+                if resolved_key is None or len(resolved_key) != 32:
+                    raise CheckpointError("Resolved master key must be exactly 32 bytes.")
+
+                manifest_key = SecureModelCheckpoint.derive_manifest_key_v5(resolved_key, salt, art_id)
+                manifest_aad = art_id + b"::MANIFEST::v5"
+                encrypted_manifest = f.read(manifest_len)
+                if len(encrypted_manifest) != manifest_len:
+                    raise CheckpointError("Truncated checkpoint manifest.")
+                try:
+                    manifest_bytes = AESGCMEnvelope.decrypt(encrypted_manifest, manifest_key, associated_data=manifest_aad)
+                except AuthenticationError as exc:
+                    raise CheckpointError("Checkpoint manifest authentication failed (wrong key or tampered header).") from exc
+
+                manifest = _strict_json_loads(manifest_bytes)
+
+                if expected_signer_public_key is not None:
+                    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+                    from cryptography.exceptions import InvalidSignature
+                    sig_hex = manifest.get("signature")
+                    if not sig_hex:
+                        raise CheckpointError("Expected digital signature, but checkpoint manifest is unsigned.")
+                    try:
+                        Ed25519PublicKey.from_public_bytes(expected_signer_public_key).verify(
+                            bytes.fromhex(sig_hex),
+                            bytes.fromhex(manifest["manifest_digest"])
+                        )
+                    except InvalidSignature as exc:
+                        raise CheckpointError("Checkpoint Ed25519 digital signature verification failed.") from exc
+
+                # Check chunk bounds consistency against remaining file size
+                expected_chunk_bytes = sum(c.get("ciphertext_len", 0) for c in manifest.get("chunks", []))
+                if f.tell() + expected_chunk_bytes > file_size:
+                    raise CheckpointError(
+                        f"Checkpoint payload is truncated: manifest declares {expected_chunk_bytes} bytes in chunks, "
+                        f"but only {file_size - f.tell()} bytes remain in file."
+                    )
+
+                training_meta = manifest.get("metadata", {})
+                info.update({
+                    "authenticated": True,
+                    "global_step": training_meta.get("global_step"),
+                    "epoch": training_meta.get("epoch"),
+                    "batch_idx": training_meta.get("batch_idx"),
+                    "loss": training_meta.get("loss"),
+                    "learning_rate": training_meta.get("learning_rate"),
+                    "config": training_meta.get("config", {}),
+                    "total_tensors": manifest.get("total_tensors", 0),
+                    "total_chunks": manifest.get("total_chunks", 0),
+                    "total_raw_bytes": manifest.get("total_raw_bytes", 0),
+                    "has_signature": bool(manifest.get("signature")),
+                    "has_optimizer": training_meta.get("optimizer") is not None,
+                    "has_scheduler": training_meta.get("scheduler") is not None,
+                    "has_scaler": training_meta.get("scaler") is not None,
+                    "has_rng": training_meta.get("rng") is not None,
+                })
+
+            return info
+
+        elif magic == SecureModelCheckpoint.MAGIC_V4:
+            ver_bytes = f.read(1)
+            if len(ver_bytes) < 1:
+                raise CheckpointError("Truncated checkpoint header.")
+            ver = ver_bytes[0]
+            if ver != SecureModelCheckpoint.VERSION_V4:
+                raise CheckpointError(f"Unsupported checkpoint version: {ver}")
+            salt = f.read(SecureModelCheckpoint.SALT_SIZE_V4)
+            if len(salt) != SecureModelCheckpoint.SALT_SIZE_V4:
+                raise CheckpointError("Truncated checkpoint salt.")
+            art_id_len_bytes = f.read(1)
+            if len(art_id_len_bytes) < 1:
+                raise CheckpointError("Truncated artifact ID length.")
+            art_id_len = art_id_len_bytes[0]
+            if art_id_len == 0 or art_id_len > 64:
+                raise CheckpointError(f"Invalid artifact ID length: {art_id_len}")
+            art_id = f.read(art_id_len)
+            if len(art_id) != art_id_len:
+                raise CheckpointError("Truncated artifact ID.")
+            key_id_len_bytes = f.read(1)
+            if len(key_id_len_bytes) < 1:
+                raise CheckpointError("Truncated key ID length.")
+            key_id_len = key_id_len_bytes[0]
+            key_id_bytes = f.read(key_id_len)
+            if len(key_id_bytes) != key_id_len:
+                raise CheckpointError("Truncated key ID.")
+            key_id = key_id_bytes.decode("utf-8", errors="replace")
+            manifest_len_bytes = f.read(4)
+            if len(manifest_len_bytes) < 4:
+                raise CheckpointError("Truncated manifest length.")
+            manifest_len = struct.unpack(">I", manifest_len_bytes)[0]
+            if manifest_len <= 0 or manifest_len > lim.max_manifest_bytes:
+                raise CheckpointError(f"Invalid manifest length: {manifest_len} (limit: {lim.max_manifest_bytes})")
+            if f.tell() + manifest_len > file_size:
+                raise CheckpointError(f"Truncated checkpoint: file size {file_size} is smaller than header and manifest ({f.tell() + manifest_len} bytes).")
+
+            info = {
+                "format": "AHCC-v4",
+                "version": ver,
+                "file_size": file_size,
+                "artifact_id": art_id.hex(),
+                "key_id": key_id,
+                "encrypted_manifest_len": manifest_len,
+                "authenticated": False,
+            }
+
+            if key is not None:
+                from ahcc.secure import AESGCMEnvelope, AuthenticationError
+                from ahcc.checkpoint import _strict_json_loads
+                if len(key) != 32:
+                    raise CheckpointError("Resolved master key must be exactly 32 bytes.")
+                manifest_key = SecureModelCheckpoint.derive_manifest_key_v4(key, salt, art_id)
+                manifest_aad = art_id + b"::MANIFEST::v4"
+                encrypted_manifest = f.read(manifest_len)
+                if len(encrypted_manifest) != manifest_len:
+                    raise CheckpointError("Truncated checkpoint manifest.")
+                try:
+                    manifest_bytes = AESGCMEnvelope.decrypt(encrypted_manifest, manifest_key, associated_data=manifest_aad)
+                except AuthenticationError as exc:
+                    raise CheckpointError("Checkpoint manifest authentication failed (wrong key or tampered header).") from exc
+
+                manifest = _strict_json_loads(manifest_bytes)
+                info.update({
+                    "authenticated": True,
+                    "total_tensors": manifest.get("total_tensors", manifest.get("total_layers", 0)),
+                    "total_chunks": manifest.get("total_chunks", 0),
+                    "total_raw_bytes": manifest.get("total_raw_bytes", 0),
+                })
+
+            return info
+        else:
+            raise CheckpointError(f"Not a valid AHCC secure model checkpoint (magic={magic!r}).")
+

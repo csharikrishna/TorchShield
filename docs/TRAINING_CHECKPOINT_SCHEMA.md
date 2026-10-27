@@ -30,7 +30,7 @@ A Version 5 AHCC checkpoint file is an authenticated binary container with the f
 +----------------+----------------+------------------+---------------------------------------------+
 | 0x00 - 0x07    | 8              | Magic Bytes      | b"AHCCMOD5"                                 |
 | 0x08           | 1              | Container Ver    | 0x05 (uint8)                                |
-| 0x09 - 0x28    | 32             | Salt             | Cryptographic random HKDF salt              |
+| 0x09 - 0x28    | 32             | Salt             | Public random HKDF derivation salt (non-secret)|
 | 0x29           | 1              | Artifact ID Len  | Length of Artifact ID (N <= 64)             |
 | 0x2A - (0x2A+N)| N              | Artifact ID      | Unique per-checkpoint UUID bytes            |
 | ...            | 1              | Key ID Len       | Length of Key ID string (K <= 255)          |

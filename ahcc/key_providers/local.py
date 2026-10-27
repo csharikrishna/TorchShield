@@ -50,6 +50,14 @@ class LocalDevKeyProvider(KeyProvider):
         wrapped_dek = self._wrap_raw(plaintext_dek, self._kek, encryption_context)
         return plaintext_dek, wrapped_dek
 
+    def wrap_key(
+        self, plaintext_key: bytes, encryption_context: Optional[Dict[str, str]] = None
+    ) -> bytes:
+        """Wrap an existing DEK using the local KEK."""
+        if len(plaintext_key) != 32:
+            raise ValueError("plaintext_key must be exactly 32 bytes.")
+        return self._wrap_raw(plaintext_key, self._kek, encryption_context)
+
     def unwrap_key(
         self, wrapped_key: bytes, encryption_context: Optional[Dict[str, str]] = None
     ) -> bytes:

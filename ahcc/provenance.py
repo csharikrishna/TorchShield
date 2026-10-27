@@ -2,17 +2,24 @@
 
 Provides:
 1. Ed25519 digital signature signing and verification over canonical manifest specifications.
-2. File-backed atomic monotonic freshness ledger preventing rollback attacks across
-   training resumes and model promotions.
+2. Trusted Freshness Backend architecture supporting pluggable transactional, cloud,
+   and local backends to prevent checkpoint rollback attacks.
 """
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+import contextlib
+from dataclasses import dataclass, field
 import json
+import logging
 import os
 import secrets
+import sqlite3
 import tempfile
+import threading
+import time
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
@@ -22,6 +29,8 @@ from cryptography.exceptions import InvalidSignature
 
 from ahcc.checkpoint import CheckpointError
 
+logger = logging.getLogger(__name__)
+
 
 class ProvenanceError(CheckpointError):
     """Raised when signature verification or artifact provenance checks fail."""
@@ -30,6 +39,14 @@ class ProvenanceError(CheckpointError):
 class RollbackError(ProvenanceError):
     """Raised when a checkpoint fails monotonic freshness / anti-rollback checks."""
 
+
+class FreshnessServiceUnavailableError(RollbackError):
+    """Raised when the freshness verification backend is unavailable."""
+
+
+# ===========================================================================
+# 1. Ed25519 Publisher Provenance
+# ===========================================================================
 
 class Ed25519Signer:
     """Ed25519 digital signature generator for checkpoint manifest provenance."""
@@ -97,22 +114,133 @@ class Ed25519Verifier:
             raise ProvenanceError("Ed25519 signature verification failed: signature is invalid or message was tampered.") from exc
 
 
-class FreshnessLedger:
-    """Atomic monotonic freshness ledger preventing checkpoint rollback attacks.
+# ===========================================================================
+# 2. Freshness Record and Backend Interface
+# ===========================================================================
 
-    Guarantees that for a given training run or model lineage:
-    - Step numbers must strictly advance monotonically.
-    - Checkpoints cannot be replayed from an older iteration.
-    - Updates are persisted atomically via fsync + replace.
+@dataclass
+class FreshnessRecord:
+    """Structured record of an authorized training run state."""
+    run_id: str
+    max_step: int
+    max_epoch: int = 0
+    latest_artifact_id: str = ""
+    version: int = 1
+    updated_at: float = field(default_factory=time.time)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    pending_recovery_token: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "max_step": self.max_step,
+            "max_epoch": self.max_epoch,
+            "latest_artifact_id": self.latest_artifact_id,
+            "version": self.version,
+            "updated_at": self.updated_at,
+            "metadata": self.metadata,
+            "pending_recovery_token": self.pending_recovery_token,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> FreshnessRecord:
+        return cls(
+            run_id=d["run_id"],
+            max_step=d.get("max_step", 0),
+            max_epoch=d.get("max_epoch", 0),
+            latest_artifact_id=d.get("latest_artifact_id", ""),
+            version=d.get("version", 1),
+            updated_at=d.get("updated_at", time.time()),
+            metadata=d.get("metadata", {}),
+            pending_recovery_token=d.get("pending_recovery_token"),
+        )
+
+
+class FreshnessBackend(ABC):
+    """Abstract interface for monotonic anti-rollback freshness storage backends."""
+
+    @property
+    @abstractmethod
+    def is_external_trusted(self) -> bool:
+        """Returns True if the backend is hosted outside the local filesystem trust boundary."""
+        pass
+
+    @abstractmethod
+    def get_record(self, run_id: str) -> Optional[FreshnessRecord]:
+        """Read the latest authorized version record for a training run."""
+        pass
+
+    @abstractmethod
+    def advance(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+        expected_version: Optional[int] = None,
+        recovery_token: Optional[str] = None,
+    ) -> FreshnessRecord:
+        """Atomically advance the monotonic high-water mark for a run.
+        
+        Raises:
+            RollbackError if step/epoch regresses or if expected_version does not match (CAS failure).
+            FreshnessServiceUnavailableError if the backend is unreachable.
+        """
+        pass
+
+    @abstractmethod
+    def check_freshness(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> bool:
+        """Verify whether an incoming checkpoint satisfies monotonic freshness."""
+        pass
+
+    @abstractmethod
+    def begin_update(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> str:
+        """Stage a pending checkpoint creation, generating a recovery token."""
+        pass
+
+    @abstractmethod
+    def abort_update(self, run_id: str, recovery_token: str) -> None:
+        """Abort a staged checkpoint update after a failed write."""
+        pass
+
+
+# ===========================================================================
+# 3. Backend Implementations
+# ===========================================================================
+
+class LocalFileFreshnessBackend(FreshnessBackend):
+    """Local filesystem-backed freshness ledger using atomic staging + fsync.
+    
+    SECURITY BOUNDARY NOTICE:
+    Resists Scenario 1 (checkpoint replacement when ledger is trusted).
+    DOES NOT resist Scenario 2 (attacker modifying both checkpoint and local ledger files).
+    Use Transactional or Cloud backends for production distributed security.
     """
 
     def __init__(self, ledger_path: str):
         self.ledger_path = os.path.abspath(ledger_path)
+        self._lock = threading.RLock()
         ledger_dir = os.path.dirname(self.ledger_path)
         if ledger_dir and not os.path.exists(ledger_dir):
             os.makedirs(ledger_dir, exist_ok=True)
         if not os.path.exists(self.ledger_path) or os.path.getsize(self.ledger_path) == 0:
             self._write_state({})
+
+    @property
+    def is_external_trusted(self) -> bool:
+        return False
 
     def _read_state(self) -> Dict[str, Any]:
         if not os.path.exists(self.ledger_path) or os.path.getsize(self.ledger_path) == 0:
@@ -120,11 +248,9 @@ class FreshnessLedger:
         try:
             with open(self.ledger_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            if not isinstance(data, dict):
-                return {}
-            return data
+            return data if isinstance(data, dict) else {}
         except Exception as exc:
-            raise RollbackError(f"Failed to read freshness ledger at {self.ledger_path}: {exc}") from exc
+            raise RollbackError(f"Failed to read local freshness ledger at {self.ledger_path}: {exc}") from exc
 
     def _write_state(self, state: Dict[str, Any]) -> None:
         ledger_dir = os.path.dirname(self.ledger_path)
@@ -143,6 +269,15 @@ class FreshnessLedger:
                     pass
             raise
 
+    def get_record(self, run_id: str) -> Optional[FreshnessRecord]:
+        with self._lock:
+            state = self._read_state()
+            if run_id not in state:
+                return None
+            data = dict(state[run_id])
+            data["run_id"] = run_id
+            return FreshnessRecord.from_dict(data)
+
     def check_freshness(
         self,
         run_id: str,
@@ -150,40 +285,13 @@ class FreshnessLedger:
         epoch: int = 0,
         artifact_id: str = "",
     ) -> bool:
-        """Verify whether an incoming checkpoint satisfies monotonic freshness."""
-        state = self._read_state()
-        if run_id not in state:
-            return True
-
-        record = state[run_id]
-        recorded_step = record.get("max_step", 0)
-        recorded_epoch = record.get("max_epoch", 0)
-
-        if step < recorded_step:
-            raise RollbackError(
-                f"Rollback attack detected for run '{run_id}': incoming step {step} is strictly "
-                f"less than highest authenticated step {recorded_step}."
-            )
-        if step == recorded_step and epoch < recorded_epoch:
-            raise RollbackError(
-                f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} is strictly "
-                f"less than highest authenticated epoch {recorded_epoch} at step {step}."
-            )
-        return True
-
-    def record_and_verify(
-        self,
-        run_id: str,
-        step: int,
-        epoch: int = 0,
-        artifact_id: str = "",
-    ) -> None:
-        """Verify freshness and advance the monotonic high-water mark."""
-        state = self._read_state()
-        if run_id in state:
-            record = state[run_id]
-            recorded_step = record.get("max_step", 0)
-            recorded_epoch = record.get("max_epoch", 0)
+        with self._lock:
+            state = self._read_state()
+            if run_id not in state:
+                return True
+            rec = state[run_id]
+            recorded_step = rec.get("max_step", 0)
+            recorded_epoch = rec.get("max_epoch", 0)
 
             if step < recorded_step:
                 raise RollbackError(
@@ -195,14 +303,440 @@ class FreshnessLedger:
                     f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} is strictly "
                     f"less than highest recorded epoch {recorded_epoch} at step {step}."
                 )
+            return True
 
-        state[run_id] = {
-            "max_step": max(step, state.get(run_id, {}).get("max_step", step)),
-            "max_epoch": max(epoch, state.get(run_id, {}).get("max_epoch", epoch)),
-            "latest_artifact_id": artifact_id,
-        }
-        self._write_state(state)
+    def advance(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+        expected_version: Optional[int] = None,
+        recovery_token: Optional[str] = None,
+    ) -> FreshnessRecord:
+        with self._lock:
+            state = self._read_state()
+            cur_ver = 0
+            if run_id in state:
+                rec = state[run_id]
+                cur_step = rec.get("max_step", 0)
+                cur_epoch = rec.get("max_epoch", 0)
+                cur_ver = rec.get("version", 1)
+
+                if expected_version is not None and cur_ver != expected_version:
+                    raise RollbackError(
+                        f"Concurrent update conflict on run '{run_id}': expected version {expected_version}, got {cur_ver}."
+                    )
+
+                if step < cur_step:
+                    raise RollbackError(
+                        f"Rollback attack detected for run '{run_id}': incoming step {step} < current step {cur_step}."
+                    )
+                if step == cur_step and epoch < cur_epoch:
+                    raise RollbackError(
+                        f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} < current epoch {cur_epoch} at step {step}."
+                    )
+
+            new_record = FreshnessRecord(
+                run_id=run_id,
+                max_step=step,
+                max_epoch=epoch,
+                latest_artifact_id=artifact_id,
+                version=cur_ver + 1,
+                updated_at=time.time(),
+            )
+            state[run_id] = new_record.to_dict()
+            self._write_state(state)
+            return new_record
+
+    def begin_update(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> str:
+        with self._lock:
+            self.check_freshness(run_id, step, epoch, artifact_id)
+            token = secrets.token_hex(16)
+            state = self._read_state()
+            if run_id in state:
+                state[run_id]["pending_recovery_token"] = token
+            else:
+                state[run_id] = {
+                    "max_step": 0,
+                    "max_epoch": 0,
+                    "version": 0,
+                    "pending_recovery_token": token,
+                }
+            self._write_state(state)
+            return token
+
+    def abort_update(self, run_id: str, recovery_token: str) -> None:
+        with self._lock:
+            state = self._read_state()
+            if run_id in state and state[run_id].get("pending_recovery_token") == recovery_token:
+                state[run_id]["pending_recovery_token"] = None
+                self._write_state(state)
+
+
+class TransactionalMemoryFreshnessBackend(FreshnessBackend):
+    """In-memory transactional freshness backend with strict optimistic concurrency control (CAS)."""
+
+    def __init__(self, external_trusted: bool = True):
+        self._external_trusted = external_trusted
+        self._lock = threading.RLock()
+        self._records: Dict[str, FreshnessRecord] = {}
+        self._is_available = True
+
+    @property
+    def is_external_trusted(self) -> bool:
+        return self._external_trusted
+
+    def set_availability(self, available: bool) -> None:
+        """Simulate service downtime or network partition."""
+        with self._lock:
+            self._is_available = available
+
+    def get_record(self, run_id: str) -> Optional[FreshnessRecord]:
+        with self._lock:
+            if not self._is_available:
+                raise FreshnessServiceUnavailableError("Freshness service is temporarily unavailable.")
+            rec = self._records.get(run_id)
+            return FreshnessRecord.from_dict(rec.to_dict()) if rec else None
+
+    def check_freshness(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> bool:
+        with self._lock:
+            if not self._is_available:
+                raise FreshnessServiceUnavailableError("Freshness service is temporarily unavailable.")
+            if run_id not in self._records:
+                return True
+            rec = self._records[run_id]
+            if step < rec.max_step:
+                raise RollbackError(
+                    f"Rollback attack detected for run '{run_id}': incoming step {step} < current step {rec.max_step}."
+                )
+            if step == rec.max_step and epoch < rec.max_epoch:
+                raise RollbackError(
+                    f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} < current epoch {rec.max_epoch} at step {step}."
+                )
+            return True
+
+    def advance(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+        expected_version: Optional[int] = None,
+        recovery_token: Optional[str] = None,
+    ) -> FreshnessRecord:
+        with self._lock:
+            if not self._is_available:
+                raise FreshnessServiceUnavailableError("Freshness service is temporarily unavailable.")
+            cur = self._records.get(run_id)
+            cur_ver = cur.version if cur else 0
+            if expected_version is not None and cur_ver != expected_version:
+                raise RollbackError(
+                    f"Optimistic lock conflict on run '{run_id}': expected version {expected_version}, got {cur_ver}."
+                )
+            if cur:
+                if step < cur.max_step:
+                    raise RollbackError(f"Stale step advance: {step} < {cur.max_step}.")
+                if step == cur.max_step and epoch < cur.max_epoch:
+                    raise RollbackError(f"Stale epoch advance: {epoch} < {cur.max_epoch}.")
+
+            new_rec = FreshnessRecord(
+                run_id=run_id,
+                max_step=step,
+                max_epoch=epoch,
+                latest_artifact_id=artifact_id,
+                version=cur_ver + 1,
+                updated_at=time.time(),
+            )
+            self._records[run_id] = new_rec
+            return FreshnessRecord.from_dict(new_rec.to_dict())
+
+    def begin_update(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> str:
+        with self._lock:
+            if not self._is_available:
+                raise FreshnessServiceUnavailableError("Freshness service is temporarily unavailable.")
+            self.check_freshness(run_id, step, epoch, artifact_id)
+            token = secrets.token_hex(16)
+            if run_id in self._records:
+                self._records[run_id].pending_recovery_token = token
+            return token
+
+    def abort_update(self, run_id: str, recovery_token: str) -> None:
+        with self._lock:
+            if run_id in self._records and self._records[run_id].pending_recovery_token == recovery_token:
+                self._records[run_id].pending_recovery_token = None
+
+
+class SQLiteFreshnessBackend(FreshnessBackend):
+    """ACID transactional SQL freshness backend supporting concurrency and crash resilience."""
+
+    def __init__(self, db_path: str, external_trusted: bool = False):
+        self.db_path = os.path.abspath(db_path)
+        self._external_trusted = external_trusted
+        self._lock = threading.RLock()
+        self._init_db()
+
+    @property
+    def is_external_trusted(self) -> bool:
+        return self._external_trusted
+
+    @contextlib.contextmanager
+    def _connection(self):
+        conn = sqlite3.connect(self.db_path, timeout=30.0, isolation_level=None)
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+    def _init_db(self) -> None:
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+        with self._connection() as conn:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS freshness_ledger (
+                    run_id TEXT PRIMARY KEY,
+                    max_step INTEGER NOT NULL,
+                    max_epoch INTEGER NOT NULL,
+                    latest_artifact_id TEXT,
+                    version INTEGER NOT NULL,
+                    updated_at REAL NOT NULL,
+                    pending_recovery_token TEXT
+                )
+            """)
+
+    def get_record(self, run_id: str) -> Optional[FreshnessRecord]:
+        with self._lock, self._connection() as conn:
+            cur = conn.execute(
+                "SELECT run_id, max_step, max_epoch, latest_artifact_id, version, updated_at, pending_recovery_token "
+                "FROM freshness_ledger WHERE run_id = ?",
+                (run_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return FreshnessRecord(
+                run_id=row[0],
+                max_step=row[1],
+                max_epoch=row[2],
+                latest_artifact_id=row[3],
+                version=row[4],
+                updated_at=row[5],
+                pending_recovery_token=row[6],
+            )
+
+    def check_freshness(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> bool:
+        rec = self.get_record(run_id)
+        if not rec:
+            return True
+        if step < rec.max_step:
+            raise RollbackError(
+                f"Rollback attack detected for run '{run_id}': incoming step {step} is strictly "
+                f"less than highest recorded step {rec.max_step}."
+            )
+        if step == rec.max_step and epoch < rec.max_epoch:
+            raise RollbackError(
+                f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} is strictly "
+                f"less than highest recorded epoch {rec.max_epoch} at step {step}."
+            )
+        return True
+
+    def advance(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+        expected_version: Optional[int] = None,
+        recovery_token: Optional[str] = None,
+    ) -> FreshnessRecord:
+        with self._lock, self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            try:
+                cur = conn.execute(
+                    "SELECT max_step, max_epoch, version FROM freshness_ledger WHERE run_id = ?",
+                    (run_id,),
+                )
+                row = cur.fetchone()
+                now = time.time()
+
+                if row is None:
+                    new_ver = 1
+                    conn.execute(
+                        "INSERT INTO freshness_ledger (run_id, max_step, max_epoch, latest_artifact_id, version, updated_at, pending_recovery_token) "
+                        "VALUES (?, ?, ?, ?, ?, ?, NULL)",
+                        (run_id, step, epoch, artifact_id, new_ver, now),
+                    )
+                else:
+                    cur_step, cur_epoch, cur_ver = row
+                    if expected_version is not None and cur_ver != expected_version:
+                        raise RollbackError(
+                            f"Concurrency conflict on run '{run_id}': expected version {expected_version}, got {cur_ver}."
+                        )
+                    if step < cur_step:
+                        raise RollbackError(
+                            f"Rollback attack detected for run '{run_id}': incoming step {step} is strictly "
+                            f"less than highest recorded step {cur_step}."
+                        )
+                    if step == cur_step and epoch < cur_epoch:
+                        raise RollbackError(
+                            f"Rollback attack detected for run '{run_id}': incoming epoch {epoch} is strictly "
+                            f"less than highest recorded epoch {cur_epoch} at step {step}."
+                        )
+
+                    new_ver = cur_ver + 1
+                    conn.execute(
+                        "UPDATE freshness_ledger SET max_step = ?, max_epoch = ?, latest_artifact_id = ?, version = ?, updated_at = ?, pending_recovery_token = NULL "
+                        "WHERE run_id = ?",
+                        (step, epoch, artifact_id, new_ver, now, run_id),
+                    )
+                conn.execute("COMMIT;")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
+
+        return FreshnessRecord(
+            run_id=run_id,
+            max_step=step,
+            max_epoch=epoch,
+            latest_artifact_id=artifact_id,
+            version=new_ver,
+            updated_at=now,
+        )
+
+    def begin_update(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> str:
+        with self._lock:
+            self.check_freshness(run_id, step, epoch, artifact_id)
+            token = secrets.token_hex(16)
+            with self._connection() as conn:
+                conn.execute("BEGIN IMMEDIATE;")
+                try:
+                    cur = conn.execute("SELECT version FROM freshness_ledger WHERE run_id = ?", (run_id,))
+                    row = cur.fetchone()
+                    if row is None:
+                        conn.execute(
+                            "INSERT INTO freshness_ledger (run_id, max_step, max_epoch, latest_artifact_id, version, updated_at, pending_recovery_token) "
+                            "VALUES (?, 0, 0, '', 0, ?, ?)",
+                            (run_id, time.time(), token),
+                        )
+                    else:
+                        conn.execute(
+                            "UPDATE freshness_ledger SET pending_recovery_token = ? WHERE run_id = ?",
+                            (token, run_id),
+                        )
+                    conn.execute("COMMIT;")
+                except Exception:
+                    try:
+                        conn.execute("ROLLBACK;")
+                    except Exception:
+                        pass
+                    raise
+            return token
+
+    def abort_update(self, run_id: str, recovery_token: str) -> None:
+        with self._lock, self._connection() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            try:
+                conn.execute(
+                    "UPDATE freshness_ledger SET pending_recovery_token = NULL WHERE run_id = ? AND pending_recovery_token = ?",
+                    (run_id, recovery_token),
+                )
+                conn.execute("COMMIT;")
+            except Exception:
+                try:
+                    conn.execute("ROLLBACK;")
+                except Exception:
+                    pass
+                raise
+
+
+# ===========================================================================
+# 4. FreshnessLedger Wrapper
+# ===========================================================================
+
+class FreshnessLedger:
+    """Atomic monotonic freshness ledger preventing checkpoint rollback attacks.
+
+    Guarantees that for a given training run or model lineage:
+    - Step numbers must strictly advance monotonically.
+    - Checkpoints cannot be replayed from an older iteration.
+    - Supports pluggable trusted backends (LocalDisk, TransactionalMemory, SQLite, RemoteService).
+    """
+
+    def __init__(
+        self,
+        ledger_path: Optional[str] = None,
+        backend: Optional[FreshnessBackend] = None,
+    ):
+        if backend is not None:
+            self.backend = backend
+            self.ledger_path = getattr(backend, "ledger_path", str(backend))
+        elif ledger_path is not None:
+            self.ledger_path = os.path.abspath(ledger_path)
+            self.backend = LocalFileFreshnessBackend(self.ledger_path)
+        else:
+            raise ValueError("Either 'ledger_path' or 'backend' must be provided to FreshnessLedger.")
+
+    @property
+    def is_external_trusted(self) -> bool:
+        """Whether the underlying backend resists attacker modification of local storage."""
+        return self.backend.is_external_trusted
+
+    def check_freshness(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> bool:
+        """Verify whether an incoming checkpoint satisfies monotonic freshness."""
+        return self.backend.check_freshness(run_id=run_id, step=step, epoch=epoch, artifact_id=artifact_id)
+
+    def record_and_verify(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> None:
+        """Verify freshness and advance the monotonic high-water mark."""
+        self.backend.advance(run_id=run_id, step=step, epoch=epoch, artifact_id=artifact_id)
 
     def get_run_info(self, run_id: str) -> Optional[Dict[str, Any]]:
-        """Return the current recorded record for run_id."""
-        return self._read_state().get(run_id)
+        """Return the current recorded record dictionary for run_id."""
+        rec = self.backend.get_record(run_id)
+        return rec.to_dict() if rec else None

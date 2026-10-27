@@ -52,6 +52,17 @@ class KeyProvider(ABC):
         pass
 
     @abstractmethod
+    def wrap_key(
+        self, plaintext_key: bytes, encryption_context: Optional[Dict[str, str]] = None
+    ) -> bytes:
+        """Wrap an existing 256-bit Data Encryption Key using the active KEK.
+
+        Returns:
+            Wrapped key ciphertext bytes.
+        """
+        pass
+
+    @abstractmethod
     def rewrap_key(
         self,
         wrapped_key: bytes,
