@@ -1,7 +1,7 @@
 # Security Policy and Cryptographic Architecture
 
-**Current Release Status:** Production-Hardened Authenticated Checkpoint Engine (Phase 2 Release Candidate).  
-**Vetted Cryptographic Baseline:** NIST SP 800-38D AES-256-GCM + RFC 5869 HKDF-SHA256.  
+**Current Release Status:** AHCC Secure AI Checkpoint Platform v0.7.0 (Restricted Pilot Approved).  
+**Vetted Cryptographic Baseline:** NIST SP 800-38D AES-256-GCM + RFC 5869 HKDF-SHA256 + RFC 8032 Ed25519.  
 **Custom AHCC Transform:** Strictly Experimental and Insecure for Production.  
 
 ---
@@ -19,31 +19,29 @@ The AHCC GPU Engine project has pivoted to a dual-tier architecture:
    - Atomic writes (`.tmp` staging $\to$ `fsync` $\to$ `replace`) preventing corrupt state during crashes or disk failures.
    - Fail-closed parsing rejecting pickle/untrusted deserialization, memory-exhaustion payloads, and tampered chunks.
 
-2. **Experimental AHCC Research Cipher (`ahcc.engine`):**
-   - Retained solely for baseline scientific research, reproducibility, and cryptanalytic study.
-   - **NOT approved or safe for production AI data, model weights, or secrets.**
-   - Instantiation emits a runtime `InsecureCipherWarning` and flags `is_production_secure = False`.
-   - The production checkpoint pipeline never silently falls back to AHCC.
+2. **Archived Research Prototype (`archives/v1_chaotic_crypto_prototype/`):**
+   - The initial research blueprint attempting chaotic map encryption has been safely archived.
+   - **It is NOT part of the production package.** The production checkpoint pipeline uses exclusively vetted AEAD cryptography.
 
 ---
 
 ## 2. Threat Model & Explicit Trust Boundaries
 
-Cryptographic encryption cannot solve all AI security problems. The table below explicitly delineates what this engine guarantees versus what requires external security controls:
+Cryptographic encryption protects against unauthorized inspection, weight tampering, supply-chain deserialization exploits, and out-of-order execution:
 
-| Security Vector | Engine Guarantee | Mechanism | Notes & Limitations |
+| Security Vector | Platform Guarantee | Mechanism | Notes & Boundaries |
 | :--- | :---: | :--- | :--- |
-| **Ciphertext Confidentiality** | **YES** | AES-256-GCM (256-bit keys) | Protects weights at rest and in transit against eavesdroppers. |
+| **Ciphertext Confidentiality** | **YES** | AES-256-GCM / ChaCha20-Poly1305 | Protects weights and training state at rest and in transit. |
 | **Ciphertext Tampering / Integrity** | **YES** | GCM 128-bit Auth Tag + AAD | Modifying any bit fails closed with `CheckpointError`. |
 | **Chunk Reordering / Splicing** | **YES** | Manifest Digest + Chunk Index AAD | Chunks from other files or swapped within a model are rejected. |
 | **Metadata / Header Tampering** | **YES** | Authenticated Manifest AAD | Altered layer names, dtypes, or shapes fail authentication. |
-| **Arbitrary Code Execution (Pickle)** | **YES** | Restricted Tensor Wire Format | Uses zero pickle / `torch.load(..., weights_only=False)`. |
-| **Resource Exhaustion / OOM Bombs** | **YES** | Defensive Header Limits | Max dimensions, tensor counts, and byte budgets validated prior to allocation. |
-| **Model Publisher Authenticity** | **NO** | N/A (Requires External PKI) | AES-GCM is symmetric: anyone with the key can encrypt. Publisher signing requires asymmetric signatures (e.g., Ed25519/RSA). |
-| **Replay / Rollback Attacks** | **NO** | Documented Limitation | AES-GCM verifies that a checkpoint was valid when created, but cannot determine freshness without an external monotonic counter or trusted registry. |
-| **Host Memory / GPU VRAM Extraction** | **NO** | Documented Limitation | Once decrypted into host RAM or GPU VRAM, tensors are subject to OS/process-level memory inspection. |
-| **Malicious Pre-Encryption Weights** | **NO** | Documented Limitation | If a model was backdoored or poisoned before encryption, authenticated encryption faithfully preserves and restores the backdoored weights. |
-| **Side-Channel / Fault Injection** | **NO** | Documented Limitation | PyTorch operations and host memory transfers are not hardened against physical side-channel or fault-injection attacks. |
+| **Arbitrary Code Execution (Pickle)** | **YES** | Restricted Binary Tensor Format | Zero pickle usage; impervious to deserialization exploits. |
+| **Resource Exhaustion / OOM Bombs** | **YES** | Defensive Header Limits | Max dimensions, tensor counts, and byte budgets validated before allocation. |
+| **Model Publisher Authenticity** | **YES** | Ed25519 Digital Signatures | Publisher signs canonical manifest; transitively signs all tensor chunks. |
+| **Replay / Rollback Attacks** | **YES** | Freshness Ledger | Monotonic generation counters prevent replay of superseded checkpoints. *Boundary: Local ledgers cannot detect VM/hypervisor snapshot reverts.* |
+| **Host Memory / GPU VRAM Extraction** | **NO** | Documented Limitation | Once decrypted into host RAM or GPU VRAM, tensors are subject to OS/process memory inspection. |
+| **Malicious Pre-Encryption Weights** | **NO** | Documented Limitation | If a model was backdoored before encryption, authenticated encryption faithfully preserves the backdoored weights. |
+| **Physical Side-Channel Attacks** | **NO** | Documented Limitation | PyTorch operations and host memory transfers are not hardened against physical side-channel or fault-injection attacks. |
 
 ---
 

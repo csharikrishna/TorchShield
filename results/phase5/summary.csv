@@ -1,7 +1,0 @@
-mechanism,security,size_mib,save_latency_ms,save_throughput_mib_s,load_latency_ms,load_throughput_mib_s,streaming_capable,memory_spike_ratio
-PyTorch Plaintext (torch.save),"None (Plaintext, Unauthenticated)",16,11.7,1367.0,34.91,458.3,False,2.0
-Whole-File AES-256-GCM,Authenticated (NIST SP 800-38D),16,31.55,507.1,21.79,734.2,False,3.2
-AHCC Platform V5 (Chunked + Provenance),Authenticated AEAD + Ed25519 Provenance,16,92.67,172.7,63.91,250.3,True,1.15
-PyTorch Plaintext (torch.save),"None (Plaintext, Unauthenticated)",64,97.7,655.1,34.23,1869.6,False,2.0
-Whole-File AES-256-GCM,Authenticated (NIST SP 800-38D),64,816.64,78.4,197.49,324.1,False,3.2
-AHCC Platform V5 (Chunked + Provenance),Authenticated AEAD + Ed25519 Provenance,64,1349.25,47.4,373.07,171.5,True,1.15

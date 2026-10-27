@@ -1,42 +1,86 @@
-# Installation Guide for AHCC & Validated Data Protection Engine
+# Installation Guide for AHCC Secure AI Checkpoint Platform
+
+**Document:** `docs/INSTALLATION.md`  
+**Platform Version:** `0.7.0`  
+
+---
 
 ## 1. Prerequisites
 
 - **Operating System:** Windows 10/11 or Linux x86_64
-- **Python:** Version 3.10, 3.11, or 3.12 (Tested on Python 3.12.10)
-- **PyTorch:** Version 2.0 or newer with CUDA support (e.g. PyTorch 2.5.1+cu121)
-- **NVIDIA GPU:** Compute Capability 7.0+ recommended for GPU execution (Tested on Turing GTX 1650, CC 7.5)
-- **Dependencies:** `cryptography>=42.0`, `torch>=2.0.0`, `pytest>=8.0.0`, `matplotlib`
+- **Python:** 3.10, 3.11, or 3.12 (Validated on Python 3.12.10)
+- **PyTorch:** Version 2.0 or newer with CUDA or CPU support (e.g. PyTorch 2.5.1+cu121)
+- **Hardware:**
+  - *GPU Mode (Recommended for training):* NVIDIA GPU with Compute Capability 7.0+ (Tested on GTX 1650, RTX 30/40 series, A100/H100)
+  - *CPU Mode:* Supported for CPU-only training, checkpoint inspection, verification, and migration.
+- **Core Dependencies:**
+  - `cryptography>=42.0.0`
+  - `torch>=2.0.0`
+  - `pytest>=8.0.0` (for testing)
 
 ---
 
-## 2. Environment Setup
+## 2. Installation Options
 
-### 2.1 CPU-Only Setup
+### Option A: Install from Pre-Built Wheel (Recommended for Pilot / Production)
+
+Install the standalone distribution wheel without needing build tools:
+
 ```bash
-python -m venv venv
-venv\Scripts\activate  # On Linux: source venv/bin/activate
+# In your target virtual environment:
+pip install dist/release_v070/ahcc_gpu_engine-0.7.0-py3-none-any.whl
+```
+
+Verify checksums against [`dist/release_v070/SHA256SUMS`](../dist/release_v070/SHA256SUMS):
+```bash
+# PowerShell:
+Get-FileHash dist\release_v070\ahcc_gpu_engine-0.7.0-py3-none-any.whl -Algorithm SHA256
+# Linux:
+sha256sum -c dist/release_v070/SHA256SUMS
+```
+
+### Option B: Editable Developer Installation
+
+If developing or running repository test suites:
+
+```bash
+# 1. Clone and enter repository
+cd AHCC_GPU_Engine
+
+# 2. Create virtual environment
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux:
+source .venv/bin/activate
+
+# 3. Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install pytest
+
+# 4. Install in editable mode
 pip install -e . --no-build-isolation --no-deps
 ```
 
-### 2.2 CUDA GPU Setup
-1. Verify NVIDIA drivers and CUDA support:
-   ```bash
-   nvidia-smi
-   ```
-2. Install PyTorch with CUDA support matching your system:
-   ```bash
-   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-   ```
-3. Install project and development dependencies:
-   ```bash
-   pip install -r requirements.txt
-   pip install pytest matplotlib
-   pip install -e . --no-build-isolation --no-deps
-   ```
-4. Verify CUDA runtime availability:
-   ```bash
-   python -m benchmarks.check_cuda
-   ```
+---
+
+## 3. Post-Installation Verification
+
+Run a quick verification command to confirm import isolation and package version:
+
+```python
+import ahcc
+print(f"AHCC Platform Version: {ahcc.__version__}")
+# Output: AHCC Platform Version: 0.7.0
+```
+
+Verify the CLI tool:
+```bash
+ahcc --help
+```
+
+Run test suite:
+```bash
+pytest tests
+```

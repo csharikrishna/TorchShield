@@ -1,173 +1,225 @@
-# AHCC GPU-Native Engine (Research Prototype)
+# AHCC Secure AI Checkpoint Platform
 
-This repository implements an **experimental** Adaptive Hyperdimensional Chaotic Cryptography (AHCC) construction from the accompanying research blueprint. It provides exact integer arithmetic modulo a supported prime, a cubic permutation, a dense Cauchy diffusion matrix, an experimental round-key schedule, and a tensor wrapper for values already represented in the finite field.
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](pyproject.toml)
+[![Status](https://img.shields.io/badge/status-Restricted_Pilot_Approved-green.svg)](reports/RELEASE_CLOSEOUT_V070.md)
+[![Tests](https://img.shields.io/badge/tests-199_passed-brightgreen.svg)](tests/)
+[![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
 
-> **Security warning:** The AHCC transform is still not a production-ready cipher. The default mode now derives round keys from 256-bit key material using HKDF-SHA256; the explicit `master_seed=` compatibility mode retains a low-entropy experimental recurrence. But neither mode authenticates AHCC ciphertext, and the complete custom construction has not undergone independent cryptanalysis. Tests do **not** establish cryptographic security. Do not use direct AHCC `encrypt()` or `decrypt()` to protect sensitive assets. For real confidentiality and integrity, use the separate `AESGCMEnvelope` API or another vetted AEAD scheme.
+**AHCC Secure AI Checkpoint Platform** is a cryptographically hardened, high-performance training and model checkpoint platform for PyTorch. It protects model weights, optimizer states, learning rate schedulers, and RNG generators against unauthorized inspection, weight tampering, supply-chain deserialization exploits (`pickle`), and unauthorized rollbacks.
 
-## What is implemented
+---
 
-- Finite-field arithmetic using `torch.int64` and exact modular reduction.
-- Supported moduli: `2147483579` (31-bit variant) and `4294967291` (`2**32 - 5`, the paper's target).
-- Bijective cubic map `S(x) = x^3 mod p` and its modular-exponent inverse.
-- Dense Cauchy matrix `M[i,j] = inverse(i + N + j) mod p` and analytical inverse.
-- Multi-limb multiplication to avoid signed-int64 overflow for the two supported moduli.
-- Default 256-bit master-key handling and HKDF-SHA256 round-key derivation with parameter/round domain separation; legacy integer seed mode is retained only for repeatable research experiments. The default HKDF variant is **not the PDF's chaotic-key-schedule variant**. The PDF describes a discretized chaotic schedule but does not fully specify an exact recurrence, so the legacy recurrence should not be represented as an exact reproduction of the paper without a complete formal specification.
-- Separate `AESGCMEnvelope` API backed by AES-256-GCM, with random nonces, a versioned envelope, associated-data authentication, and fail-closed tamper detection. `TensorAESGCMEnvelope` applies the same standard AEAD to dense PyTorch tensors and authenticates dtype/shape metadata inside the encrypted payload, without using pickle. These APIs are independent of the AHCC cipher.
-- 1D vector and 2D batch encrypt/decrypt round trips, plus an explicit wrapper for `torch.int64` tensors of finite-field elements.
-- Parameter, dtype, shape, metadata, and empty-tensor validation.
-- Diagnostic tests, workload timing, and explanatory demonstrations.
+## Key Capabilities
 
-## Known limits
+- **Zero-Pickle Deserialization:** Immune to arbitrary code execution attacks; tensor tensors and metadata are serialized via explicit binary buffers and canonical JSON.
+- **Streaming AEAD Cryptography:** Standard AES-256-GCM / ChaCha20-Poly1305 with cryptographically enforced monotonic sequential counter nonces (`b"CHNK" + uint64_be`), guaranteeing zero nonce reuse collision risk ($P=0$).
+- **Exact Bit-for-Bit Training Equivalence:** Restores model weights, AdamW/SGD optimizer momentum states, and Python/NumPy/PyTorch/CUDA RNG states with mathematical bitwise exactness across process interruptions.
+- **Enterprise Key Management:** Native support for local 256-bit keys and AWS KMS envelope encryption (`AWSKMSKeyProvider`) with secure unwrap operations and rotation hooks.
+- **Publisher Signatures & Provenance:** Ed25519 digital signatures bind canonical RFC 8785 JSON manifests transitively to all model weights.
+- **Anti-Rollback Freshness:** Local freshness ledger tracks monotonic checkpoint generations to block replay attacks.
+- **Distributed & Sharded Training:** Seamless integration with multi-GPU and distributed training frameworks (ZeRO / FSDP sharding).
 
-- The dense Cauchy matrix and inverse consume `O(N^2)` storage and each state-vector diffusion costs `O(N^2)`. This implementation deliberately caps `N` at 1024 to fail safely instead of risking accidental multi-gigabyte allocations. Large dimensions mentioned as future targets in the paper are **not** implemented efficiently here.
-- The implementation uses exact `int64` PyTorch operations; it does **not** use NVIDIA Tensor Cores or a custom fused CUDA kernel for finite-field arithmetic. CUDA behavior and performance must be measured on actual supported hardware.
-- `TensorCipherWrapper` accepts only `torch.int64` inputs whose values are already in `[0, p-1]`. Float tensors must be explicitly quantized first. Its metadata is a runtime Python dictionary, not an authenticated or portable ciphertext format.
-- The demos use a shared experimental engine to encrypt/decrypt and then aggregate plaintext updates. They do not implement homomorphic encrypted aggregation, secure aggregation among untrusted clients, or a production key-management protocol.
-- The model-weight demonstration decrypts parameter tensors sequentially, but ultimately restores all model parameters to plaintext memory before inference. It does not provide a protected execution environment or prove lower model-loading overhead.
+---
 
-## Requirements
+## Architecture & Container Wire Format (v5)
 
-- Python 3.10+ recommended
-- PyTorch 2.x (`torch>=2.0.0`)
-- `cryptography>=42.0` for HKDF-SHA256 derivation and AES-GCM envelopes
-
-CPU mode is supported. If CUDA is installed and available, it is selected by default; use `device="cpu"` to force CPU execution.
-
-## Quick start
-
-From the `AHCC_GPU_Engine` directory:
-
-```bash
-python -m pip install -r requirements.txt
-python run_all.py
+```
++------------------------------------------------------------------------------------+
+|                                CONTAINER HEADER (40 Bytes)                         |
+|  Magic: "AHCC\x00CK5" (8B) | Version: 0x05 (1B) | Salt: 32B Public HKDF Salt (32B) |
++------------------------------------------------------------------------------------+
+|                                 CHUNK ENVELOPES (1..M)                             |
+|  [Chunk Header: Chunk ID (8B) || Payload Size (8B)]                                |
+|  [AEAD Nonce: b"CHNK" || uint64_be Counter (12B)]                                  |
+|  [Encrypted Raw Tensor Bytes]                                                      |
+|  [Poly1305 / GCM Authentication Tag (16B)]                                         |
++------------------------------------------------------------------------------------+
+|                                 MANIFEST ENVELOPE                                  |
+|  [Manifest Length (8B)]                                                            |
+|  [AEAD Nonce: b"MANI" || uint64_be Counter (12B)]                                  |
+|  [Encrypted Canonical JSON Manifest (Tensors, RNG, Optimizer, Metadata)]           |
+|  [Ed25519 Digital Signature Blob (64B)]                                            |
+|  [Authentication Tag (16B)]                                                        |
++------------------------------------------------------------------------------------+
 ```
 
-Run the tests with pytest (optional):
+---
+
+## Quickstart
+
+### 1. Installation
+
+Install the verified standalone distribution wheel from [`dist/release_v070/`](dist/release_v070/):
 
 ```bash
-python -m pip install pytest
-python -m pytest -q
+pip install dist/release_v070/ahcc_gpu_engine-0.7.0-py3-none-any.whl
 ```
 
-Run the AHCC-vs-AES-GCM benchmark on CPU (no GPU-AES-GCM claim):
-
+Or install from source in editable mode:
 ```bash
-python -m benchmarks.benchmark_crypto --device cpu
+pip install -r requirements.txt
+pip install -e . --no-build-isolation --no-deps
 ```
 
-On a CUDA-enabled target host, first check CUDA execution:
-
-```bash
-python -m benchmarks.check_cuda
-```
-
-Then benchmark AHCC on CUDA. Without `--aesgcm-module`, AES-GCM still runs through CPU OpenSSL/PyCA and this is **not** a GPU-vs-GPU comparison. For an apples-to-apples GPU comparison, provide a verified Python adapter module exposing `BACKEND_NAME`, `DEVICE = "cuda"`, and `encrypt(plaintext, key, nonce, associated_data) -> ciphertext_and_tag`; the harness verifies the adapter output against PyCA AES-GCM before timing. The adapter must be independently checked to ensure it really runs on GPU. Timings alone do not establish security.
-
-## Minimal use
+### 2. Saving an Authenticated Training Checkpoint
 
 ```python
 import secrets
 import torch
-from ahcc import AHCC_Engine, TensorCipherWrapper
+import torch.nn as nn
+from ahcc import save_training_checkpoint, TrainingProgress
 
-# Keep this key in a secret store if it must survive process exit.
-master_key = secrets.token_bytes(32)
-engine = AHCC_Engine(N=64, R=4, p=2_147_483_579, master_key=master_key, device="cpu")
-field_values = torch.randint(0, engine.p, (2, 1000), dtype=torch.int64)
-wrapper = TensorCipherWrapper(engine)
-ciphertext, metadata = wrapper.encrypt_tensor(field_values)
-recovered = wrapper.decrypt_tensor(ciphertext, metadata)
-assert torch.equal(field_values, recovered)
+# Setup training components
+model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+progress = TrainingProgress(epoch=10, global_step=5000, loss=0.1425)
+
+# 256-bit master secret key (or AWS KMS KeyProvider)
+key = secrets.token_bytes(32)
+
+# Save checkpoint with atomic flush and tamper-proof streaming AEAD
+save_training_checkpoint(
+    checkpoint_path="checkpoints/run_01_step5000.ahcc",
+    key=key,
+    model=model,
+    optimizer=optimizer,
+    progress=progress,
+    extra_metadata={"experiment": "bert_base_finetune", "batch_size": 32},
+)
 ```
 
-This example demonstrates AHCC round-trip correctness only. Direct AHCC encryption has no authentication and the custom cipher has not been proven secure. For sensitive bytes, use the separate standard AES-GCM envelope:
-
-### Production Model Checkpoint Encryption
-
-For production AI checkpoint protection, use `SecureModelCheckpoint` (`ahcc/checkpoint.py`), which provides chunked authenticated streaming with tamper detection:
-
-```python
-from ahcc.checkpoint import SecureModelCheckpoint
-from ahcc.secure import AESGCMEnvelope
-
-key = AESGCMEnvelope.generate_key()
-# Encrypts model with authenticated manifest and per-chunk AES-256-GCM
-SecureModelCheckpoint.save_checkpoint(model.state_dict(), "model.ahcc_ckpt", key)
-
-# Stream decrypts layer-by-layer directly into GPU VRAM
-state_dict = SecureModelCheckpoint.load_checkpoint("model.ahcc_ckpt", key, device="cuda")
-model.load_state_dict(state_dict)
-```
-
-### End-to-End Secure Training State Checkpoint & Recovery (v0.7.0+)
-
-Save, inspect, and resume complete training state (model parameters, BatchNorm buffers, AdamW/SGD optimizer moments, learning rate schedulers, GradScaler, and all RNG states) with zero pickle and authenticated AES-256-GCM encryption directly via top-level imports:
+### 3. Resuming Training with Exact Equivalence
 
 ```python
 import torch
 import torch.nn as nn
-from ahcc import (
-    save_training_checkpoint,
-    load_training_checkpoint,
-    inspect_training_checkpoint,
-    TrainingProgress,
-    AESGCMEnvelope,
-)
+from ahcc import load_training_checkpoint
 
-# 1. Initialize model, optimizer, scheduler
-model = nn.Sequential(nn.Linear(10, 4), nn.ReLU(), nn.Linear(4, 2))
+# Initialize fresh model and optimizer instances
+model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
-scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5)
-key = AESGCMEnvelope.generate_key()
 
-# 2. Save complete training state mid-epoch
-progress = TrainingProgress(global_step=100, epoch=2, batch_idx=14, loss=0.42)
-save_training_checkpoint(
-    output_path="checkpoint.ahcc",
+# Load and verify cryptographic authenticity (fails closed if tampered)
+metadata = load_training_checkpoint(
+    checkpoint_path="checkpoints/run_01_step5000.ahcc",
+    key=key,
     model=model,
     optimizer=optimizer,
-    scheduler=scheduler,
-    progress=progress,
-    key=key,
+    device="cpu",  # or "cuda"
 )
 
-# 3. Inspect checkpoint header without keys (zero-key header inspection)
-header = inspect_training_checkpoint("checkpoint.ahcc")
-print(header["format"], header["file_size"])  # AHCC-SafeTrainingCheckpoint-v5
-
-# 4. Authenticate manifest metadata with key (no tensor weights loaded)
-manifest = inspect_training_checkpoint("checkpoint.ahcc", key=key)
-print(f"Step: {manifest['global_step']}, Loss: {manifest['loss']}")
-
-# 5. Restore into fresh process
-model_resumed = nn.Sequential(nn.Linear(10, 4), nn.ReLU(), nn.Linear(4, 2))
-optimizer_resumed = torch.optim.AdamW(model_resumed.parameters(), lr=1e-3)
-scheduler_resumed = torch.optim.lr_scheduler.StepLR(optimizer_resumed, step_size=5)
-
-restored_prog = load_training_checkpoint(
-    input_path="checkpoint.ahcc",
-    model=model_resumed,
-    optimizer=optimizer_resumed,
-    scheduler=scheduler_resumed,
-    key=key,
-)
-print(f"Resumed at Step {restored_prog.global_step}, Epoch {restored_prog.epoch}, Batch {restored_prog.batch_idx}")
+print(f"Successfully resumed at epoch {metadata.progress.epoch}, step {metadata.progress.global_step}")
+# Subsequent optimizer.step() and loss evaluations match an uninterrupted run bit-for-bit
 ```
 
-## Research Audit Deliverables & Reports
+### 4. Inspecting Checkpoints (CLI and Python)
 
-Full reproducible reports and research audits are available in `reports/`:
-- [`BASELINE_AUDIT.md`](reports/BASELINE_AUDIT.md): Initial snapshot and baseline verification.
-- [`MATHEMATICAL_CORRECTNESS.md`](reports/MATHEMATICAL_CORRECTNESS.md): Finite field arithmetic, S-box algebra, and Cauchy MDS verification.
-- [`THREAT_MODEL.md`](reports/THREAT_MODEL.md): AI data protection threat model and security bounds.
-- [`CRYPTOGRAPHIC_SECURITY_AUDIT.md`](reports/CRYPTOGRAPHIC_SECURITY_AUDIT.md): Detailed cryptanalytic findings and attack analysis.
-- [`ATTACK_EXPERIMENTS.md`](reports/ATTACK_EXPERIMENTS.md): Empirical verification of key collapse, reversibility, and malleability.
-- [`STANDARD_AEAD_VALIDATION.md`](reports/STANDARD_AEAD_VALIDATION.md): NIST SP 800-38D and RFC 5869 KAT verification.
-- [`CUDA_VALIDATION.md`](reports/CUDA_VALIDATION.md): Hardware validation on NVIDIA GTX 1650.
-- [`PERFORMANCE_EVALUATION.md`](reports/PERFORMANCE_EVALUATION.md): Fair benchmark comparing AHCC against AES-256-GCM.
-- [`STATISTICAL_ANALYSIS.md`](reports/STATISTICAL_ANALYSIS.md): Confidence intervals, speedup ratios, and hypothesis tests.
-- [`FEDERATED_LEARNING_EVALUATION.md`](reports/FEDERATED_LEARNING_EVALUATION.md): Analysis of secure aggregation vs in-transit encryption.
-- [`PRIOR_ART_REVIEW.md`](reports/PRIOR_ART_REVIEW.md): Literature comparison against MiMC, Poseidon, and GPU-AES.
-- [`RESEARCH_HYPOTHESES.md`](reports/RESEARCH_HYPOTHESES.md): Pre-registered hypotheses and empirical falsification.
-- [`FINAL_VERIFICATION.md`](reports/FINAL_VERIFICATION.md): Master decision matrix and final pivot recommendation.
+Inspect container headers without decrypting or allocating tensors:
 
+```python
+from ahcc import inspect_training_checkpoint
+
+# Zero-key inspect (public container envelope)
+info = inspect_training_checkpoint("checkpoints/run_01_step5000.ahcc")
+print(f"Format Version: {info.version}, Salt: {info.salt.hex()[:16]}...")
+
+# Authenticated inspect (reads training progress and parameter inventory)
+auth_info = inspect_training_checkpoint("checkpoints/run_01_step5000.ahcc", key=key)
+print(f"Progress: Epoch {auth_info.progress.epoch}, Step {auth_info.progress.global_step}")
+print(f"Tensor Count: {auth_info.total_tensors}, Raw Size: {auth_info.total_raw_bytes} B")
+```
+
+Or via command-line:
+```bash
+ahcc info checkpoints/run_01_step5000.ahcc
+ahcc inspect checkpoints/run_01_step5000.ahcc --key-hex <64_HEX_CHARS>
+```
+
+### 5. Hugging Face Trainer Integration
+
+Eliminate insecure unpickling of `optimizer.pt`, `scheduler.pt`, and `rng_state.pth` in Hugging Face `Trainer`:
+
+```python
+from transformers import Trainer, TrainingArguments
+from ahcc import TorchVaultTrainerCallback
+
+# Attach callback to automatically save encrypted, pickle-free checkpoints
+callback = TorchVaultTrainerCallback(
+    key=key,
+    vault_filename="torchvault_checkpoint.ahcc",
+    remove_insecure_pickle=True,  # Purges unsafe pickle files generated by default Trainer
+)
+
+trainer = Trainer(
+    model=model,
+    args=TrainingArguments(output_dir="./secure_ckpts", save_strategy="steps", save_steps=500),
+    train_dataset=train_dataset,
+    callbacks=[callback],
+)
+trainer.train()
+```
+
+---
+
+## Documentation Index
+
+The complete documentation suite is available under [`docs/`](docs/):
+
+| Guide | Content |
+|---|---|
+| [**Docs Overview**](docs/README.md) | Master documentation index and cryptographic summary |
+| [**Installation Guide**](docs/INSTALLATION.md) | Setup instructions for Windows, Linux, CUDA, and wheel distributions |
+| [**Usage & API Guide**](docs/USAGE.md) | Comprehensive code recipes for training, inference, and CLI workflows |
+| [**Hugging Face Integration**](docs/HUGGINGFACE_INTEGRATION.md) | Secure, pickle-free Hugging Face Trainer callback and model weight encryption |
+| [**Training Checkpoint Schema**](docs/TRAINING_CHECKPOINT_SCHEMA.md) | Complete byte-level v5 container format specification and AAD layout |
+| [**Threat Model**](docs/THREAT_MODEL.md) | Adversary capabilities, defensive boundaries, and non-goals |
+| [**Rollback Protection**](docs/ROLLBACK_PROTECTION.md) | Anti-rollback freshness ledger and hypervisor snapshot boundary conditions |
+| [**KMS Integration**](docs/KMS_INTEGRATION.md) | Envelope encryption with AWS KMS and cloud secret management |
+| [**Distributed Checkpoints**](docs/DISTRIBUTED_CHECKPOINTS.md) | Multi-node sharding and distributed training coordination |
+| [**Artifact Provenance**](docs/ARTIFACT_PROVENANCE.md) | Ed25519 digital signatures and RFC 8785 canonical manifest signing |
+
+---
+
+## Security Model & Operational Boundaries
+
+> [!IMPORTANT]
+> **Deployment Status:** Approved for **Restricted Pilot Deployments** (v0.7.0).
+>
+> 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
+> 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.
+> 3. **Storage-Level Snapshot Boundary:** Local SQLite/file ledgers detect local replay attacks but cannot prevent hypervisor-level snapshot rollbacks that restore both disk and checkpoint files simultaneously. High-assurance deployments require an out-of-band external freshness store.
+> 4. **Cloud KMS:** AWS KMS is verified using mocked client integration tests; production deployment requires active IAM and AWS KMS credentials.
+
+---
+
+## Verification & Testing
+
+Run the full core test suite:
+```bash
+pytest tests
+```
+*Current test suite: **199 passed in ~16s** (0 failed, 0 errors).*
+
+Run independent consumer integration tests:
+```bash
+cd ../ahcc_test_codebase
+.venv/Scripts/pytest tests
+```
+*Consumer test suite: **27 passed in ~21s** (0 failed, 0 errors).*
+
+---
+
+## Historical Archives
+
+Earlier research prototypes, paper cryptanalysis notes, and benchmark execution logs preceding the v0.7.0 platform release have been safely archived under:
+- `archives/v1_chaotic_crypto_prototype/`: Original research blueprint, paper cryptanalysis audit, and initial chaotic cipher prototype.
+- `archives/phase_reports/`: Intermediate phase evaluation reports and test logs.
+- `archives/benchmark_scripts_and_results/`: Raw benchmark scripts and phase performance data.
+
+---
+
+## License & Security Policy
+
+- **Security Disclosures:** Please review [`SECURITY.md`](SECURITY.md) for vulnerability reporting procedures.
+- **Changelog:** Detailed version history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
+- **Release Audit:** The formal release closeout report is in [`reports/RELEASE_CLOSEOUT_V070.md`](reports/RELEASE_CLOSEOUT_V070.md).

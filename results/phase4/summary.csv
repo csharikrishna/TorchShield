@@ -1,3 +1,0 @@
-Model,Size_MiB,Plaintext_Median_ms,Phase4_Load_Median_ms,TimeToFirstInf_Median_ms,ChunkDecrypt_ms,DeviceTransfer_ms
-ConvNet_4.5MB,9.44,6.47,49.94,51.48,14.27,3.03
-Transformer_16.8MB,25.09,24.84,131.54,138.06,30.41,12.34

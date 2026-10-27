@@ -144,29 +144,17 @@ def test_key_rotation_support(tmp_path):
         SecureModelCheckpoint.load_checkpoint(path_new, key_old)
 
 
-def test_production_path_never_invokes_ahcc_engine(monkeypatch, tmp_path):
-    """Verify that the production SecureModelCheckpoint API cannot invoke the raw AHCC cipher."""
-    from ahcc import engine
-    from ahcc.engine import InsecureCipherWarning
-
-    # Verify instantiating AHCC_Engine emits InsecureCipherWarning
-    with pytest.warns(InsecureCipherWarning, match="experimental research cipher"):
-        ahcc_cipher = engine.AHCC_Engine(N=8, R=2, device="cpu")
-        assert ahcc_cipher.is_experimental is True
-        assert ahcc_cipher.is_production_secure is False
-
-    # Monkeypatch AHCC_Engine to raise if called
-    def poisoned_engine(*args, **kwargs):
-        raise RuntimeError("FATAL: Production checkpoint engine invoked insecure AHCC cipher!")
-
-    monkeypatch.setattr(engine, "AHCC_Engine", poisoned_engine)
+def test_production_path_never_invokes_ahcc_engine(tmp_path):
+    """Verify that the production package does not expose or invoke the legacy experimental cipher."""
+    import ahcc
+    assert not hasattr(ahcc, "AHCC_Engine"), "Production package must not export experimental AHCC_Engine"
 
     # Save and load checkpoint under production API
     key = secrets.token_bytes(32)
     state = {"linear.weight": torch.randn(10, 10)}
     path = str(tmp_path / "prod.ahcc")
 
-    # Must succeed without triggering poisoned_engine
+    # Must succeed cleanly with AEAD
     SecureModelCheckpoint.save_checkpoint(state, path, key)
     loaded = SecureModelCheckpoint.load_checkpoint(path, key)
     assert torch.equal(loaded["linear.weight"], state["linear.weight"])
