@@ -15,8 +15,8 @@ import struct
 import pytest
 import torch
 
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 def test_key_length_and_type_validation():
@@ -122,8 +122,8 @@ def test_key_rotation_support(tmp_path):
         "encoder.bias": torch.randn(16),
     }
 
-    path_old = str(tmp_path / "checkpoint_old.ahcc")
-    path_new = str(tmp_path / "checkpoint_new.ahcc")
+    path_old = str(tmp_path / "checkpoint_old.shield")
+    path_new = str(tmp_path / "checkpoint_new.shield")
 
     SecureModelCheckpoint.save_checkpoint(state_dict, path_old, key_old, key_id="v1-key-2026")
     loaded = SecureModelCheckpoint.load_checkpoint(path_old, key_old)
@@ -144,15 +144,15 @@ def test_key_rotation_support(tmp_path):
         SecureModelCheckpoint.load_checkpoint(path_new, key_old)
 
 
-def test_production_path_never_invokes_ahcc_engine(tmp_path):
+def test_production_path_never_invokes_torchshield_engine(tmp_path):
     """Verify that the production package does not expose or invoke the legacy experimental cipher."""
-    import ahcc
-    assert not hasattr(ahcc, "AHCC_Engine"), "Production package must not export experimental AHCC_Engine"
+    import torchshield
+    assert not hasattr(torchshield, "TorchShield_Engine"), "Production package must not export experimental TorchShield_Engine"
 
     # Save and load checkpoint under production API
     key = secrets.token_bytes(32)
     state = {"linear.weight": torch.randn(10, 10)}
-    path = str(tmp_path / "prod.ahcc")
+    path = str(tmp_path / "prod.shield")
 
     # Must succeed cleanly with AEAD
     SecureModelCheckpoint.save_checkpoint(state, path, key)

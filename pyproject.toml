@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ahcc-gpu-engine"
+name = "torchshield"
 version = "0.7.0"
-description = "Production-hardened authenticated AI checkpoint, training state, and distributed streaming platform"
+description = "Production-hardened authenticated AI checkpoint, zero-pickle training state, and distributed streaming platform for PyTorch and Hugging Face"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["torch>=2.0.0", "cryptography>=42.0", "numpy>=1.24.0"]
@@ -15,11 +15,9 @@ test = ["pytest>=7.0"]
 aws = ["boto3>=1.28.0"]
 
 [project.scripts]
-ahcc = "ahcc.cli:main"
-
-[tool.setuptools]
-py-modules = ["run_all"]
+torchshield = "torchshield.cli:main"
+torchshield-cli = "torchshield.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ahcc*", "tests*", "benchmarks*", "demos*"]
+include = ["torchshield*"]

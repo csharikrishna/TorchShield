@@ -31,16 +31,16 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     TrainingProgress,
     TrainingStateError,
 )
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.distributed import save_sharded_checkpoint, load_sharded_checkpoint, build_global_inventory, DistributedCheckpointError
-from ahcc.key_providers.local import LocalDevKeyProvider
-from ahcc.provenance import Ed25519Signer
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.distributed import save_sharded_checkpoint, load_sharded_checkpoint, build_global_inventory, DistributedCheckpointError
+from torchshield.key_providers.local import LocalDevKeyProvider
+from torchshield.provenance import Ed25519Signer
 
 
 class ComprehensiveTestModel(nn.Module):
@@ -119,8 +119,8 @@ def test_multi_seed_and_consecutive_restart_bit_for_bit_equivalence(seed: int):
     run_b_preds = []
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path_1 = os.path.join(tmp_dir, "ckpt_step_10.ahcc")
-        ckpt_path_2 = os.path.join(tmp_dir, "ckpt_step_20.ahcc")
+        ckpt_path_1 = os.path.join(tmp_dir, "ckpt_step_10.shield")
+        ckpt_path_2 = os.path.join(tmp_dir, "ckpt_step_20.shield")
         key = os.urandom(32)
         signer = Ed25519Signer()
 
@@ -279,7 +279,7 @@ def test_multi_seed_and_consecutive_restart_bit_for_bit_equivalence(seed: int):
 def test_recovery_fail_closed_on_corrupt_manifest():
     """Verify that any modification to encrypted manifest fails closed."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "test.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "test.shield")
         model = ComprehensiveTestModel()
         key = os.urandom(32)
 
@@ -300,7 +300,7 @@ def test_recovery_fail_closed_on_corrupt_manifest():
 def test_recovery_fail_closed_on_corrupt_ciphertext_chunk():
     """Verify that tampering with any chunk ciphertext fails closed."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "test.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "test.shield")
         model = ComprehensiveTestModel()
         key = os.urandom(32)
 
@@ -321,7 +321,7 @@ def test_recovery_fail_closed_on_corrupt_ciphertext_chunk():
 def test_recovery_fail_closed_on_truncated_checkpoint():
     """Verify that truncated / interrupted checkpoint file fails closed."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "test.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "test.shield")
         model = ComprehensiveTestModel()
         key = os.urandom(32)
 
@@ -344,7 +344,7 @@ def test_recovery_fail_closed_on_truncated_checkpoint():
 def test_recovery_fail_closed_on_invalid_key():
     """Verify that loading with the wrong key fails closed without leaking state."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "test.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "test.shield")
         model = ComprehensiveTestModel()
         key = os.urandom(32)
         wrong_key = os.urandom(32)
@@ -358,7 +358,7 @@ def test_recovery_fail_closed_on_invalid_key():
 
 def test_recovery_fail_closed_on_missing_distributed_shard():
     """Verify that distributed checkpoint loading fails closed if any shard is missing."""
-    from ahcc.distributed import build_global_inventory
+    from torchshield.distributed import build_global_inventory
     with tempfile.TemporaryDirectory() as tmp_dir:
         ckpt_dir = os.path.join(tmp_dir, "dist_ckpt")
         key = os.urandom(32)
@@ -383,7 +383,7 @@ def test_recovery_fail_closed_on_missing_distributed_shard():
         )
 
         # Delete shard 2
-        shard_2 = os.path.join(ckpt_dir, "shard_00002_of_00004.ahcc")
+        shard_2 = os.path.join(ckpt_dir, "shard_00002_of_00004.shield")
         assert os.path.exists(shard_2)
         os.remove(shard_2)
 
@@ -453,7 +453,7 @@ def test_mixed_precision_grad_scaler_recovery_bit_for_bit_equivalence():
     run_b_preds = []
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "scaler_ckpt.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "scaler_ckpt.shield")
         key = os.urandom(32)
 
         for step in range(RESUME_STEP):
@@ -535,7 +535,7 @@ def test_mixed_precision_grad_scaler_recovery_bit_for_bit_equivalence():
 def test_distributed_global_inventory_enospc_failure_fails_closed():
     """Verify that simulated ENOSPC disk-full during build_global_inventory fails closed atomically."""
     from unittest import mock
-    from ahcc.distributed import verify_sharded_checkpoint
+    from torchshield.distributed import verify_sharded_checkpoint
     world_size = 2
     key = os.urandom(32)
 

@@ -3,7 +3,7 @@
 Validates:
 - Public API contract from caller perspective without internal implementation knowledge.
 - In-place model state loading and deterministic inference equivalence.
-- Strict isolation: production checkpoint system never calls experimental AHCC cipher.
+- Strict isolation: production checkpoint system never calls experimental TorchShield cipher.
 - Rejection of malicious shapes, mismatched keys, and altered tensor names.
 - Complete rollback/fail-closed behavior: no partial state returned on decryption failure.
 - File handle closure and leak prevention on Windows.
@@ -17,8 +17,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
 
 
 class VerificationModel(nn.Module):
@@ -40,7 +40,7 @@ class VerificationModel(nn.Module):
 def test_public_api_happy_path_and_inference_equivalence(tmp_path):
     """Caller test: save and load model state dict, verify bitwise identical outputs."""
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
 
     torch.manual_seed(1234)
     model1 = VerificationModel().eval()
@@ -73,7 +73,7 @@ def test_wrong_key_fails_closed_without_partial_load(tmp_path):
     """Verify that providing an incorrect key immediately raises CheckpointError and loads nothing."""
     correct_key = secrets.token_bytes(32)
     wrong_key = secrets.token_bytes(32)
-    path = str(tmp_path / "protected.ahcc")
+    path = str(tmp_path / "protected.shield")
 
     model = VerificationModel().eval()
     SecureModelCheckpoint.save_checkpoint(model.state_dict(), path, correct_key)
@@ -91,11 +91,11 @@ def test_wrong_key_fails_closed_without_partial_load(tmp_path):
 def test_file_handle_closure_on_failure(tmp_path):
     """Verify that file handles are cleanly closed when loading fails, allowing deletion on Windows."""
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "corrupt.ahcc")
+    path = str(tmp_path / "corrupt.shield")
 
     # Write truncated file
     with open(path, "wb") as f:
-        f.write(b"AHCCMOD4\x04" + secrets.token_bytes(20))
+        f.write(b"TSHDMOD4\x04" + secrets.token_bytes(20))
 
     with pytest.raises(CheckpointError):
         SecureModelCheckpoint.load_checkpoint(path, key)
@@ -109,5 +109,5 @@ def test_file_handle_closure_on_failure(tmp_path):
 
 def test_pickle_is_not_imported_or_called_in_checkpoint_path():
     """Verify that pickle module is NOT used in SecureModelCheckpoint."""
-    import ahcc.checkpoint as ckpt_mod
+    import torchshield.checkpoint as ckpt_mod
     assert "pickle" not in ckpt_mod.__dict__, "pickle MUST NOT be used in SecureModelCheckpoint"

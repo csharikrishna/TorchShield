@@ -19,8 +19,8 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.provenance import Ed25519Signer, Ed25519Verifier, ProvenanceError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.provenance import Ed25519Signer, Ed25519Verifier, ProvenanceError
 
 
 def test_valid_ed25519_signature_and_transitive_integrity():
@@ -33,7 +33,7 @@ def test_valid_ed25519_signature_and_transitive_integrity():
     }
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "signed.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "signed.shield")
         SecureModelCheckpoint.save_checkpoint(
             state_dict=state,
             output_path=ckpt_path,
@@ -87,7 +87,7 @@ def test_signature_rejection_on_wrong_publisher_public_key():
     state = {"layer": torch.randn(10, 10)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "pub_a.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "pub_a.shield")
         SecureModelCheckpoint.save_checkpoint(
             state_dict=state,
             output_path=ckpt_path,
@@ -112,8 +112,8 @@ def test_signature_substitution_across_artifacts_rejected():
     s2 = {"w": torch.zeros(10, 10)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        p1 = os.path.join(tmp_dir, "art1.ahcc")
-        p2 = os.path.join(tmp_dir, "art2.ahcc")
+        p1 = os.path.join(tmp_dir, "art1.shield")
+        p2 = os.path.join(tmp_dir, "art2.shield")
 
         SecureModelCheckpoint.save_checkpoint(s1, p1, key=key, signer_private_key=signer.private_bytes, format_version=SecureModelCheckpoint.VERSION_V5)
         SecureModelCheckpoint.save_checkpoint(s2, p2, key=key, signer_private_key=signer.private_bytes, format_version=SecureModelCheckpoint.VERSION_V5)
@@ -132,7 +132,7 @@ def test_signature_substitution_across_artifacts_rejected():
             data = bytearray(f.read())
         # Tamper byte in container header/manifest region
         data[80] ^= 0xFF
-        p_tampered = os.path.join(tmp_dir, "tampered.ahcc")
+        p_tampered = os.path.join(tmp_dir, "tampered.shield")
         with open(p_tampered, "wb") as f:
             f.write(data)
 
@@ -151,7 +151,7 @@ def test_missing_signature_rejected_under_strict_policy():
     state = {"w": torch.randn(5, 5)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        unsigned_ckpt = os.path.join(tmp_dir, "unsigned.ahcc")
+        unsigned_ckpt = os.path.join(tmp_dir, "unsigned.shield")
         SecureModelCheckpoint.save_checkpoint(
             state_dict=state,
             output_path=unsigned_ckpt,
@@ -191,7 +191,7 @@ def test_publisher_key_rotation_and_trust_store():
 
     state = {"w": torch.randn(8, 8)}
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "rotated.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "rotated.shield")
         SecureModelCheckpoint.save_checkpoint(
             state_dict=state,
             output_path=ckpt_path,

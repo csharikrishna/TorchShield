@@ -17,13 +17,13 @@ import pytest
 import torch
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     _ChunkCryptoSession,
     ResourceLimits,
 )
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
 
 
 def test_hkdf_domain_separation_manifest_vs_chunk():
@@ -118,8 +118,8 @@ def test_repeated_saves_generate_unique_salts_and_artifact_ids(tmp_path):
     master_key = secrets.token_bytes(32)
     state = {"w": torch.randn(32, 32)}
 
-    p1 = str(tmp_path / "save1.ahcc")
-    p2 = str(tmp_path / "save2.ahcc")
+    p1 = str(tmp_path / "save1.shield")
+    p2 = str(tmp_path / "save2.shield")
 
     SecureModelCheckpoint.save_checkpoint(state, p1, master_key)
     SecureModelCheckpoint.save_checkpoint(state, p2, master_key)
@@ -129,8 +129,8 @@ def test_repeated_saves_generate_unique_salts_and_artifact_ids(tmp_path):
         d2 = f2.read(8 + 1 + 32 + 1 + 16)
 
     # Magic & Version
-    assert d1[:9] == b"AHCCMOD4\x04"
-    assert d2[:9] == b"AHCCMOD4\x04"
+    assert d1[:9] == b"TSHDMOD4\x04"
+    assert d2[:9] == b"TSHDMOD4\x04"
 
     # Salts (32 bytes from offset 9 to 41) MUST be distinct
     salt1 = d1[9:41]
@@ -147,7 +147,7 @@ def test_multi_chunk_checkpoint_nonce_disjointness(tmp_path):
     """Verify that across all chunks in a multi-layer checkpoint, no two nonces ever collide."""
     master_key = secrets.token_bytes(32)
     state = {f"layer_{i}": torch.randn(256, 256) for i in range(4)}  # 4 * 256 KiB = 1 MiB
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
 
     # 64 KiB chunks -> 16 chunks total
     SecureModelCheckpoint.save_checkpoint(state, path, master_key, chunk_bytes=64 * 1024)
@@ -155,7 +155,7 @@ def test_multi_chunk_checkpoint_nonce_disjointness(tmp_path):
     # Inspect manifest and verify sequential chunk nonces
     with open(path, "rb") as f:
         magic = f.read(8)
-        assert magic == b"AHCCMOD4"
+        assert magic == b"TSHDMOD4"
         ver = f.read(1)[0]
         assert ver == 4
         salt = f.read(32)

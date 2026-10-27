@@ -1,4 +1,4 @@
-"""Command Line Interface for inspecting, verifying, and managing AHCC Secure Checkpoints.
+"""Command Line Interface for inspecting, verifying, and managing TorchShield Secure Checkpoints.
 
 Provides zero-key container header inspection, inventory verification,
 Ed25519 publisher provenance checking, and anti-rollback ledger auditing.
@@ -12,22 +12,22 @@ import struct
 import sys
 from typing import Optional
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.distributed import verify_sharded_checkpoint, DistributedCheckpointError
-from ahcc.provenance import Ed25519Verifier, FreshnessLedger, ProvenanceError, RollbackError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.distributed import verify_sharded_checkpoint, DistributedCheckpointError
+from torchshield.provenance import Ed25519Verifier, FreshnessLedger, ProvenanceError, RollbackError
 
 
 def cmd_version(args: argparse.Namespace) -> int:
     from importlib.metadata import version, PackageNotFoundError
     try:
-        pkg_ver = version("ahcc-gpu-engine")
+        pkg_ver = version("torchshield")
     except PackageNotFoundError:
         pkg_ver = "0.6.0-dev"
 
-    print(f"AHCC Secure Checkpoint Engine v{pkg_ver}")
+    print(f"TorchShield Secure Checkpoint Engine v{pkg_ver}")
     print("Supported Container Formats: Version 1, Version 2, Version 4 (Hardened), Version 5 (KMS+Provenance)")
     print("Default Authenticated Cipher: AES-256-GCM (NIST SP 800-38D) with RFC 5869 HKDF-SHA256")
-    print("Experimental Research Cipher: AHCC Invertible S-Box & Cauchy Diffusion (Quarantined)")
+    print("Experimental Research Cipher: TorchShield Invertible S-Box & Cauchy Diffusion (Quarantined)")
     return 0
 
 
@@ -52,7 +52,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             manifest_len = struct.unpack(">I", f.read(4))[0]
 
             print("================================================================================")
-            print(f"  AHCC Checkpoint Header Inspection: {os.path.basename(path)}")
+            print(f"  TorchShield Checkpoint Header Inspection: {os.path.basename(path)}")
             print("================================================================================")
             print(f"  Container Format:      Version 5 (Production KMS Envelope & Provenance)")
             print(f"  Magic Bytes:           {magic.decode('latin1', errors='replace')}")
@@ -76,7 +76,7 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             manifest_len = struct.unpack(">I", f.read(4))[0]
 
             print("================================================================================")
-            print(f"  AHCC Checkpoint Header Inspection: {os.path.basename(path)}")
+            print(f"  TorchShield Checkpoint Header Inspection: {os.path.basename(path)}")
             print("================================================================================")
             print(f"  Container Format:      Version 4 (Production Hardened)")
             print(f"  Magic Bytes:           {magic.decode('latin1', errors='replace')}")
@@ -89,13 +89,13 @@ def cmd_inspect(args: argparse.Namespace) -> int:
             return 0
 
         elif magic == SecureModelCheckpoint.MAGIC_V2:
-            print(f"AHCC Checkpoint: Legacy Version 2 Format ({file_size} bytes).")
+            print(f"TorchShield Checkpoint: Legacy Version 2 Format ({file_size} bytes).")
             return 0
         elif magic == SecureModelCheckpoint.MAGIC_V1:
-            print(f"AHCC Checkpoint: Legacy Version 1 Format ({file_size} bytes).")
+            print(f"TorchShield Checkpoint: Legacy Version 1 Format ({file_size} bytes).")
             return 0
         else:
-            print(f"Error: Unknown magic header: {magic!r}. Not an AHCC checkpoint.", file=sys.stderr)
+            print(f"Error: Unknown magic header: {magic!r}. Not an TorchShield checkpoint.", file=sys.stderr)
             return 1
 
 
@@ -143,17 +143,17 @@ def cmd_verify_distributed(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        prog="ahcc",
-        description="AHCC Secure AI Model Checkpoint Management and Auditing Tool",
+        prog="torchshield",
+        description="TorchShield Secure AI Model Checkpoint Management and Auditing Tool",
     )
     subparsers = parser.add_subparsers(dest="command")
 
     # version
-    subparsers.add_parser("version", help="Show AHCC version and supported formats")
+    subparsers.add_parser("version", help="Show TorchShield version and supported formats")
 
     # inspect
     inspect_parser = subparsers.add_parser("inspect", help="Inspect container header without keys")
-    inspect_parser.add_argument("checkpoint_path", help="Path to .ahcc checkpoint file")
+    inspect_parser.add_argument("checkpoint_path", help="Path to .shield checkpoint file")
 
     # verify-distributed
     dist_parser = subparsers.add_parser(

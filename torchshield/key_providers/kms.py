@@ -12,7 +12,7 @@ import logging
 import time
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from ahcc.key_providers.base import KeyProvider, KeyProviderError
+from torchshield.key_providers.base import KeyProvider, KeyProviderError
 
 logger = logging.getLogger(__name__)
 

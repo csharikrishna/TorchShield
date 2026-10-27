@@ -12,7 +12,7 @@ import os
 import secrets
 import pytest
 
-from ahcc.checkpoint import SecureModelCheckpoint
+from torchshield.checkpoint import SecureModelCheckpoint
 
 
 def test_v5_key_derivation_domain_separation():

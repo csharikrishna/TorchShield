@@ -15,14 +15,14 @@ from unittest import mock
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 def test_atomic_replacement_preserves_valid_checkpoint_on_save_error(tmp_path):
     """Verify that an interrupted or failing save never overwrites an existing valid checkpoint."""
     key = secrets.token_bytes(32)
     valid_state = {"weights": torch.ones(10, 10)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
 
     # 1. Save valid initial checkpoint
     SecureModelCheckpoint.save_checkpoint(valid_state, path, key)
@@ -46,7 +46,7 @@ def test_staging_cleanup_on_io_error(tmp_path):
     """Verify that if an IOError occurs during write, the temporary staging file is deleted."""
     key = secrets.token_bytes(32)
     state = {"weights": torch.randn(20, 20)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
 
     # Mock open or os.fsync to simulate unexpected disk write failure
     with mock.patch("os.fsync", side_effect=OSError("Disk full simulation")):
@@ -64,7 +64,7 @@ def test_load_truncated_checkpoint_fails_closed(tmp_path):
     """Verify that truncated files at any byte boundary fail closed with CheckpointError."""
     key = secrets.token_bytes(32)
     state = {"layer1": torch.randn(50, 50), "layer2": torch.randn(25, 25)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     data = open(path, "rb").read()
@@ -78,7 +78,7 @@ def test_load_truncated_checkpoint_fails_closed(tmp_path):
     # 5. Exactly 1 byte missing from the end
     cut_points = [4, 25, total_len // 2, total_len - 1]
     for cut in cut_points:
-        trunc_path = str(tmp_path / f"trunc_{cut}.ahcc")
+        trunc_path = str(tmp_path / f"trunc_{cut}.shield")
         with open(trunc_path, "wb") as f:
             f.write(data[:cut])
 

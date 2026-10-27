@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Usage & API Guide — TorchVault Documentation</title>
+  <title>Usage & API Guide — TorchShield Documentation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -45,7 +45,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <div class="flex items-baseline gap-2">
-            <span class="font-bold text-lg tracking-tight text-slate-900">TorchVault</span>
+            <span class="font-bold text-lg tracking-tight text-slate-900">TorchShield</span>
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
@@ -57,7 +57,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Back to Showcase
         </a>
-        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
+        <a href="https://github.com/csharpe/TorchShield" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
           <svg class="w-3.5 h-3.5 fill-slate-800" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
@@ -144,7 +144,7 @@
 
       <!-- Article Content -->
       <article class="prose-custom">
-        <h1 id="usage-guide-ahcc-secure-ai-checkpoint-platform">Usage Guide: AHCC Secure AI Checkpoint Platform</h1>
+        <h1 id="usage-guide-torchshield-secure-ai-checkpoint-platform">Usage Guide: TorchShield Secure AI Checkpoint Platform</h1>
 <p><strong>Document:</strong> <code>docs/USAGE.md</code><br />
 <strong>Platform Version:</strong> <code>0.7.0</code>  </p>
 <hr />
@@ -154,7 +154,7 @@
 <pre><code class="language-python">import secrets
 import torch
 import torch.nn as nn
-from ahcc import save_training_checkpoint, TrainingProgress
+from torchshield import save_training_checkpoint, TrainingProgress
 
 # 1. Initialize training state
 model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
@@ -166,7 +166,7 @@ master_key = secrets.token_bytes(32)
 
 # 3. Save checkpoint securely
 save_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/epoch_5.ahcc&quot;,
+    checkpoint_path=&quot;checkpoints/epoch_5.shield&quot;,
     key=master_key,
     model=model,
     optimizer=optimizer,
@@ -178,7 +178,7 @@ save_training_checkpoint(
 <p>When resuming training in a fresh process, <code>load_training_checkpoint</code> restores all parameters and deterministic RNG states:</p>
 <pre><code class="language-python">import torch
 import torch.nn as nn
-from ahcc import load_training_checkpoint
+from torchshield import load_training_checkpoint
 
 # 1. Initialize fresh instances
 model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
@@ -186,7 +186,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
 # 2. Load and verify cryptographic integrity
 metadata = load_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/epoch_5.ahcc&quot;,
+    checkpoint_path=&quot;checkpoints/epoch_5.shield&quot;,
     key=master_key,
     model=model,
     optimizer=optimizer,
@@ -202,16 +202,16 @@ print(f&quot;Recorded validation loss: {metadata.progress.loss:.4f}&quot;)
 <hr />
 <h2 id="2-inspecting-checkpoints-without-full-model-allocation">2. Inspecting Checkpoints Without Full Model Allocation</h2>
 <p>You can inspect checkpoint metadata without loading heavy tensors into memory:</p>
-<pre><code class="language-python">from ahcc import inspect_training_checkpoint
+<pre><code class="language-python">from torchshield import inspect_training_checkpoint
 
 # Zero-key inspect (inspects unencrypted outer container header)
-header_info = inspect_training_checkpoint(&quot;checkpoints/epoch_5.ahcc&quot;)
+header_info = inspect_training_checkpoint(&quot;checkpoints/epoch_5.shield&quot;)
 print(f&quot;Container Magic: {header_info.magic.hex()}&quot;)
 print(f&quot;Container Version: {header_info.version}&quot;)
 print(f&quot;Salt Size: {len(header_info.salt)} bytes&quot;)
 
 # Authenticated inspect (decrypts manifest to read training progress &amp; metadata)
-manifest_info = inspect_training_checkpoint(&quot;checkpoints/epoch_5.ahcc&quot;, key=master_key)
+manifest_info = inspect_training_checkpoint(&quot;checkpoints/epoch_5.shield&quot;, key=master_key)
 print(f&quot;Epoch: {manifest_info.progress.epoch}&quot;)
 print(f&quot;Global Step: {manifest_info.progress.global_step}&quot;)
 print(f&quot;Tensors Cataloged: {manifest_info.total_tensors}&quot;)
@@ -221,7 +221,7 @@ print(f&quot;Raw Byte Volume: {manifest_info.total_raw_bytes} bytes&quot;)
 <h2 id="3-provenance-digital-signatures-ed25519">3. Provenance &amp; Digital Signatures (Ed25519)</h2>
 <p>Sign checkpoints with an organizational private signing key so downstream consumers can verify publishing authority without sharing decryption keys:</p>
 <pre><code class="language-python">from cryptography.hazmat.primitives.asymmetric import ed25519
-from ahcc import save_training_checkpoint, load_training_checkpoint
+from torchshield import save_training_checkpoint, load_training_checkpoint
 
 # 1. Publisher generates or loads signing key
 private_signing_key = ed25519.Ed25519PrivateKey.generate()
@@ -229,7 +229,7 @@ public_verifying_key = private_signing_key.public_key()
 
 # 2. Save with cryptographic publisher signature
 save_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/signed_model.ahcc&quot;,
+    checkpoint_path=&quot;checkpoints/signed_model.shield&quot;,
     key=master_key,
     model=model,
     signing_key=private_signing_key,
@@ -237,7 +237,7 @@ save_training_checkpoint(
 
 # 3. Consumer verifies signature during restoration
 load_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/signed_model.ahcc&quot;,
+    checkpoint_path=&quot;checkpoints/signed_model.shield&quot;,
     key=master_key,
     model=model,
     verifying_key=public_verifying_key,
@@ -245,18 +245,18 @@ load_training_checkpoint(
 </code></pre>
 <hr />
 <h2 id="4-key-management-services-kms">4. Key Management Services (KMS)</h2>
-<p>AHCC natively integrates with AWS KMS and enterprise secret managers via <code>KeyProvider</code>:</p>
-<pre><code class="language-python">from ahcc.key_providers.kms import AWSKMSKeyProvider
-from ahcc import save_training_checkpoint
+<p>TorchShield natively integrates with AWS KMS and enterprise secret managers via <code>KeyProvider</code>:</p>
+<pre><code class="language-python">from torchshield.key_providers.kms import AWSKMSKeyProvider
+from torchshield import save_training_checkpoint
 
 kms_provider = AWSKMSKeyProvider(
     kms_key_id=&quot;arn:aws:kms:us-east-1:123456789012:key/my-checkpoint-key&quot;,
     region_name=&quot;us-east-1&quot;,
 )
 
-# Pass KMS provider directly; AHCC handles envelope encryption and unwrap operations
+# Pass KMS provider directly; TorchShield handles envelope encryption and unwrap operations
 save_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/kms_model.ahcc&quot;,
+    checkpoint_path=&quot;checkpoints/kms_model.shield&quot;,
     key=kms_provider,
     model=model,
     optimizer=optimizer,
@@ -265,20 +265,20 @@ save_training_checkpoint(
 <hr />
 <h2 id="5-pure-model-weight-checkpointing-securemodelcheckpoint">5. Pure Model Weight Checkpointing (<code>SecureModelCheckpoint</code>)</h2>
 <p>For inference deployments or pipelines saving only model weights (<code>state_dict</code>):</p>
-<pre><code class="language-python">from ahcc import SecureModelCheckpoint
+<pre><code class="language-python">from torchshield import SecureModelCheckpoint
 
 # Save state_dict directly
 state_dict = model.state_dict()
 SecureModelCheckpoint.save_checkpoint(
     state_dict=state_dict,
-    output_path=&quot;checkpoints/weights.ahcc&quot;,
+    output_path=&quot;checkpoints/weights.shield&quot;,
     key=master_key,
     chunk_bytes=4 * 1024 * 1024,  # 4 MiB chunks
 )
 
 # Load state_dict
 loaded_state = SecureModelCheckpoint.load_checkpoint(
-    input_path=&quot;checkpoints/weights.ahcc&quot;,
+    input_path=&quot;checkpoints/weights.shield&quot;,
     key=master_key,
     device=&quot;cuda&quot;,
 )
@@ -286,15 +286,15 @@ model.load_state_dict(loaded_state)
 </code></pre>
 <hr />
 <h2 id="6-command-line-interface-cli">6. Command Line Interface (CLI)</h2>
-<p>The <code>ahcc</code> CLI tool allows inspecting and verifying checkpoints from the terminal:</p>
+<p>The <code>torchshield</code> CLI tool allows inspecting and verifying checkpoints from the terminal:</p>
 <pre><code class="language-bash"># Print container summary (no key needed)
-ahcc info checkpoints/epoch_5.ahcc
+torchshield info checkpoints/epoch_5.shield
 
 # Inspect manifest with key
-ahcc inspect checkpoints/epoch_5.ahcc --key-hex &lt;64_HEX_CHARS&gt;
+torchshield inspect checkpoints/epoch_5.shield --key-hex &lt;64_HEX_CHARS&gt;
 
 # Verify cryptographic signature
-ahcc verify checkpoints/signed_model.ahcc --public-key &lt;PUB_KEY_HEX&gt;
+torchshield verify checkpoints/signed_model.shield --public-key &lt;PUB_KEY_HEX&gt;
 </code></pre>
       </article>
 
@@ -313,7 +313,7 @@ ahcc verify checkpoints/signed_model.ahcc --public-key &lt;PUB_KEY_HEX&gt;
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchVault &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
   </footer>
 
   <script>

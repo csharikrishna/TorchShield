@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam, AdamW, SGD
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     extract_optimizer_state,
     restore_optimizer_state,
     TrainingStateError,

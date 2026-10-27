@@ -2,7 +2,7 @@
 
 **Document:** `docs/ARTIFACT_PROVENANCE.md`  
 **Date:** 2026-10-26  
-**Implementation:** `ahcc.provenance`  
+**Implementation:** `torchshield.provenance`  
 **Algorithm:** Ed25519 (RFC 8032)  
 **Status:** `VERIFIED`
 
@@ -19,7 +19,7 @@ In high-consequence AI deployments (e.g. medical diagnostics, autonomous driving
 
 ## 2. Cryptographic Construction
 
-AHCC uses **Ed25519 digital signatures** over the canonical manifest specification digest:
+TorchShield uses **Ed25519 digital signatures** over the canonical manifest specification digest:
 
 ```
                                     CANONICAL MANIFEST (M_spec)
@@ -55,14 +55,14 @@ Because each chunk envelope cryptographically incorporates the `manifest_digest`
 
 ### Signing During Save
 ```python
-from ahcc.training_state import save_training_checkpoint
-from ahcc.provenance import Ed25519Signer
+from torchshield.training_state import save_training_checkpoint
+from torchshield.provenance import Ed25519Signer
 
 signer = Ed25519Signer()  # Or load from HSM / secure vault
 publisher_pubkey = signer.public_bytes
 
 save_training_checkpoint(
-    output_path="model_step_10000.ahcc",
+    output_path="model_step_10000.shield",
     model=model,
     optimizer=optimizer,
     key_provider=kms_provider,
@@ -72,11 +72,11 @@ save_training_checkpoint(
 
 ### Enforcing Provenance During Load
 ```python
-from ahcc.training_state import load_training_checkpoint
+from torchshield.training_state import load_training_checkpoint
 
 # Load fails closed if signature is missing or does not match publisher_pubkey
 load_training_checkpoint(
-    input_path="model_step_10000.ahcc",
+    input_path="model_step_10000.shield",
     model=model,
     optimizer=optimizer,
     key_provider=kms_provider,

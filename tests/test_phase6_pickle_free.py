@@ -19,8 +19,8 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 
-from ahcc.checkpoint import SecureModelCheckpoint
-from ahcc.training_state import (
+from torchshield.checkpoint import SecureModelCheckpoint
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     TrainingProgress,
@@ -58,7 +58,7 @@ def test_zero_pickle_invocation_during_save_and_load():
 
             key = os.urandom(32)
             with tempfile.TemporaryDirectory() as tmp_dir:
-                ckpt_path = os.path.join(tmp_dir, "clean.ahcc")
+                ckpt_path = os.path.join(tmp_dir, "clean.shield")
 
                 save_training_checkpoint(
                     output_path=ckpt_path,
@@ -134,7 +134,7 @@ def test_optimizer_unsupported_object_rejected_without_pickle_fallback():
 
     key = os.urandom(32)
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "bad_opt.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "bad_opt.shield")
         with pytest.raises(TrainingStateError, match="Unsupported optimizer state item"):
             save_training_checkpoint(
                 output_path=ckpt_path,

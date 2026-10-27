@@ -27,7 +27,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from cryptography.exceptions import InvalidSignature
 
-from ahcc.checkpoint import CheckpointError
+from torchshield.checkpoint import CheckpointError
 
 logger = logging.getLogger(__name__)
 

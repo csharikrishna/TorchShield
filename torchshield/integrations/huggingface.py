@@ -1,4 +1,4 @@
-"""Hugging Face Transformers & Trainer Integration for TorchVault / AHCC.
+"""Hugging Face Transformers & Trainer Integration for TorchShield.
 
 Provides pickle-free, cryptographically authenticated checkpointing for Hugging Face
 Trainer workflows, replacing unsafe pickle serialization of optimizer.pt,
@@ -13,8 +13,8 @@ from typing import Any, Dict, Optional, Union
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.training_state import (
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     inspect_training_checkpoint,
@@ -22,7 +22,7 @@ from ahcc.training_state import (
     serialize_all_rng,
     restore_all_rng,
 )
-from ahcc.key_providers.base import KeyProvider
+from torchshield.key_providers.base import KeyProvider
 
 try:
     from transformers import Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments
@@ -34,7 +34,7 @@ except ImportError:
         pass
 
 
-class TorchVaultTrainerCallback(TrainerCallback):
+class TorchShieldTrainerCallback(TrainerCallback):
     """Hugging Face TrainerCallback that automatically saves cryptographically
     authenticated, pickle-free checkpoints on every Trainer save event.
 
@@ -49,59 +49,66 @@ class TorchVaultTrainerCallback(TrainerCallback):
     def __init__(
         self,
         key: Union[bytes, KeyProvider],
-        vault_filename: str = "torchvault_checkpoint.ahcc",
+        vault_filename: str = "torchshield_checkpoint.shield",
         signing_key: Optional[Any] = None,
-        remove_insecure_pickle: bool = False,
+        remove_insecure_pickle: bool = True,
     ):
         if not TRANSFORMERS_AVAILABLE:
             raise ImportError(
-                "Hugging Face transformers is required to use TorchVaultTrainerCallback. "
+                "Hugging Face transformers is required to use TorchShieldTrainerCallback. "
                 "Install it via `pip install transformers`."
             )
         if isinstance(key, bytes) and len(key) != 32:
-            raise ValueError(f"Symmetric key must be exactly 32 bytes; got {len(key)} bytes.")
+            raise ValueError(f"Key must be exactly 32 bytes, got {len(key)}")
+
         self.key = key
         self.vault_filename = vault_filename
         self.signing_key = signing_key
         self.remove_insecure_pickle = remove_insecure_pickle
-        self.last_saved_vault_path: Optional[str] = None
 
     def on_save(
         self,
-        args: Any,
-        state: Any,
-        control: Any,
-        model: Optional[nn.Module] = None,
-        optimizer: Optional[torch.optim.Optimizer] = None,
-        lr_scheduler: Optional[Any] = None,
+        args: TrainingArguments,
+        state: TrainerState,
+        control: TrainerControl,
         **kwargs: Any,
     ) -> None:
-        """Called by Trainer after writing checkpoint directory to disk."""
+        """Invoked by Hugging Face Trainer whenever a checkpoint directory is saved."""
         checkpoint_dir = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
         if not os.path.isdir(checkpoint_dir):
-            checkpoint_dir = args.output_dir
+            os.makedirs(checkpoint_dir, exist_ok=True)
 
         vault_path = os.path.join(checkpoint_dir, self.vault_filename)
-        progress = TrainingProgress(
-            epoch=int(state.epoch) if state.epoch is not None else 0,
-            global_step=state.global_step,
-            loss=state.log_history[-1].get("loss") if (state.log_history and "loss" in state.log_history[-1]) else None,
-        )
 
-        extra_metadata = {
+        model = kwargs.get("model")
+        optimizer = kwargs.get("optimizer")
+        lr_scheduler = kwargs.get("lr_scheduler")
+
+        # Extract scalar training metrics from TrainerState
+        latest_loss = None
+        if state.log_history:
+            for entry in reversed(state.log_history):
+                if "loss" in entry:
+                    latest_loss = float(entry["loss"])
+                    break
+
+        metadata: Dict[str, Any] = {
             "framework": "huggingface_transformers",
             "global_step": state.global_step,
             "epoch": state.epoch,
             "best_metric": state.best_metric,
+            "best_model_checkpoint": state.best_model_checkpoint,
         }
 
-        if progress is None:
-            progress = TrainingProgress(epoch=int(state.epoch) if state.epoch is not None else 0, global_step=state.global_step)
-        progress.config.update(extra_metadata)
-
-        # Resolve key vs key_provider
         key_bytes = self.key if isinstance(self.key, bytes) else None
         key_provider = self.key if isinstance(self.key, KeyProvider) else None
+
+        progress = TrainingProgress(
+            global_step=state.global_step,
+            epoch=int(state.epoch) if state.epoch is not None else 0,
+            loss=latest_loss,
+            config=metadata,
+        )
 
         save_training_checkpoint(
             output_path=vault_path,
@@ -113,11 +120,10 @@ class TorchVaultTrainerCallback(TrainerCallback):
             key_provider=key_provider,
             signer_private_key=self.signing_key,
         )
-        self.last_saved_vault_path = vault_path
 
         if self.remove_insecure_pickle:
-            for insecure_file in ["optimizer.pt", "scheduler.pt", "rng_state.pth"]:
-                p = os.path.join(checkpoint_dir, insecure_file)
+            for pickle_file in ["optimizer.pt", "scheduler.pt", "rng_state.pth"]:
+                p = os.path.join(checkpoint_dir, pickle_file)
                 if os.path.isfile(p):
                     try:
                         os.remove(p)
@@ -125,47 +131,39 @@ class TorchVaultTrainerCallback(TrainerCallback):
                         pass
 
 
-# Alias for backward compatibility
-AHCCTrainerCallback = TorchVaultTrainerCallback
-
-
 if TRANSFORMERS_AVAILABLE:
-    class TorchVaultTrainer(Trainer):
-        """Drop-in subclass of Hugging Face Trainer that saves and resumes
-        training state using TorchVault / AHCC pickle-free AEAD containers."""
+    class TorchShieldTrainer(Trainer):
+        """Drop-in subclass of Hugging Face Trainer with native TorchShield protection.
+
+        Automatically attaches TorchShieldTrainerCallback and safely restores optimizer,
+        lr_scheduler, and RNG states without invoking Python's unsafe pickle.load.
+        """
 
         def __init__(
             self,
             *args: Any,
             vault_key: Optional[Union[bytes, KeyProvider]] = None,
-            vault_filename: str = "torchvault_checkpoint.ahcc",
-            vault_signing_key: Optional[Any] = None,
             vault_verifying_key: Optional[Any] = None,
-            remove_insecure_pickle: bool = False,
+            remove_insecure_pickle: bool = True,
             **kwargs: Any,
         ):
             super().__init__(*args, **kwargs)
             self.vault_key = vault_key
-            self.vault_filename = vault_filename
             self.vault_verifying_key = vault_verifying_key
-
-            if vault_key is not None:
+            if self.vault_key is not None:
                 self.add_callback(
-                    TorchVaultTrainerCallback(
-                        key=vault_key,
-                        vault_filename=vault_filename,
-                        signing_key=vault_signing_key,
+                    TorchShieldTrainerCallback(
+                        key=self.vault_key,
+                        signing_key=None,
                         remove_insecure_pickle=remove_insecure_pickle,
                     )
                 )
 
-        def _find_vault_file(self, checkpoint_dir: str) -> Optional[str]:
-            """Locate an encrypted vault file in the checkpoint directory."""
-            candidate = os.path.join(checkpoint_dir, self.vault_filename)
-            if os.path.isfile(candidate):
-                return candidate
-            for alt in ["torchvault_checkpoint.ahcc", "training_state.vault", "checkpoint.ahcc"]:
-                candidate = os.path.join(checkpoint_dir, alt)
+        def _find_vault_file(self, checkpoint: str) -> Optional[str]:
+            for candidate in [
+                os.path.join(checkpoint, "torchshield_checkpoint.shield"),
+                os.path.join(checkpoint, "training_state.shield"),
+            ]:
                 if os.path.isfile(candidate):
                     return candidate
             return None
@@ -180,8 +178,6 @@ if TRANSFORMERS_AVAILABLE:
                 key_bytes = self.vault_key if isinstance(self.vault_key, bytes) else None
                 key_provider = self.vault_key if isinstance(self.vault_key, KeyProvider) else None
 
-                # In HF Trainer, self.model is already loaded from model.safetensors or pytorch_model.bin.
-                # We restore optimizer, lr_scheduler, and RNG from the vault file.
                 load_training_checkpoint(
                     input_path=vault_path,
                     model=self.model,
@@ -203,13 +199,17 @@ if TRANSFORMERS_AVAILABLE:
 
             vault_path = self._find_vault_file(checkpoint)
             if vault_path:
-                # Already restored in _load_optimizer_and_scheduler
                 return
 
             return super()._load_rng_state(checkpoint)
-
-    # Alias
-    AHCCTrainer = TorchVaultTrainer
+else:
+    class TorchShieldTrainer:  # type: ignore[no-redef]
+        """Fallback stub when transformers is not installed."""
+        def __init__(self, *args: Any, **kwargs: Any):
+            raise ImportError(
+                "Hugging Face transformers is required to use TorchShieldTrainer. "
+                "Install it via `pip install transformers`."
+            )
 
 
 def save_hf_model(

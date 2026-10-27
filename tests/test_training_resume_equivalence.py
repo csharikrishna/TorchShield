@@ -2,7 +2,7 @@
 
 Compares:
 Run A: Continuous training for N total steps (e.g. 20 steps).
-Run B: Interrupted training at step K (e.g. 10 steps), saved as AHCC checkpoint,
+Run B: Interrupted training at step K (e.g. 10 steps), saved as TorchShield checkpoint,
        loaded into fresh model/optimizer/RNG, and trained for the remaining steps.
 
 Asserts exact bit-for-bit equivalence of:
@@ -22,7 +22,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     TrainingProgress,
@@ -114,7 +114,7 @@ def test_bit_for_bit_training_resume_equivalence():
 
     # Save checkpoint at INTERRUPT_STEP
     checkpoint_key = os.urandom(32)
-    with tempfile.NamedTemporaryFile(suffix=".ahcc", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
         ckpt_path = tmp.name
 
     try:

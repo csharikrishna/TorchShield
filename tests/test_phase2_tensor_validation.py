@@ -16,7 +16,7 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 def test_supported_dtypes_roundtrip(tmp_path):
@@ -35,7 +35,7 @@ def test_supported_dtypes_roundtrip(tmp_path):
         "b": torch.tensor([True, False, True, True], dtype=torch.bool),
     }
 
-    path = str(tmp_path / "dtypes.ahcc")
+    path = str(tmp_path / "dtypes.shield")
     SecureModelCheckpoint.save_checkpoint(state_dict, path, key)
     loaded = SecureModelCheckpoint.load_checkpoint(path, key)
 
@@ -60,7 +60,7 @@ def test_scalars_empty_and_strided_tensors(tmp_path):
         "non_contiguous": strided,
     }
 
-    path = str(tmp_path / "edge_tensors.ahcc")
+    path = str(tmp_path / "edge_tensors.shield")
     SecureModelCheckpoint.save_checkpoint(state_dict, path, key)
     loaded = SecureModelCheckpoint.load_checkpoint(path, key)
 
@@ -81,14 +81,14 @@ def test_rejection_of_excessive_dimensions(tmp_path):
     bad_rank_tensor = torch.zeros(bad_rank_shape)
 
     with pytest.raises(ValueError, match="exceeds maximum"):
-        SecureModelCheckpoint.save_checkpoint({"bad_rank": bad_rank_tensor}, str(tmp_path / "bad.ahcc"), key)
+        SecureModelCheckpoint.save_checkpoint({"bad_rank": bad_rank_tensor}, str(tmp_path / "bad.shield"), key)
 
 
 def test_overflow_safe_tensor_dimensions_rejection(tmp_path):
     """Verify that astronomical dimensions in manifest trigger arithmetic overflow rejection."""
     key = secrets.token_bytes(32)
     state = {"valid": torch.randn(4, 4)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key, format_version=2)
 
     with open(path, "rb") as f:
@@ -104,7 +104,7 @@ def test_overflow_safe_tensor_dimensions_rejection(tmp_path):
     m_len = struct.unpack(">I", data[offset:offset + 4])[0]
     enc_m = data[offset + 4:offset + 4 + m_len]
 
-    from ahcc.secure import AESGCMEnvelope
+    from torchshield.secure import AESGCMEnvelope
     import json
     m_json = json.loads(AESGCMEnvelope.decrypt(enc_m, art_key, associated_data=art_id + b"::MANIFEST::v2").decode("utf-8"))
 
@@ -124,7 +124,7 @@ def test_overflow_safe_tensor_dimensions_rejection(tmp_path):
         + new_enc_m
         + data[offset + 4 + m_len:]
     )
-    tampered_path = str(tmp_path / "overflow.ahcc")
+    tampered_path = str(tmp_path / "overflow.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered_bytes)
 

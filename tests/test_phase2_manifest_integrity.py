@@ -15,8 +15,8 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.secure import AESGCMEnvelope
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AESGCMEnvelope
 
 
 def test_manifest_layer_metadata_tampering(tmp_path):
@@ -26,7 +26,7 @@ def test_manifest_layer_metadata_tampering(tmp_path):
         "layer_a": torch.randn(10, 10),
         "layer_b": torch.randn(5),
     }
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state_dict, path, key, format_version=2)
 
     with open(path, "rb") as f:
@@ -42,7 +42,7 @@ def test_manifest_layer_metadata_tampering(tmp_path):
     # Mutate byte in encrypted manifest
     tampered = bytearray(data)
     tampered[manifest_start + 10] ^= 0xFF
-    tampered_path = str(tmp_path / "tampered_manifest.ahcc")
+    tampered_path = str(tmp_path / "tampered_manifest.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered)
 
@@ -56,8 +56,8 @@ def test_cross_checkpoint_manifest_swap(tmp_path):
     state1 = {"layer1": torch.randn(20, 20)}
     state2 = {"layer2": torch.randn(30, 30)}
 
-    path1 = str(tmp_path / "model1.ahcc")
-    path2 = str(tmp_path / "model2.ahcc")
+    path1 = str(tmp_path / "model1.shield")
+    path2 = str(tmp_path / "model2.shield")
 
     SecureModelCheckpoint.save_checkpoint(state1, path1, key, format_version=2)
     SecureModelCheckpoint.save_checkpoint(state2, path2, key, format_version=2)
@@ -78,7 +78,7 @@ def test_cross_checkpoint_manifest_swap(tmp_path):
         + d1[offset + 4 + m1_len:]
     )
 
-    spliced_path = str(tmp_path / "spliced.ahcc")
+    spliced_path = str(tmp_path / "spliced.shield")
     with open(spliced_path, "wb") as f:
         f.write(spliced)
 
@@ -91,13 +91,13 @@ def test_trailing_garbage_detection(tmp_path):
     """Verify that extraneous trailing bytes after all chunks are rejected."""
     key = secrets.token_bytes(32)
     state = {"w": torch.randn(10, 10)}
-    path = str(tmp_path / "clean.ahcc")
+    path = str(tmp_path / "clean.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     with open(path, "rb") as f:
         data = f.read()
 
-    tampered_path = str(tmp_path / "trailing.ahcc")
+    tampered_path = str(tmp_path / "trailing.shield")
     with open(tampered_path, "wb") as f:
         f.write(data + b"EXTRA_UNAUTHENTICATED_BYTES")
 

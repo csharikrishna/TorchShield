@@ -18,7 +18,7 @@ import tempfile
 import threading
 import pytest
 
-from ahcc.provenance import (
+from torchshield.provenance import (
     FreshnessLedger,
     LocalFileFreshnessBackend,
     TransactionalMemoryFreshnessBackend,
@@ -178,7 +178,7 @@ def test_scenario_6_recovery_after_failed_checkpoint_write():
 
 def _mp_worker(db_path: str, worker_id: int):
     """Top-level worker function for multiprocessing tests."""
-    from ahcc.provenance import SQLiteFreshnessBackend, RollbackError
+    from torchshield.provenance import SQLiteFreshnessBackend, RollbackError
     backend = SQLiteFreshnessBackend(db_path)
     for i in range(5):
         step = worker_id * 100 + i

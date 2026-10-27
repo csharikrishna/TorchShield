@@ -10,8 +10,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.secure import AuthenticationError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AuthenticationError
 
 
 class SimpleToyModel(nn.Module):
@@ -36,7 +36,7 @@ def test_checkpoint_roundtrip_and_inference_equivalence():
     baseline_output = model(x)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "model.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "model.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key, chunk_bytes=1024)
 
         # Restore into new model
@@ -61,7 +61,7 @@ def test_checkpoint_detects_chunk_tampering():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "model.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "model.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key, chunk_bytes=1024)
 
         with open(ckpt_path, "rb") as f:
@@ -70,7 +70,7 @@ def test_checkpoint_detects_chunk_tampering():
         # Flip byte in the middle of chunk data (near end of file)
         data[-50] ^= 0xFF
 
-        bad_path = os.path.join(tmpdir, "bad.ahcc_ckpt")
+        bad_path = os.path.join(tmpdir, "bad.shield_ckpt")
         with open(bad_path, "wb") as f:
             f.write(data)
 
@@ -85,7 +85,7 @@ def test_checkpoint_detects_wrong_key():
     wrong_key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "model.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "model.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key)
 
         with pytest.raises(AuthenticationError):
@@ -98,13 +98,13 @@ def test_checkpoint_detects_truncation():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "model.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "model.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key)
 
         with open(ckpt_path, "rb") as f:
             data = f.read()
 
-        truncated_path = os.path.join(tmpdir, "trunc.ahcc_ckpt")
+        truncated_path = os.path.join(tmpdir, "trunc.shield_ckpt")
         with open(truncated_path, "wb") as f:
             f.write(data[: len(data) // 2])
 
@@ -131,7 +131,7 @@ def test_checkpoint_batchnorm_buffers_and_target_streaming():
 
     key = os.urandom(32)
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "conv_bn.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "conv_bn.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(model.state_dict(), ckpt_path, key)
 
         target = ConvBNNet()
@@ -164,7 +164,7 @@ def test_checkpoint_scalars_empty_and_multidtype():
 
     key = os.urandom(32)
     with tempfile.TemporaryDirectory() as tmpdir:
-        ckpt_path = os.path.join(tmpdir, "complex.ahcc_ckpt")
+        ckpt_path = os.path.join(tmpdir, "complex.shield_ckpt")
         SecureModelCheckpoint.save_checkpoint(state_dict, ckpt_path, key)
 
         restored = SecureModelCheckpoint.load_checkpoint(ckpt_path, key)

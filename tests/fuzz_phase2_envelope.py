@@ -22,8 +22,8 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
 
 
 def generate_valid_fuzz_checkpoint(path: str, key: bytes) -> bytes:
@@ -42,7 +42,7 @@ def test_sustained_envelope_byte_fuzzing(tmp_path):
     """Sustained 200-iteration random mutation fuzzing on checkpoint envelopes."""
     tmp_path = pathlib.Path(tmp_path)
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "valid.ahcc")
+    path = str(tmp_path / "valid.shield")
     raw_data = bytearray(generate_valid_fuzz_checkpoint(path, key))
 
     rng = random.Random(20261026)  # Deterministic seed for reproducibility
@@ -97,7 +97,7 @@ def test_sustained_envelope_byte_fuzzing(tmp_path):
             # Overwrite manifest length field (offset 63..67)
             fuzzed[63:67] = struct.pack(">I", rng.randint(10 * 1024 * 1024 + 1, 2**32 - 1))
 
-        fuzz_file = str(tmp_path / f"fuzz_env_{iteration}.ahcc")
+        fuzz_file = str(tmp_path / f"fuzz_env_{iteration}.shield")
         with open(fuzz_file, "wb") as f:
             f.write(fuzzed)
 
@@ -114,7 +114,7 @@ def test_manifest_parser_semantic_fuzzing(tmp_path):
     """Sustained fuzzing of manifest semantic parsing and schema validation."""
     tmp_path = pathlib.Path(tmp_path)
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "seed.ahcc")
+    path = str(tmp_path / "seed.shield")
     raw_data = generate_valid_fuzz_checkpoint(path, key)
 
     salt = raw_data[9:25]
@@ -154,7 +154,7 @@ def test_manifest_parser_semantic_fuzzing(tmp_path):
             + enc_bad_m
             + raw_data[offset + 4 + m_len:]
         )
-        fuzz_file = str(tmp_path / f"bad_m_{idx}.ahcc")
+        fuzz_file = str(tmp_path / f"bad_m_{idx}.shield")
         with open(fuzz_file, "wb") as f:
             f.write(spliced)
 

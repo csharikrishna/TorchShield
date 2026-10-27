@@ -1,4 +1,4 @@
-"""AHCC Secure AI Checkpoint & Training Platform."""
+"""TorchShield: Production-grade authenticated, zero-pickle checkpoint platform for PyTorch and Hugging Face."""
 from .secure import AESGCMEnvelope, AuthenticationError, TensorAESGCMEnvelope
 from .checkpoint import SecureModelCheckpoint, CheckpointError, ResourceLimits
 from .training_state import (
@@ -11,8 +11,8 @@ from .training_state import (
     restore_all_rng,
 )
 from .integrations.huggingface import (
-    TorchVaultTrainerCallback,
-    AHCCTrainerCallback,
+    TorchShieldTrainerCallback,
+    TorchShieldTrainer,
     save_hf_model,
     load_hf_model,
 )
@@ -32,8 +32,8 @@ __all__ = [
     "TrainingStateError",
     "serialize_all_rng",
     "restore_all_rng",
-    "TorchVaultTrainerCallback",
-    "AHCCTrainerCallback",
+    "TorchShieldTrainerCallback",
+    "TorchShieldTrainer",
     "save_hf_model",
     "load_hf_model",
     "__version__",

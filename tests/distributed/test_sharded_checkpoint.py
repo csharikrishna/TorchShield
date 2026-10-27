@@ -5,15 +5,15 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.distributed import (
+from torchshield.distributed import (
     save_sharded_checkpoint,
     build_global_inventory,
     load_sharded_checkpoint,
     verify_sharded_checkpoint,
     DistributedCheckpointError,
 )
-from ahcc.provenance import Ed25519Signer, FreshnessLedger, RollbackError
-from ahcc.key_providers.local import LocalDevKeyProvider
+from torchshield.provenance import Ed25519Signer, FreshnessLedger, RollbackError
+from torchshield.key_providers.local import LocalDevKeyProvider
 
 
 def test_distributed_sharded_checkpoint_save_inventory_and_load():
@@ -121,7 +121,7 @@ def test_distributed_checkpoint_detects_tampered_shard():
         )
 
         # Tamper with rank 1 file
-        shard1_path = os.path.join(tmp_dir, "shard_00001_of_00002.ahcc")
+        shard1_path = os.path.join(tmp_dir, "shard_00001_of_00002.shield")
         with open(shard1_path, "r+b") as f:
             f.seek(50)
             f.write(b"\xFF\xFF")

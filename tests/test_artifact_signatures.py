@@ -4,8 +4,8 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.provenance import Ed25519Signer, Ed25519Verifier, ProvenanceError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.provenance import Ed25519Signer, Ed25519Verifier, ProvenanceError
 
 
 def test_ed25519_signer_and_verifier_roundtrip():
@@ -47,7 +47,7 @@ def test_checkpoint_v5_with_ed25519_provenance():
     key = os.urandom(32)
     state = {"weight": torch.randn(10, 10), "bias": torch.randn(10)}
 
-    with tempfile.NamedTemporaryFile(suffix=".ahcc", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:

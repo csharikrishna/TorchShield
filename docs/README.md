@@ -1,6 +1,6 @@
-# AHCC Documentation Suite
+# TorchShield Documentation Suite
 
-Welcome to the documentation suite for the **AHCC Secure AI Checkpoint Platform** (Version 0.7.0).
+Welcome to the documentation suite for the **TorchShield Secure AI Checkpoint Platform** (Version 0.7.0).
 
 ---
 
@@ -43,7 +43,7 @@ The table below catalogs every specification and integration guide:
                       Canonical JSON Manifest & Ed25519 Signature
                                            |
                                            v
-                        Atomic Flush to Disk (.tmp -> .ahcc)
+                        Atomic Flush to Disk (.tmp -> .shield)
 ```
 
 ### Key Pillars:

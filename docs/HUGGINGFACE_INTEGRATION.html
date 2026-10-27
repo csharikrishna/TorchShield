@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hugging Face Integration — TorchVault Documentation</title>
+  <title>Hugging Face Integration — TorchShield Documentation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -45,7 +45,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <div class="flex items-baseline gap-2">
-            <span class="font-bold text-lg tracking-tight text-slate-900">TorchVault</span>
+            <span class="font-bold text-lg tracking-tight text-slate-900">TorchShield</span>
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
@@ -57,7 +57,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Back to Showcase
         </a>
-        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
+        <a href="https://github.com/csharpe/TorchShield" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
           <svg class="w-3.5 h-3.5 fill-slate-800" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
@@ -148,18 +148,18 @@
 <p><strong>Document:</strong> <code>docs/HUGGINGFACE_INTEGRATION.md</code><br />
 <strong>Platform Version:</strong> <code>0.7.0</code>  </p>
 <hr />
-<h2 id="1-why-torchvault-for-hugging-face">1. Why TorchVault for Hugging Face?</h2>
+<h2 id="1-why-torchshield-for-hugging-face">1. Why TorchShield for Hugging Face?</h2>
 <p>Hugging Face <code>transformers</code> revolutionized model sharing with <code>safetensors</code>. However, during active model training with <code>Trainer</code>:<br />
 1. <strong>The Insecure Pickle Triad:</strong> While model weights can be saved with <code>safetensors</code>, Hugging Face <code>Trainer</code> still saves <code>optimizer.pt</code>, <code>scheduler.pt</code>, and <code>rng_state.pth</code> using raw Python <code>pickle</code> (<code>torch.save</code>), exposing pipelines to deserialization vulnerabilities.<br />
 2. <strong>No Built-in Encryption:</strong> Checkpoints stored on disk or shared across team buckets are unencrypted plaintext.<br />
 3. <strong>No Tamper Authentication:</strong> If optimizer momentum states or weights are modified, <code>Trainer</code> resumes blindly without verification.</p>
-<p>TorchVault provides <strong><code>TorchVaultTrainerCallback</code></strong> and <strong><code>TorchVaultTrainer</code></strong> to solve all three problems.</p>
+<p>TorchShield provides <strong><code>TorchShieldTrainerCallback</code></strong> and <strong><code>TorchShieldTrainer</code></strong> to solve all three problems.</p>
 <hr />
-<h2 id="2-using-torchvaulttrainercallback-with-hugging-face-trainer">2. Using <code>TorchVaultTrainerCallback</code> with Hugging Face <code>Trainer</code></h2>
+<h2 id="2-using-torchshieldtrainercallback-with-hugging-face-trainer">2. Using <code>TorchShieldTrainerCallback</code> with Hugging Face <code>Trainer</code></h2>
 <p>Simply pass the callback into any standard Hugging Face <code>Trainer</code>:</p>
 <pre><code class="language-python">import secrets
 from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification
-from ahcc import TorchVaultTrainerCallback
+from torchshield import TorchShieldTrainerCallback
 
 # 1. 256-bit symmetric encryption key (or AWS KMS provider)
 master_key = secrets.token_bytes(32)
@@ -172,10 +172,10 @@ training_args = TrainingArguments(
     per_device_train_batch_size=16,
 )
 
-# 3. Attach TorchVault callback
-vault_callback = TorchVaultTrainerCallback(
+# 3. Attach TorchShield callback
+vault_callback = TorchShieldTrainerCallback(
     key=master_key,
-    vault_filename=&quot;torchvault_checkpoint.ahcc&quot;,
+    vault_filename=&quot;torchshield_checkpoint.shield&quot;,
     remove_insecure_pickle=True,  # Purges unsafe optimizer.pt, scheduler.pt, rng_state.pth
 )
 
@@ -190,7 +190,7 @@ trainer = Trainer(
 # 5. Train safely
 trainer.train()
 </code></pre>
-<p>When <code>trainer.train()</code> executes, every saved checkpoint contains an encrypted, authenticated, pickle-free <code>.ahcc</code> container containing:<br />
+<p>When <code>trainer.train()</code> executes, every saved checkpoint contains an encrypted, authenticated, pickle-free <code>.shield</code> container containing:<br />
 - Exact model weights<br />
 - AdamW/SGD optimizer states mapped to named parameters<br />
 - Learning rate scheduler state<br />
@@ -198,10 +198,10 @@ trainer.train()
 - Training progress metadata (<code>global_step</code>, <code>epoch</code>, <code>loss</code>)</p>
 <hr />
 <h2 id="3-resuming-hugging-face-trainer-from-an-encrypted-vault">3. Resuming Hugging Face <code>Trainer</code> from an Encrypted Vault</h2>
-<p>Use <code>TorchVaultTrainer</code> as a drop-in replacement for <code>transformers.Trainer</code>:</p>
-<pre><code class="language-python">from ahcc.integrations.huggingface import TorchVaultTrainer
+<p>Use <code>TorchShieldTrainer</code> as a drop-in replacement for <code>transformers.Trainer</code>:</p>
+<pre><code class="language-python">from torchshield.integrations.huggingface import TorchShieldTrainer
 
-trainer = TorchVaultTrainer(
+trainer = TorchShieldTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
@@ -211,11 +211,11 @@ trainer = TorchVaultTrainer(
 # Resume from checkpoint directory
 trainer.train(resume_from_checkpoint=&quot;./secure_checkpoints/checkpoint-500&quot;)
 </code></pre>
-<p>If an attacker or corrupted disk flips even a single bit in the checkpoint container, <code>TorchVaultTrainer</code> fails closed immediately with <code>CheckpointError</code>.</p>
+<p>If an attacker or corrupted disk flips even a single bit in the checkpoint container, <code>TorchShieldTrainer</code> fails closed immediately with <code>CheckpointError</code>.</p>
 <hr />
 <h2 id="4-standalone-model-saving-save_hf_model-load_hf_model">4. Standalone Model Saving (<code>save_hf_model</code> / <code>load_hf_model</code>)</h2>
 <p>For saving only the model weights of an HF <code>PreTrainedModel</code>:</p>
-<pre><code class="language-python">from ahcc import save_hf_model, load_hf_model
+<pre><code class="language-python">from torchshield import save_hf_model, load_hf_model
 from transformers import AutoModelForCausalLM
 
 # Save encrypted weights
@@ -243,7 +243,7 @@ load_hf_model(fresh_model, &quot;weights.vault&quot;, key=master_key, device=&qu
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchVault &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
   </footer>
 
   <script>

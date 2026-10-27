@@ -26,8 +26,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Optimizer
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError, ResourceLimits
-from ahcc.key_providers.base import KeyProvider
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError, ResourceLimits
+from torchshield.key_providers.base import KeyProvider
 
 
 class TrainingStateError(ValueError):
@@ -315,7 +315,7 @@ def save_training_checkpoint(
     prog = progress or TrainingProgress()
     training_manifest = {
         "schema_version": 1,
-        "format": "AHCC-SafeTrainingCheckpoint-v1",
+        "format": "TorchShield-SafeTrainingCheckpoint-v1",
         "global_step": prog.global_step,
         "epoch": prog.epoch,
         "batch_idx": prog.batch_idx,
@@ -445,7 +445,7 @@ def inspect_training_checkpoint(
     expected_signer_public_key: Optional[bytes] = None,
     limits: Optional[ResourceLimits] = None,
 ) -> Dict[str, Any]:
-    """Inspect an AHCC training checkpoint header and optional authenticated metadata.
+    """Inspect an TorchShield training checkpoint header and optional authenticated metadata.
 
     If key/key_provider is provided, authenticates the manifest and returns the full
     training metadata (global step, epoch, loss, config, optimizer state summary, tensor inventory)
@@ -507,7 +507,7 @@ def inspect_training_checkpoint(
                 raise CheckpointError(f"Truncated checkpoint: file size {file_size} is smaller than header and manifest ({f.tell() + manifest_len} bytes).")
 
             info: Dict[str, Any] = {
-                "format": "AHCC-SafeTrainingCheckpoint-v5",
+                "format": "TorchShield-SafeTrainingCheckpoint-v5",
                 "version": ver,
                 "file_size": file_size,
                 "artifact_id": art_id.hex(),
@@ -518,8 +518,8 @@ def inspect_training_checkpoint(
             }
 
             if key is not None or key_provider is not None:
-                from ahcc.secure import AESGCMEnvelope, AuthenticationError
-                from ahcc.checkpoint import _strict_json_loads
+                from torchshield.secure import AESGCMEnvelope, AuthenticationError
+                from torchshield.checkpoint import _strict_json_loads
                 resolved_key = key
                 if resolved_key is None and key_provider is not None:
                     if wrapped_key_len == 0:
@@ -623,7 +623,7 @@ def inspect_training_checkpoint(
                 raise CheckpointError(f"Truncated checkpoint: file size {file_size} is smaller than header and manifest ({f.tell() + manifest_len} bytes).")
 
             info = {
-                "format": "AHCC-v4",
+                "format": "TorchShield-v4",
                 "version": ver,
                 "file_size": file_size,
                 "artifact_id": art_id.hex(),
@@ -633,8 +633,8 @@ def inspect_training_checkpoint(
             }
 
             if key is not None:
-                from ahcc.secure import AESGCMEnvelope, AuthenticationError
-                from ahcc.checkpoint import _strict_json_loads
+                from torchshield.secure import AESGCMEnvelope, AuthenticationError
+                from torchshield.checkpoint import _strict_json_loads
                 if len(key) != 32:
                     raise CheckpointError("Resolved master key must be exactly 32 bytes.")
                 manifest_key = SecureModelCheckpoint.derive_manifest_key_v4(key, salt, art_id)
@@ -657,5 +657,5 @@ def inspect_training_checkpoint(
 
             return info
         else:
-            raise CheckpointError(f"Not a valid AHCC secure model checkpoint (magic={magic!r}).")
+            raise CheckpointError(f"Not a valid TorchShield secure model checkpoint (magic={magic!r}).")
 

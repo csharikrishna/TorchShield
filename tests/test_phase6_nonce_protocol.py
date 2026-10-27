@@ -20,13 +20,13 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     ResourceLimits,
     _ChunkCryptoSession,
 )
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
 
 
 def test_repeated_saves_generate_unique_salts_keys_and_nonces():
@@ -35,8 +35,8 @@ def test_repeated_saves_generate_unique_salts_keys_and_nonces():
     master_key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path1 = os.path.join(tmp_dir, "ckpt1.ahcc")
-        path2 = os.path.join(tmp_dir, "ckpt2.ahcc")
+        path1 = os.path.join(tmp_dir, "ckpt1.shield")
+        path2 = os.path.join(tmp_dir, "ckpt2.shield")
 
         SecureModelCheckpoint.save_checkpoint(state, path1, key=master_key, format_version=SecureModelCheckpoint.VERSION_V5)
         SecureModelCheckpoint.save_checkpoint(state, path2, key=master_key, format_version=SecureModelCheckpoint.VERSION_V5)
@@ -45,7 +45,7 @@ def test_repeated_saves_generate_unique_salts_keys_and_nonces():
             data1 = f1.read()
             data2 = f2.read()
 
-        # Both start with b"AHCCMOD5\x05"
+        # Both start with b"TSHDMOD5\x05"
         assert data1[:9] == SecureModelCheckpoint.MAGIC_V5 + bytes([5])
         assert data2[:9] == SecureModelCheckpoint.MAGIC_V5 + bytes([5])
 
@@ -116,8 +116,8 @@ def test_cross_artifact_chunk_injection_rejected():
     t2 = {"w": torch.zeros(1024, 1024)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path_a = os.path.join(tmp_dir, "a.ahcc")
-        path_b = os.path.join(tmp_dir, "b.ahcc")
+        path_a = os.path.join(tmp_dir, "a.shield")
+        path_b = os.path.join(tmp_dir, "b.shield")
 
         SecureModelCheckpoint.save_checkpoint(t1, path_a, key=key)
         SecureModelCheckpoint.save_checkpoint(t2, path_b, key=key)
@@ -140,7 +140,7 @@ def test_cross_artifact_chunk_injection_rejected():
 
         corrupted_b = data_b[:chunk_start_b] + data_a[chunk_start_a:]
 
-        corrupt_path = os.path.join(tmp_dir, "corrupt_b.ahcc")
+        corrupt_path = os.path.join(tmp_dir, "corrupt_b.shield")
         with open(corrupt_path, "wb") as f:
             f.write(corrupted_b)
 
@@ -155,12 +155,12 @@ def test_reordered_and_missing_chunks_rejected():
     state = {"multi_chunk": torch.randn(3 * 1024, 1024)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "multi.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "multi.shield")
         SecureModelCheckpoint.save_checkpoint(state, ckpt_path, key=key, chunk_bytes=4 * 1024 * 1024)
 
         # Truncate file mid-chunk
         file_len = os.path.getsize(ckpt_path)
-        truncated_path = os.path.join(tmp_dir, "truncated.ahcc")
+        truncated_path = os.path.join(tmp_dir, "truncated.shield")
         with open(ckpt_path, "rb") as f_in, open(truncated_path, "wb") as f_out:
             f_out.write(f_in.read(file_len - 1000))
 
@@ -174,7 +174,7 @@ def test_tampered_chunk_ciphertext_and_tag_rejected():
     state = {"layer": torch.randn(100, 100)}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "test.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "test.shield")
         SecureModelCheckpoint.save_checkpoint(state, ckpt_path, key=key)
 
         with open(ckpt_path, "rb") as f:
@@ -182,7 +182,7 @@ def test_tampered_chunk_ciphertext_and_tag_rejected():
 
         # Flip last byte (in the tag of the final chunk)
         data[-1] ^= 0x42
-        tampered_path = os.path.join(tmp_dir, "tampered.ahcc")
+        tampered_path = os.path.join(tmp_dir, "tampered.shield")
         with open(tampered_path, "wb") as f:
             f.write(data)
 
@@ -195,7 +195,7 @@ def test_public_salt_zero_key_extraction_and_entropy():
     key = os.urandom(32)
     state = {"w": torch.randn(10, 10)}
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "model.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "model.shield")
         SecureModelCheckpoint.save_checkpoint(
             state, ckpt_path, key=key, format_version=SecureModelCheckpoint.VERSION_V5
         )

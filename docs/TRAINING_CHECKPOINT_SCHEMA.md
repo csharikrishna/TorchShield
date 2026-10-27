@@ -2,7 +2,7 @@
 
 **Document:** `docs/TRAINING_CHECKPOINT_SCHEMA.md`  
 **Date:** 2026-10-26  
-**Format Version:** `AHCC-SafeTrainingCheckpoint-v1` (Container Version 5)  
+**Format Version:** `TorchShield-SafeTrainingCheckpoint-v1` (Container Version 5)  
 **Status:** `VERIFIED`
 
 ---
@@ -11,7 +11,7 @@
 
 Standard deep learning frameworks historically rely on Python `pickle` (e.g., `torch.save(..., f)`), which serializes arbitrary Python bytecode. This creates an unacceptable remote code execution (RCE) vulnerability when loading checkpoints from external, untrusted, or distributed storage buckets.
 
-The AHCC Secure Checkpoint Engine establishes a **strictly non-executable serialization contract**:
+The TorchShield Secure Checkpoint Engine establishes a **strictly non-executable serialization contract**:
 - **Tensors:** Serialized exclusively as raw binary numerical buffers with strictly allowlisted PyTorch dtypes (`float32`, `float16`, `bfloat16`, `float64`, `int64`, `int32`, `int16`, `int8`, `uint8`, `bool`).
 - **Metadata & State:** Stored as deterministic canonical UTF-8 JSON specifications (`RFC 8785`), parsed with duplicate-key rejection and strict schema enforcement.
 - **No Deserialization Hooks:** No `__reduce__`, no `eval()`, and zero execution pathways exist during model loading.
@@ -20,15 +20,15 @@ The AHCC Secure Checkpoint Engine establishes a **strictly non-executable serial
 
 ## 2. Container Format: Version 5 Layout
 
-A Version 5 AHCC checkpoint file is an authenticated binary container with the following byte sequence:
+A Version 5 TorchShield checkpoint file is an authenticated binary container with the following byte sequence:
 
 ```
 +--------------------------------------------------------------------------------------------------+
-|                                  AHCC VERSION 5 BINARY CONTAINER                                 |
+|                                  TorchShield VERSION 5 BINARY CONTAINER                                 |
 +--------------------------------------------------------------------------------------------------+
 | Offset (Bytes) | Length (Bytes) | Field Name       | Description                                 |
 +----------------+----------------+------------------+---------------------------------------------+
-| 0x00 - 0x07    | 8              | Magic Bytes      | b"AHCCMOD5"                                 |
+| 0x00 - 0x07    | 8              | Magic Bytes      | b"TSHDMOD5"                                 |
 | 0x08           | 1              | Container Ver    | 0x05 (uint8)                                |
 | 0x09 - 0x28    | 32             | Salt             | Public random HKDF derivation salt (non-secret)|
 | 0x29           | 1              | Artifact ID Len  | Length of Artifact ID (N <= 64)             |
@@ -56,7 +56,7 @@ All multidimensional numerical state is unified into a single keyed tensor dicti
 | `opt::{param_name}::{key}` | `optimizer.state[param]` | Optimizer moment buffers (e.g., `exp_avg`, `exp_avg_sq`, `momentum_buffer`) |
 
 ### Stable Parameter Name Mapping
-PyTorch native optimizers store state keyed by internal integer indices (`0, 1, 2...`) or transient Python object IDs. These indices are unstable across separate process invocations or model reinstantiations. AHCC maps optimizer state to canonical parameter names (`dict(model.named_parameters())`), ensuring 100% portable and deterministic state restoration.
+PyTorch native optimizers store state keyed by internal integer indices (`0, 1, 2...`) or transient Python object IDs. These indices are unstable across separate process invocations or model reinstantiations. TorchShield maps optimizer state to canonical parameter names (`dict(model.named_parameters())`), ensuring 100% portable and deterministic state restoration.
 
 ---
 
@@ -74,7 +74,7 @@ The encrypted manifest payload contains the canonical JSON specification (`M_spe
   "total_raw_bytes": 48234496,
   "metadata": {
     "schema_version": 1,
-    "format": "AHCC-SafeTrainingCheckpoint-v1",
+    "format": "TorchShield-SafeTrainingCheckpoint-v1",
     "global_step": 15000,
     "epoch": 3,
     "batch_idx": 450,

@@ -25,9 +25,9 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PublicKey,
 )
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError, ResourceLimits
-from ahcc.key_providers.base import KeyProvider
-from ahcc.provenance import Ed25519Signer, Ed25519Verifier, FreshnessLedger, ProvenanceError, RollbackError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError, ResourceLimits
+from torchshield.key_providers.base import KeyProvider
+from torchshield.provenance import Ed25519Signer, Ed25519Verifier, FreshnessLedger, ProvenanceError, RollbackError
 
 
 class DistributedCheckpointError(CheckpointError):
@@ -40,7 +40,7 @@ def _canonical_json(obj: Any) -> bytes:
 
 def get_shard_filename(rank: int, world_size: int) -> str:
     """Standardized deterministic shard file name."""
-    return f"shard_{rank:05d}_of_{world_size:05d}.ahcc"
+    return f"shard_{rank:05d}_of_{world_size:05d}.shield"
 
 
 def save_sharded_checkpoint(
@@ -129,7 +129,7 @@ def build_global_inventory(
 
     inventory_spec = {
         "version": 1,
-        "format": "AHCC-DistributedGlobalInventory-v1",
+        "format": "TorchShield-DistributedGlobalInventory-v1",
         "run_id": str(run_id),
         "global_step": int(global_step),
         "epoch": int(epoch),
@@ -195,7 +195,7 @@ def verify_sharded_checkpoint(
     declared_digest = bytes.fromhex(manifest["inventory_digest"])
     reconstructed_spec = {
         "version": manifest.get("version", 1),
-        "format": manifest.get("format", "AHCC-DistributedGlobalInventory-v1"),
+        "format": manifest.get("format", "TorchShield-DistributedGlobalInventory-v1"),
         "run_id": manifest["run_id"],
         "global_step": manifest["global_step"],
         "epoch": manifest["epoch"],

@@ -2,7 +2,7 @@
 
 **Document:** `docs/KMS_INTEGRATION.md`  
 **Date:** 2026-10-26  
-**Module:** `ahcc.key_providers`  
+**Module:** `torchshield.key_providers`  
 
 ---
 
@@ -10,7 +10,7 @@
 
 In enterprise AI infrastructure, model checkpoints range from hundreds of megabytes to hundreds of gigabytes. Transmitting these multi-gigabyte payloads across cloud KMS endpoints is cost-prohibitive, introduces severe network latency, and exceeds KMS single-request payload limits (e.g., 4 KiB limit in AWS KMS).
 
-The AHCC Secure Checkpoint Engine implements **client-side envelope encryption**:
+The TorchShield Secure Checkpoint Engine implements **client-side envelope encryption**:
 1. **Key Encryption Keys (KEKs):** Managed securely inside hardware-backed HSMs via the KMS provider (e.g., AWS KMS Customer Managed Keys).
 2. **Data Encryption Keys (DEKs):** A fresh, cryptographically random 256-bit AES key is generated for each checkpoint artifact.
 3. **Payload Protection:** All tensor chunks, optimizer buffers, and metadata are encrypted and authenticated locally via high-throughput AES-256-GCM.
@@ -58,14 +58,14 @@ The AHCC Secure Checkpoint Engine implements **client-side envelope encryption**
 ## 2. Supported Key Providers
 
 ### `AWSKMSProvider` (Production)
-- **Class:** `ahcc.key_providers.AWSKMSProvider`
+- **Class:** `torchshield.key_providers.AWSKMSProvider`
 - **Security Rating:** Production-Secure (`is_production_secure = True`)
 - **Backing:** AWS KMS API (`generate_data_key`, `decrypt`, `re_encrypt`).
 - **Authentication:** Standard AWS IAM credentials (roles, instance profiles, or environment).
 
 ```python
-from ahcc.key_providers import AWSKMSProvider
-from ahcc.training_state import save_training_checkpoint, load_training_checkpoint
+from torchshield.key_providers import AWSKMSProvider
+from torchshield.training_state import save_training_checkpoint, load_training_checkpoint
 
 # Initialize KMS provider with Key ARN
 kms_provider = AWSKMSProvider(
@@ -76,14 +76,14 @@ kms_provider = AWSKMSProvider(
 save_training_checkpoint(
     model=model,
     optimizer=optimizer,
-    output_path="checkpoints/epoch_10.ahcc",
+    output_path="checkpoints/epoch_10.shield",
     key_provider=kms_provider,
     encryption_context={"environment": "production", "model": "llama-transformer"},
 )
 
 # Load training checkpoint - DEK is unwrapped automatically via KMS Decrypt API
 load_training_checkpoint(
-    input_path="checkpoints/epoch_10.ahcc",
+    input_path="checkpoints/epoch_10.shield",
     key_provider=kms_provider,
     model=model,
     optimizer=optimizer,
@@ -92,7 +92,7 @@ load_training_checkpoint(
 ```
 
 ### `LocalDevKeyProvider` (Development / Test Only)
-- **Class:** `ahcc.key_providers.LocalDevKeyProvider`
+- **Class:** `torchshield.key_providers.LocalDevKeyProvider`
 - **Security Rating:** Development Only (`is_production_secure = False`)
 - **Backing:** Software-based AES-256-GCM key wrapping using a 256-bit local KEK.
 - **Usage:** Ideal for local unit tests, CI test pipelines, and offline debugging without cloud credentials.

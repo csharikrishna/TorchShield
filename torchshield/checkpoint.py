@@ -34,8 +34,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from ahcc.secure import AESGCMEnvelope, AuthenticationError, TensorAESGCMEnvelope
-from ahcc.key_providers.base import KeyProvider
+from torchshield.secure import AESGCMEnvelope, AuthenticationError, TensorAESGCMEnvelope
+from torchshield.key_providers.base import KeyProvider
 
 
 class CheckpointError(AuthenticationError):
@@ -185,10 +185,10 @@ _ChunkCryptoSession = ChunkCryptoSession
 class SecureModelCheckpoint:
     """End-to-end authenticated model checkpoint storage and streaming loader."""
 
-    MAGIC_V1 = b"AHCCMOD1"
-    MAGIC_V2 = b"AHCCMOD2"
-    MAGIC_V4 = b"AHCCMOD4"
-    MAGIC_V5 = b"AHCCMOD5"
+    MAGIC_V1 = b"TSHDMOD1"
+    MAGIC_V2 = b"TSHDMOD2"
+    MAGIC_V4 = b"TSHDMOD4"
+    MAGIC_V5 = b"TSHDMOD5"
     VERSION_V1 = 1
     VERSION_V2 = 2
     VERSION_V4 = 4
@@ -212,7 +212,7 @@ class SecureModelCheckpoint:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            info=b"AHCC-SecureCheckpoint-v2-Key:" + artifact_id,
+            info=b"TorchShield-SecureCheckpoint-v2-Key:" + artifact_id,
         )
         return hkdf.derive(master_key)
 
@@ -230,7 +230,7 @@ class SecureModelCheckpoint:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt_bytes,
-            info=b"AHCC-v4-Manifest-Key::" + artifact_id_bytes,
+            info=b"TorchShield-v4-Manifest-Key::" + artifact_id_bytes,
         ).derive(master_key_bytes)
 
     @staticmethod
@@ -247,7 +247,7 @@ class SecureModelCheckpoint:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt_bytes,
-            info=b"AHCC-v4-Chunk-Key::" + artifact_id_bytes,
+            info=b"TorchShield-v4-Chunk-Key::" + artifact_id_bytes,
         ).derive(master_key_bytes)
 
     @staticmethod
@@ -278,7 +278,7 @@ class SecureModelCheckpoint:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt_bytes,
-            info=b"AHCC-v5-Manifest-Key::" + artifact_id_bytes,
+            info=b"TorchShield-v5-Manifest-Key::" + artifact_id_bytes,
         ).derive(master_key_bytes)
 
     @staticmethod
@@ -295,7 +295,7 @@ class SecureModelCheckpoint:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt_bytes,
-            info=b"AHCC-v5-Chunk-Key::" + artifact_id_bytes,
+            info=b"TorchShield-v5-Chunk-Key::" + artifact_id_bytes,
         ).derive(master_key_bytes)
 
     @staticmethod
@@ -1002,7 +1002,7 @@ class SecureModelCheckpoint:
                 tensors = cls._load_checkpoint_v1(f, key, device, target_model, limits)
                 return (tensors, {}) if return_metadata else tensors
             else:
-                raise CheckpointError(f"Not a valid AHCC secure model checkpoint (magic={magic!r}).")
+                raise CheckpointError(f"Not a valid TorchShield secure model checkpoint (magic={magic!r}).")
 
     @classmethod
     def _load_checkpoint_v5(

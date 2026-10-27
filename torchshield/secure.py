@@ -1,9 +1,9 @@
 """Authenticated byte envelopes using the vetted AES-256-GCM primitive.
 
-This module is deliberately separate from the experimental AHCC transform.
+This module is deliberately separate from the experimental TorchShield transform.
 Use :class:`AESGCMEnvelope` for real confidentiality and integrity requirements;
-using this wrapper does not make the custom AHCC block transform a reviewed
-cryptographic primitive, and it does not call the AHCC engine at all.
+using this wrapper does not make the custom TorchShield block transform a reviewed
+cryptographic primitive, and it does not call the TorchShield engine at all.
 
 Envelope wire format::
 
@@ -42,7 +42,7 @@ class AESGCMEnvelope:
     the key. Do not reuse a key/nonce pair.
     """
 
-    MAGIC = b"AHCCSEAL"  # 8 bytes; envelope format branding only, not AHCC encryption.
+    MAGIC = b"TorchShieldSEAL"  # 8 bytes; envelope format branding only, not TorchShield encryption.
     VERSION = 1
     HEADER = MAGIC + bytes([VERSION])
     NONCE_SIZE = 12
@@ -138,7 +138,7 @@ class AESGCMEnvelope:
 
 
 class TensorAESGCMEnvelope:
-    """Authenticated encryption for dense PyTorch tensors, independent of AHCC.
+    """Authenticated encryption for dense PyTorch tensors, independent of TorchShield.
 
     This stores a small JSON dtype/shape header and the contiguous raw tensor
     bytes inside an AESGCMEnvelope. The header is encrypted and authenticated;
@@ -146,7 +146,7 @@ class TensorAESGCMEnvelope:
     restored on CPU by default, or on the requested device after authentication.
     """
 
-    TENSOR_MAGIC = b"AHCCTEN1"
+    TENSOR_MAGIC = b"TorchShieldTEN1"
     MAX_HEADER_BYTES = 64 * 1024
     _DTYPE_BY_NAME = {
         "bool": torch.bool,

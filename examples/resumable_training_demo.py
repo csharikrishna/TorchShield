@@ -2,7 +2,7 @@
 
 Demonstrates:
 1. Continuous reference training run (Steps 0 -> 30).
-2. Interrupted training run checkpointed at Step 15 with AHCC pickle-free envelope encryption.
+2. Interrupted training run checkpointed at Step 15 with TorchShield pickle-free envelope encryption.
 3. Full process restart, loading checkpoint, restoring model weights, optimizer moments,
    learning-rate scheduler state, and all RNG generators (Python, NumPy, PyTorch CPU & CUDA).
 4. Resume training (Steps 15 -> 30).
@@ -18,13 +18,13 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     TrainingProgress,
 )
-from ahcc.key_providers.local import LocalDevKeyProvider
-from ahcc.provenance import Ed25519Signer
+from torchshield.key_providers.local import LocalDevKeyProvider
+from torchshield.provenance import Ed25519Signer
 
 
 class DemoClassifier(nn.Module):
@@ -43,7 +43,7 @@ class DemoClassifier(nn.Module):
 
 def run_demo():
     print("================================================================================")
-    print("  AHCC SECURE RESUMABLE TRAINING DEMONSTRATION")
+    print("  TorchShield SECURE RESUMABLE TRAINING DEMONSTRATION")
     print("  Phase 5 Bit-for-Bit Deterministic Equivalence Engine")
     print("================================================================================\n")
 
@@ -126,7 +126,7 @@ def run_demo():
     provider = LocalDevKeyProvider(key_id="demo-kek-v1", master_kek=kek)
     signer = Ed25519Signer()
 
-    with tempfile.NamedTemporaryFile(suffix=".ahcc", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
         checkpoint_path = tmp.name
 
     try:

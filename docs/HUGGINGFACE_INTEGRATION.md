@@ -5,25 +5,25 @@
 
 ---
 
-## 1. Why TorchVault for Hugging Face?
+## 1. Why TorchShield for Hugging Face?
 
 Hugging Face `transformers` revolutionized model sharing with `safetensors`. However, during active model training with `Trainer`:
 1. **The Insecure Pickle Triad:** While model weights can be saved with `safetensors`, Hugging Face `Trainer` still saves `optimizer.pt`, `scheduler.pt`, and `rng_state.pth` using raw Python `pickle` (`torch.save`), exposing pipelines to deserialization vulnerabilities.
 2. **No Built-in Encryption:** Checkpoints stored on disk or shared across team buckets are unencrypted plaintext.
 3. **No Tamper Authentication:** If optimizer momentum states or weights are modified, `Trainer` resumes blindly without verification.
 
-TorchVault provides **`TorchVaultTrainerCallback`** and **`TorchVaultTrainer`** to solve all three problems.
+TorchShield provides **`TorchShieldTrainerCallback`** and **`TorchShieldTrainer`** to solve all three problems.
 
 ---
 
-## 2. Using `TorchVaultTrainerCallback` with Hugging Face `Trainer`
+## 2. Using `TorchShieldTrainerCallback` with Hugging Face `Trainer`
 
 Simply pass the callback into any standard Hugging Face `Trainer`:
 
 ```python
 import secrets
 from transformers import Trainer, TrainingArguments, AutoModelForSequenceClassification
-from ahcc import TorchVaultTrainerCallback
+from torchshield import TorchShieldTrainerCallback
 
 # 1. 256-bit symmetric encryption key (or AWS KMS provider)
 master_key = secrets.token_bytes(32)
@@ -36,10 +36,10 @@ training_args = TrainingArguments(
     per_device_train_batch_size=16,
 )
 
-# 3. Attach TorchVault callback
-vault_callback = TorchVaultTrainerCallback(
+# 3. Attach TorchShield callback
+vault_callback = TorchShieldTrainerCallback(
     key=master_key,
-    vault_filename="torchvault_checkpoint.ahcc",
+    vault_filename="torchshield_checkpoint.shield",
     remove_insecure_pickle=True,  # Purges unsafe optimizer.pt, scheduler.pt, rng_state.pth
 )
 
@@ -55,7 +55,7 @@ trainer = Trainer(
 trainer.train()
 ```
 
-When `trainer.train()` executes, every saved checkpoint contains an encrypted, authenticated, pickle-free `.ahcc` container containing:
+When `trainer.train()` executes, every saved checkpoint contains an encrypted, authenticated, pickle-free `.shield` container containing:
 - Exact model weights
 - AdamW/SGD optimizer states mapped to named parameters
 - Learning rate scheduler state
@@ -66,12 +66,12 @@ When `trainer.train()` executes, every saved checkpoint contains an encrypted, a
 
 ## 3. Resuming Hugging Face `Trainer` from an Encrypted Vault
 
-Use `TorchVaultTrainer` as a drop-in replacement for `transformers.Trainer`:
+Use `TorchShieldTrainer` as a drop-in replacement for `transformers.Trainer`:
 
 ```python
-from ahcc.integrations.huggingface import TorchVaultTrainer
+from torchshield.integrations.huggingface import TorchShieldTrainer
 
-trainer = TorchVaultTrainer(
+trainer = TorchShieldTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
@@ -82,7 +82,7 @@ trainer = TorchVaultTrainer(
 trainer.train(resume_from_checkpoint="./secure_checkpoints/checkpoint-500")
 ```
 
-If an attacker or corrupted disk flips even a single bit in the checkpoint container, `TorchVaultTrainer` fails closed immediately with `CheckpointError`.
+If an attacker or corrupted disk flips even a single bit in the checkpoint container, `TorchShieldTrainer` fails closed immediately with `CheckpointError`.
 
 ---
 
@@ -91,7 +91,7 @@ If an attacker or corrupted disk flips even a single bit in the checkpoint conta
 For saving only the model weights of an HF `PreTrainedModel`:
 
 ```python
-from ahcc import save_hf_model, load_hf_model
+from torchshield import save_hf_model, load_hf_model
 from transformers import AutoModelForCausalLM
 
 # Save encrypted weights

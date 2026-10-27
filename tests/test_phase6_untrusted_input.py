@@ -17,7 +17,7 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     ResourceLimits,
@@ -55,7 +55,7 @@ def test_save_checkpoint_rejects_unsupported_dtypes():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "complex.ahcc")
+        path = os.path.join(tmp_dir, "complex.shield")
         with pytest.raises(ValueError, match="has unsupported dtype 'complex64'"):
             SecureModelCheckpoint.save_checkpoint({"c": t}, path, key=key)
 
@@ -68,7 +68,7 @@ def test_save_checkpoint_rejects_excessive_tensor_rank():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "rank9.ahcc")
+        path = os.path.join(tmp_dir, "rank9.shield")
         with pytest.raises(ValueError, match="rank 9 exceeds maximum 8"):
             SecureModelCheckpoint.save_checkpoint({"t": t}, path, key=key)
 
@@ -80,7 +80,7 @@ def test_resource_limits_rejection_of_oversized_dimensions():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "limit.ahcc")
+        path = os.path.join(tmp_dir, "limit.shield")
         with pytest.raises(ValueError, match="Invalid dimension size 101.*limit: 100"):
             SecureModelCheckpoint.save_checkpoint({"t": t}, path, key=key, limits=limits)
 
@@ -92,6 +92,6 @@ def test_resource_limits_rejection_of_excessive_tensor_count():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "count.ahcc")
+        path = os.path.join(tmp_dir, "count.shield")
         with pytest.raises(ValueError, match="Tensor count 6 exceeds maximum limit 5"):
             SecureModelCheckpoint.save_checkpoint(state, path, key=key, limits=limits)

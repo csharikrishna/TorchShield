@@ -15,7 +15,7 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def base_checkpoint(tmp_path):
         "layer_2": torch.randn(32, 64),
         "bias": torch.randn(32),
     }
-    path = str(tmp_path / "valid.ahcc")
+    path = str(tmp_path / "valid.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key, chunk_bytes=4096, format_version=2)
     with open(path, "rb") as f:
         raw_bytes = f.read()
@@ -43,7 +43,7 @@ def test_truncation_fault_injection_matrix(base_checkpoint):
     percentages = [0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.99]
     for pct in percentages:
         cut_len = int(total_len * pct)
-        truncated_path = str(base_checkpoint["tmp_path"] / f"trunc_{int(pct*100)}.ahcc")
+        truncated_path = str(base_checkpoint["tmp_path"] / f"trunc_{int(pct*100)}.shield")
         with open(truncated_path, "wb") as f:
             f.write(data[:cut_len])
 
@@ -59,16 +59,16 @@ def test_header_field_mutations(base_checkpoint):
     # 1. Mutate magic bytes
     bad_magic = bytearray(data)
     bad_magic[0] = ord(b"X")
-    p1 = str(base_checkpoint["tmp_path"] / "bad_magic.ahcc")
+    p1 = str(base_checkpoint["tmp_path"] / "bad_magic.shield")
     with open(p1, "wb") as f:
         f.write(bad_magic)
-    with pytest.raises(CheckpointError, match="Not a valid AHCC"):
+    with pytest.raises(CheckpointError, match="Not a valid TorchShield"):
         SecureModelCheckpoint.load_checkpoint(p1, key)
 
     # 2. Mutate version
     bad_ver = bytearray(data)
     bad_ver[8] = 99  # version 99
-    p2 = str(base_checkpoint["tmp_path"] / "bad_ver.ahcc")
+    p2 = str(base_checkpoint["tmp_path"] / "bad_ver.shield")
     with open(p2, "wb") as f:
         f.write(bad_ver)
     with pytest.raises(CheckpointError, match="Unsupported checkpoint version"):
@@ -77,7 +77,7 @@ def test_header_field_mutations(base_checkpoint):
     # 3. Mutate salt
     bad_salt = bytearray(data)
     bad_salt[12] ^= 0xFF
-    p3 = str(base_checkpoint["tmp_path"] / "bad_salt.ahcc")
+    p3 = str(base_checkpoint["tmp_path"] / "bad_salt.shield")
     with open(p3, "wb") as f:
         f.write(bad_salt)
     with pytest.raises(CheckpointError, match="manifest authentication failed"):
@@ -87,7 +87,7 @@ def test_header_field_mutations(base_checkpoint):
     bad_mlen = bytearray(data)
     # offset 8 + 1 + 16 + 1 + 36 + 1 = 63
     bad_mlen[63:67] = struct.pack(">I", 500 * 1024 * 1024)  # 500 MiB manifest
-    p4 = str(base_checkpoint["tmp_path"] / "bad_mlen.ahcc")
+    p4 = str(base_checkpoint["tmp_path"] / "bad_mlen.shield")
     with open(p4, "wb") as f:
         f.write(bad_mlen)
     with pytest.raises(CheckpointError, match="Invalid manifest length"):

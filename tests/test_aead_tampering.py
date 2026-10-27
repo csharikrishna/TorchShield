@@ -4,7 +4,7 @@ Validates that all forms of corruption (ciphertext, nonce, tag, AAD, truncation,
 wrong keys, version mismatch) fail-closed immediately without releasing unauthenticated plaintext.
 """
 import pytest
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
 
 
 def test_aead_tampering_matrix():

@@ -13,8 +13,8 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.secure import AESGCMEnvelope
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.secure import AESGCMEnvelope
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def multi_chunk_setup(tmp_path):
         "layer_1": torch.randn(256, 512),
         "layer_2": torch.randn(256, 512),
     }
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state_dict, path, key, chunk_bytes=256 * 1024, format_version=2)
 
     with open(path, "rb") as f:
@@ -83,7 +83,7 @@ def test_chunk_bitflip_tampering(multi_chunk_setup):
     c1_offset = setup["chunks"][0]["offset"]
     data[c1_offset + 30] ^= 0x01
 
-    tampered_path = str(setup["tmp_path"] / "chunk_bitflip.ahcc")
+    tampered_path = str(setup["tmp_path"] / "chunk_bitflip.shield")
     with open(tampered_path, "wb") as f:
         f.write(data)
 
@@ -105,7 +105,7 @@ def test_chunk_reordering_attack(multi_chunk_setup):
         + b"".join(c["bytes"] for c in chunks[2:])
     )
 
-    tampered_path = str(setup["tmp_path"] / "swapped_chunks.ahcc")
+    tampered_path = str(setup["tmp_path"] / "swapped_chunks.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered_bytes)
 
@@ -123,7 +123,7 @@ def test_chunk_deletion_attack(multi_chunk_setup):
     # Omit the last chunk
     tampered_bytes = setup["header_and_manifest"] + b"".join(c["bytes"] for c in chunks[:-1])
 
-    tampered_path = str(setup["tmp_path"] / "deleted_chunk.ahcc")
+    tampered_path = str(setup["tmp_path"] / "deleted_chunk.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered_bytes)
 
@@ -137,8 +137,8 @@ def test_cross_checkpoint_chunk_substitution(tmp_path):
     state1 = {"layer": torch.randn(100, 100)}
     state2 = {"layer": torch.randn(100, 100)}
 
-    p1 = str(tmp_path / "m1.ahcc")
-    p2 = str(tmp_path / "m2.ahcc")
+    p1 = str(tmp_path / "m1.shield")
+    p2 = str(tmp_path / "m2.shield")
 
     SecureModelCheckpoint.save_checkpoint(state1, p1, key, chunk_bytes=1024, format_version=2)
     SecureModelCheckpoint.save_checkpoint(state2, p2, key, chunk_bytes=1024, format_version=2)
@@ -157,7 +157,7 @@ def test_cross_checkpoint_chunk_substitution(tmp_path):
 
     # Splicing foreign chunk into m1
     spliced = d1[:c1_start] + d2[c2_start:c2_start + 1057] + d1[c1_start + 1057:]
-    spliced_path = str(tmp_path / "foreign_chunk.ahcc")
+    spliced_path = str(tmp_path / "foreign_chunk.shield")
     with open(spliced_path, "wb") as f:
         f.write(spliced)
 

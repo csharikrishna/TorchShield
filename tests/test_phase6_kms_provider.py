@@ -20,10 +20,10 @@ from unittest import mock
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.key_providers.base import KeyProviderError
-from ahcc.key_providers.local import LocalDevKeyProvider
-from ahcc.key_providers.kms import AWSKMSProvider
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.key_providers.base import KeyProviderError
+from torchshield.key_providers.local import LocalDevKeyProvider
+from torchshield.key_providers.kms import AWSKMSProvider
 
 
 def test_aws_kms_provider_interface_and_properties():
@@ -182,7 +182,7 @@ def test_aws_kms_envelope_save_and_load_end_to_end():
     context = {"tenant": "research", "run_id": "run-001"}
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "kms_e2e.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "kms_e2e.shield")
 
         # Save with KMS provider
         SecureModelCheckpoint.save_checkpoint(
@@ -225,7 +225,7 @@ def test_aws_kms_unauthorized_decryption_and_strict_no_fallback():
 
     state = {"w": torch.ones(4, 4)}
     with tempfile.TemporaryDirectory() as tmp_dir:
-        ckpt_path = os.path.join(tmp_dir, "unauth.ahcc")
+        ckpt_path = os.path.join(tmp_dir, "unauth.shield")
         SecureModelCheckpoint.save_checkpoint(state, ckpt_path, key_provider=provider)
 
         # Unauthorized load must fail closed with CheckpointError

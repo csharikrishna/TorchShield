@@ -36,7 +36,7 @@ DOC_METADATA = [
         "html_file": "HUGGINGFACE_INTEGRATION.html",
         "title": "Hugging Face Integration",
         "category": "Core Tutorials",
-        "desc": "TorchVaultTrainerCallback, Trainer subclass, and pickle purging.",
+        "desc": "TorchShieldTrainerCallback, Trainer subclass, and pickle purging.",
         "icon": "cpu"
     },
     {
@@ -100,7 +100,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>__TITLE__ — TorchVault Documentation</title>
+  <title>__TITLE__ — TorchShield Documentation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -142,7 +142,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <div class="flex items-baseline gap-2">
-            <span class="font-bold text-lg tracking-tight text-slate-900">TorchVault</span>
+            <span class="font-bold text-lg tracking-tight text-slate-900">TorchShield</span>
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
@@ -154,7 +154,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Back to Showcase
         </a>
-        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
+        <a href="https://github.com/csharpe/TorchShield" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
           <svg class="w-3.5 h-3.5 fill-slate-800" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
@@ -206,7 +206,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchVault &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
   </footer>
 
   <script>

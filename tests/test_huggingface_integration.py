@@ -6,9 +6,9 @@ import pytest
 import torch
 import torch.nn as nn
 
-from ahcc import (
-    TorchVaultTrainerCallback,
-    AHCCTrainerCallback,
+from torchshield import (
+    TorchShieldTrainerCallback,
+    TorchShieldTrainerCallback,
     save_hf_model,
     load_hf_model,
     inspect_training_checkpoint,
@@ -40,11 +40,11 @@ def test_callback_key_validation():
         pytest.skip("transformers not installed")
 
     with pytest.raises(ValueError, match="exactly 32 bytes"):
-        TorchVaultTrainerCallback(key=b"too_short")
+        TorchShieldTrainerCallback(key=b"too_short")
 
 
 def test_callback_on_save_workflow(tmp_path):
-    """Verify that TorchVaultTrainerCallback intercepts on_save, writes encrypted container,
+    """Verify that TorchShieldTrainerCallback intercepts on_save, writes encrypted container,
     and optionally purges unsafe pickle files."""
     if not TRANSFORMERS_AVAILABLE:
         pytest.skip("transformers not installed")
@@ -59,9 +59,9 @@ def test_callback_on_save_workflow(tmp_path):
         with open(os.path.join(step_dir, fname), "wb") as f:
             f.write(b"insecure_pickle_bytes")
 
-    callback = TorchVaultTrainerCallback(
+    callback = TorchShieldTrainerCallback(
         key=key,
-        vault_filename="torchvault_checkpoint.ahcc",
+        vault_filename="torchshield_checkpoint.shield",
         remove_insecure_pickle=True,
     )
 
@@ -89,7 +89,7 @@ def test_callback_on_save_workflow(tmp_path):
         lr_scheduler=scheduler,
     )
 
-    vault_file = os.path.join(step_dir, "torchvault_checkpoint.ahcc")
+    vault_file = os.path.join(step_dir, "torchshield_checkpoint.shield")
     assert os.path.isfile(vault_file), "Vault checkpoint was not written!"
     assert os.path.getsize(vault_file) > 0
 
@@ -126,13 +126,13 @@ def test_resume_from_hf_vault(tmp_path):
         optimizer.step()
         optimizer.zero_grad()
 
-    callback = TorchVaultTrainerCallback(key=key)
+    callback = TorchShieldTrainerCallback(key=key)
     args = TrainingArguments(output_dir=str(tmp_path), use_cpu=True)
     state = TrainerState(epoch=3.0, global_step=100, log_history=[{"loss": 0.15}])
     control = TrainerControl()
 
     callback.on_save(args=args, state=state, control=control, model=model, optimizer=optimizer)
-    vault_file = os.path.join(step_dir, "torchvault_checkpoint.ahcc")
+    vault_file = os.path.join(step_dir, "torchshield_checkpoint.shield")
 
     # Fresh model and optimizer
     fresh_model = SimpleModel()
@@ -180,13 +180,13 @@ def test_tamper_detection_in_hf_vault(tmp_path):
     model = SimpleModel()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
-    callback = TorchVaultTrainerCallback(key=key)
+    callback = TorchShieldTrainerCallback(key=key)
     args = TrainingArguments(output_dir=str(tmp_path), use_cpu=True)
     state = TrainerState(epoch=1.0, global_step=200)
     control = TrainerControl()
 
     callback.on_save(args=args, state=state, control=control, model=model, optimizer=optimizer)
-    vault_file = os.path.join(step_dir, "torchvault_checkpoint.ahcc")
+    vault_file = os.path.join(step_dir, "torchshield_checkpoint.shield")
 
     # Tamper with the container
     with open(vault_file, "r+b") as f:

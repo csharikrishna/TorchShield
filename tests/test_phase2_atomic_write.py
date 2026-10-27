@@ -12,14 +12,14 @@ import secrets
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 def test_atomic_write_preserves_prior_file_on_failure(tmp_path):
     """Verify that an existing valid checkpoint remains intact if a subsequent save crashes."""
     key = secrets.token_bytes(32)
     valid_state = {"weights": torch.ones(50, 50)}
-    path = str(tmp_path / "production_model.ahcc")
+    path = str(tmp_path / "production_model.shield")
 
     # 1. Successfully write initial checkpoint
     SecureModelCheckpoint.save_checkpoint(valid_state, path, key)
@@ -42,14 +42,14 @@ def test_atomic_write_preserves_prior_file_on_failure(tmp_path):
 
     # 4. No temporary staging files left behind in directory
     files = os.listdir(str(tmp_path))
-    assert files == ["production_model.ahcc"]
+    assert files == ["production_model.shield"]
 
 
 def test_atomic_cleanup_on_disk_error(tmp_path, monkeypatch):
     """Verify temporary files are safely removed when I/O error occurs."""
     key = secrets.token_bytes(32)
     state = {"weights": torch.ones(20, 20)}
-    path = str(tmp_path / "crashed_model.ahcc")
+    path = str(tmp_path / "crashed_model.shield")
 
     # Monkeypatch os.fsync to simulate sudden I/O failure
     def failing_fsync(fd):

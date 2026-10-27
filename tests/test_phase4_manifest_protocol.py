@@ -19,14 +19,14 @@ import pytest
 import torch
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     _canonical_json,
     _strict_json_loads,
     ResourceLimits,
 )
-from ahcc.secure import AESGCMEnvelope
+from torchshield.secure import AESGCMEnvelope
 
 
 def test_canonical_json_determinism():
@@ -52,7 +52,7 @@ def test_manifest_specification_digest_tampering(tmp_path):
     """Verify that tampering with manifest_digest fails verification even if encrypted properly."""
     master_key = secrets.token_bytes(32)
     state = {"layer1": torch.randn(10, 10)}
-    path = str(tmp_path / "valid.ahcc")
+    path = str(tmp_path / "valid.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, master_key)
 
     with open(path, "rb") as f:
@@ -90,7 +90,7 @@ def test_manifest_specification_digest_tampering(tmp_path):
         + new_enc_m
         + data[m_len_off + 4 + m_len:]
     )
-    tampered_path = str(tmp_path / "tampered_digest.ahcc")
+    tampered_path = str(tmp_path / "tampered_digest.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered_file)
 
@@ -102,7 +102,7 @@ def test_tampered_tensor_metadata_fails_verification(tmp_path):
     """Verify that tampering with declared tensor shape or dtype fails specification check."""
     master_key = secrets.token_bytes(32)
     state = {"layer1": torch.randn(10, 10)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, master_key)
 
     with open(path, "rb") as f:
@@ -135,7 +135,7 @@ def test_tampered_tensor_metadata_fails_verification(tmp_path):
         + new_enc_m
         + data[m_len_off + 4 + m_len:]
     )
-    tampered_path = str(tmp_path / "tampered_shape.ahcc")
+    tampered_path = str(tmp_path / "tampered_shape.shield")
     with open(tampered_path, "wb") as f:
         f.write(tampered_file)
 
@@ -151,7 +151,7 @@ def test_chunk_sequence_anomaly_detection(tmp_path):
         "layer_a": torch.randn(128, 256),  # 128 KiB -> 2 chunks at 64 KiB
         "layer_b": torch.randn(128, 256),  # 128 KiB -> 2 chunks at 64 KiB
     }
-    path = str(tmp_path / "multi.ahcc")
+    path = str(tmp_path / "multi.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, master_key, chunk_bytes=64 * 1024)
 
     # Read and parse chunks

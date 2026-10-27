@@ -17,7 +17,7 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     ResourceLimits,
@@ -30,7 +30,7 @@ def test_file_size_limit_rejection():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "small.ahcc")
+        path = os.path.join(tmp_dir, "small.shield")
         SecureModelCheckpoint.save_checkpoint({"w": torch.randn(10, 10)}, path, key=key)
         assert os.path.getsize(path) > 100
 
@@ -45,7 +45,7 @@ def test_single_tensor_bytes_limit_rejection():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "oversized.ahcc")
+        path = os.path.join(tmp_dir, "oversized.shield")
         with pytest.raises(ValueError, match="raw bytes 40000 exceeds limit 1024"):
             SecureModelCheckpoint.save_checkpoint({"w": t}, path, key=key, limits=limits)
 
@@ -59,7 +59,7 @@ def test_total_raw_bytes_limit_rejection():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "total_limit.ahcc")
+        path = os.path.join(tmp_dir, "total_limit.shield")
         with pytest.raises(ValueError, match="Total raw bytes 3000 exceeds limit 2048"):
             SecureModelCheckpoint.save_checkpoint({"w1": t1, "w2": t2}, path, key=key, limits=limits)
 
@@ -73,7 +73,7 @@ def test_invalid_negative_dimensions_rejected():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "valid.ahcc")
+        path = os.path.join(tmp_dir, "valid.shield")
         SecureModelCheckpoint.save_checkpoint({"w": t}, path, key=key)
 
         # Successfully loads under standard limits
@@ -88,6 +88,6 @@ def test_manifest_length_ceiling_enforced():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "manifest_limit.ahcc")
+        path = os.path.join(tmp_dir, "manifest_limit.shield")
         with pytest.raises(ValueError, match="Manifest size .* exceeds limit 64"):
             SecureModelCheckpoint.save_checkpoint(state, path, key=key, limits=limits)

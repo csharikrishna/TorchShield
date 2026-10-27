@@ -16,8 +16,8 @@ from unittest import mock
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
-from ahcc.provenance import TransactionalMemoryFreshnessBackend, RollbackError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.provenance import TransactionalMemoryFreshnessBackend, RollbackError
 
 
 def test_exception_during_chunk_encryption_cleans_staging_file():
@@ -26,10 +26,10 @@ def test_exception_during_chunk_encryption_cleans_staging_file():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        output_path = os.path.join(tmp_dir, "crash_target.ahcc")
+        output_path = os.path.join(tmp_dir, "crash_target.shield")
 
         # Mock encrypt_next_chunk to simulate an unhandled exception on the first chunk
-        with mock.patch("ahcc.checkpoint._ChunkCryptoSession.encrypt_next_chunk", side_effect=RuntimeError("Simulated encryption hardware fault")):
+        with mock.patch("torchshield.checkpoint._ChunkCryptoSession.encrypt_next_chunk", side_effect=RuntimeError("Simulated encryption hardware fault")):
             with pytest.raises(RuntimeError, match="Simulated encryption hardware fault"):
                 SecureModelCheckpoint.save_checkpoint(state, output_path, key=key)
 
@@ -47,7 +47,7 @@ def test_simulated_disk_full_leaves_prior_checkpoint_intact():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        target_path = os.path.join(tmp_dir, "existing.ahcc")
+        target_path = os.path.join(tmp_dir, "existing.shield")
 
         # Save valid existing checkpoint
         SecureModelCheckpoint.save_checkpoint(original_state, target_path, key=key)
@@ -77,7 +77,7 @@ def test_truncated_checkpoint_files_fail_closed():
     key = os.urandom(32)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        valid_path = os.path.join(tmp_dir, "valid.ahcc")
+        valid_path = os.path.join(tmp_dir, "valid.shield")
         SecureModelCheckpoint.save_checkpoint(state, valid_path, key=key)
 
         with open(valid_path, "rb") as f:
@@ -92,7 +92,7 @@ def test_truncated_checkpoint_files_fail_closed():
         ]
 
         for idx, cut in enumerate(truncation_points):
-            t_path = os.path.join(tmp_dir, f"trunc_{idx}.ahcc")
+            t_path = os.path.join(tmp_dir, f"trunc_{idx}.shield")
             with open(t_path, "wb") as f:
                 f.write(valid_bytes[:cut])
 

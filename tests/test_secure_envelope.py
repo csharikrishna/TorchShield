@@ -2,12 +2,12 @@ import pytest
 import torch
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from ahcc import AESGCMEnvelope, AuthenticationError, TensorAESGCMEnvelope
+from torchshield import AESGCMEnvelope, AuthenticationError, TensorAESGCMEnvelope
 
 
 def test_aesgcm_envelope_round_trip_including_empty_message():
     key = AESGCMEnvelope.generate_key()
-    for plaintext in (b"", b"hello AHCC research", bytes(range(256)) * 4):
+    for plaintext in (b"", b"hello TorchShield research", bytes(range(256)) * 4):
         envelope = AESGCMEnvelope.encrypt(plaintext, key, associated_data=b"model=toy-v1")
         assert AESGCMEnvelope.decrypt(envelope, key, associated_data=b"model=toy-v1") == plaintext
 

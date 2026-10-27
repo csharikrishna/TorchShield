@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 class MiniVisionBackbone(nn.Module):
@@ -48,7 +48,7 @@ def test_pytorch_model_inference_parity(tmp_path):
         expected_output = model(test_input)
 
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "vision_model.ahcc")
+    path = str(tmp_path / "vision_model.shield")
 
     # Save checkpoint
     SecureModelCheckpoint.save_checkpoint(model.state_dict(), path, key, chunk_bytes=16 * 1024)
@@ -82,7 +82,7 @@ def test_batchnorm_buffers_and_scalar_restoration(tmp_path):
 
     model.eval()
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "bn_model.ahcc")
+    path = str(tmp_path / "bn_model.shield")
 
     orig_state = model.state_dict()
     assert orig_state["bn1.num_batches_tracked"].dim() == 0  # 0-dim scalar

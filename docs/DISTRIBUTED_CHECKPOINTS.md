@@ -2,7 +2,7 @@
 
 **Document:** `docs/DISTRIBUTED_CHECKPOINTS.md`  
 **Date:** 2026-10-26  
-**Implementation:** `ahcc.distributed`  
+**Implementation:** `torchshield.distributed`  
 **Status:** `VERIFIED`
 
 ---
@@ -21,14 +21,14 @@ In modern distributed training (Fully Sharded Data Parallel / FSDP, DeepSpeed Ze
 
 ## 2. The Two-Phase Sharded Checkpoint Protocol
 
-AHCC implements a coordinated, two-phase distributed checkpointing protocol:
+TorchShield implements a coordinated, two-phase distributed checkpointing protocol:
 
 ```
 [ PHASE 1: PARALLEL WORKER SAVES ]
-Rank 0 ------------> shard_00000_of_00004.ahcc (AES-256-GCM encrypted)
-Rank 1 ------------> shard_00001_of_00004.ahcc (AES-256-GCM encrypted)
-Rank 2 ------------> shard_00002_of_00004.ahcc (AES-256-GCM encrypted)
-Rank 3 ------------> shard_00003_of_00004.ahcc (AES-256-GCM encrypted)
+Rank 0 ------------> shard_00000_of_00004.shield (AES-256-GCM encrypted)
+Rank 1 ------------> shard_00001_of_00004.shield (AES-256-GCM encrypted)
+Rank 2 ------------> shard_00002_of_00004.shield (AES-256-GCM encrypted)
+Rank 3 ------------> shard_00003_of_00004.shield (AES-256-GCM encrypted)
                             |
                      (Cluster Barrier)
                             v

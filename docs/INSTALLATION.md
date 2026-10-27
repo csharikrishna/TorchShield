@@ -1,4 +1,4 @@
-# Installation Guide for AHCC Secure AI Checkpoint Platform
+# Installation Guide for TorchShield Secure AI Checkpoint Platform
 
 **Document:** `docs/INSTALLATION.md`  
 **Platform Version:** `0.7.0`  
@@ -28,13 +28,13 @@ Install the standalone distribution wheel without needing build tools:
 
 ```bash
 # In your target virtual environment:
-pip install dist/release_v070/ahcc_gpu_engine-0.7.0-py3-none-any.whl
+pip install dist/release_v070/torchshield-0.7.0-py3-none-any.whl
 ```
 
 Verify checksums against [`dist/release_v070/SHA256SUMS`](../dist/release_v070/SHA256SUMS):
 ```bash
 # PowerShell:
-Get-FileHash dist\release_v070\ahcc_gpu_engine-0.7.0-py3-none-any.whl -Algorithm SHA256
+Get-FileHash dist\release_v070\torchshield-0.7.0-py3-none-any.whl -Algorithm SHA256
 # Linux:
 sha256sum -c dist/release_v070/SHA256SUMS
 ```
@@ -45,7 +45,7 @@ If developing or running repository test suites:
 
 ```bash
 # 1. Clone and enter repository
-cd AHCC_GPU_Engine
+cd TorchShield
 
 # 2. Create virtual environment
 python -m venv .venv
@@ -70,14 +70,14 @@ pip install -e . --no-build-isolation --no-deps
 Run a quick verification command to confirm import isolation and package version:
 
 ```python
-import ahcc
-print(f"AHCC Platform Version: {ahcc.__version__}")
-# Output: AHCC Platform Version: 0.7.0
+import torchshield
+print(f"TorchShield Platform Version: {torchshield.__version__}")
+# Output: TorchShield Platform Version: 0.7.0
 ```
 
 Verify the CLI tool:
 ```bash
-ahcc --help
+torchshield --help
 ```
 
 Run test suite:

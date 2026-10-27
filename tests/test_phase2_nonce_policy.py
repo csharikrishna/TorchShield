@@ -15,7 +15,7 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 def test_deterministic_nonce_structure():
@@ -48,8 +48,8 @@ def test_fresh_key_and_nonce_per_rewrite(tmp_path):
     master_key = secrets.token_bytes(32)
     state_dict = {"weights": torch.ones(100, 100)}
 
-    path1 = str(tmp_path / "model1.ahcc")
-    path2 = str(tmp_path / "model2.ahcc")
+    path1 = str(tmp_path / "model1.shield")
+    path2 = str(tmp_path / "model2.shield")
 
     SecureModelCheckpoint.save_checkpoint(state_dict, path1, master_key, format_version=2)
     SecureModelCheckpoint.save_checkpoint(state_dict, path2, master_key, format_version=2)
@@ -76,7 +76,7 @@ def test_nonce_sequence_uniqueness_across_many_chunks(tmp_path):
     master_key = secrets.token_bytes(32)
     # Generate 5 layers of 2 MiB each, written with 512 KiB chunks -> 20 chunks total
     state_dict = {f"layer_{i}": torch.randn(512, 1024) for i in range(5)}
-    path = str(tmp_path / "multi_chunk.ahcc")
+    path = str(tmp_path / "multi_chunk.shield")
 
     SecureModelCheckpoint.save_checkpoint(state_dict, path, master_key, chunk_bytes=512 * 1024, format_version=2)
 
@@ -93,7 +93,7 @@ def test_nonce_sequence_uniqueness_across_many_chunks(tmp_path):
         enc_manifest = f.read(m_len)
 
     art_key = SecureModelCheckpoint.derive_artifact_key(master_key, salt, art_id)
-    from ahcc.secure import AESGCMEnvelope
+    from torchshield.secure import AESGCMEnvelope
     import json
 
     manifest_bytes = AESGCMEnvelope.decrypt(enc_manifest, art_key, associated_data=art_id + b"::MANIFEST::v2")

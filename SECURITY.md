@@ -1,16 +1,16 @@
 # Security Policy and Cryptographic Architecture
 
-**Current Release Status:** AHCC Secure AI Checkpoint Platform v0.7.0 (Restricted Pilot Approved).  
+**Current Release Status:** TorchShield Secure AI Checkpoint Platform v0.7.0 (Restricted Pilot Approved).  
 **Vetted Cryptographic Baseline:** NIST SP 800-38D AES-256-GCM + RFC 5869 HKDF-SHA256 + RFC 8032 Ed25519.  
-**Custom AHCC Transform:** Strictly Experimental and Insecure for Production.  
+**Custom TorchShield Transform:** Strictly Experimental and Insecure for Production.  
 
 ---
 
 ## 1. Executive Security Architecture
 
-The AHCC GPU Engine project has pivoted to a dual-tier architecture:
+The TorchShield GPU Engine project has pivoted to a dual-tier architecture:
 
-1. **Production Checkpoint & Tensor Security Engine (`ahcc.checkpoint` & `ahcc.secure`):**
+1. **Production Checkpoint & Tensor Security Engine (`torchshield.checkpoint` & `torchshield.secure`):**
    - Built on vetted, hardware-accelerated **AES-256-GCM** authenticated encryption (via `cryptography`/OpenSSL).
    - End-to-end authenticated chunked streaming for PyTorch model weights and state dictionaries.
    - Per-artifact subkey derivation using **HKDF-SHA256** (RFC 5869) with a 32-byte public derivation salt and domain separation.
@@ -54,8 +54,8 @@ Cryptographic encryption protects against unauthorized inspection, weight tamper
 - **Public Derivation Salt:** When encrypting checkpoints, a fresh 32-byte cryptographic random salt is generated and written in plaintext at bytes `0x09 - 0x28` of the container header. Under RFC 5869, this salt is a **public extraction parameter**, NOT secret keying material. Salt secrecy is not required for HKDF-SHA256 security proofs.
 - **Domain-Separated Subkey Derivation (Version 5):** The system extracts a Pseudorandom Key (PRK) and derives independent, domain-separated subkeys:
   $$\text{PRK} = \text{HKDF-Extract}(\text{salt}=\text{public\_salt}_{32\text{B}}, \text{IKM}=\text{DEK}_{32\text{B}})$$
-  $$\text{manifest\_key} = \text{HKDF-Expand}(\text{PRK}, \text{info}=b"\text{AHCC-v5-Manifest-Key::"} + \text{artifact\_id}, L=32)$$
-  $$\text{chunk\_key} = \text{HKDF-Expand}(\text{PRK}, \text{info}=b"\text{AHCC-v5-Chunk-Key::"} + \text{artifact\_id}, L=32)$$
+  $$\text{manifest\_key} = \text{HKDF-Expand}(\text{PRK}, \text{info}=b"\text{TorchShield-v5-Manifest-Key::"} + \text{artifact\_id}, L=32)$$
+  $$\text{chunk\_key} = \text{HKDF-Expand}(\text{PRK}, \text{info}=b"\text{TorchShield-v5-Chunk-Key::"} + \text{artifact\_id}, L=32)$$
 
 ### 3.2 Nonce Construction & Collision Bounds (NIST SP 800-38D Compliance)
 To prevent AES-GCM nonce reuse under any circumstances:
@@ -68,18 +68,18 @@ To prevent AES-GCM nonce reuse under any circumstances:
 
 ---
 
-## 4. Reassessment of the Experimental AHCC Cipher
+## 4. Reassessment of the Experimental TorchShield Cipher
 
 A detailed cryptanalytic review (`reports/PHASE2_CIPHER_REASSESSMENT.md`) established:
 1. **Univariate vs. Multivariate Correction:** The Phase 1 claim that an algebraic degree of $3^4 = 81$ permits recovering the cipher in $<100$ known pairs was mathematically flawed. In $N=64$ dimensions, dense Cauchy mixing produces up to $1.25 \times 10^{41}$ multivariate monomials, making simple interpolation impossible.
-2. **Fatal Inherent Weaknesses:** Despite the correction above, AHCC has critical vulnerabilities:
+2. **Fatal Inherent Weaknesses:** Despite the correction above, TorchShield has critical vulnerabilities:
    - **Legacy Seed Entropy Collapse:** Key schedule collapses seed into a single 32-bit state modulo $p-3$ ($\le 2^{32}$ security, exhaustible in $<2$ seconds on GPU).
    - **Algebraic Invertibility:** Key schedule recurrence is step-by-step invertible in $O(1)$ operations using Tonelli-Shanks modular square roots.
-   - **Zero Authentication:** Direct AHCC encryption has no MAC or integrity verification; bit flips corrupt plaintexts silently.
+   - **Zero Authentication:** Direct TorchShield encryption has no MAC or integrity verification; bit flips corrupt plaintexts silently.
    - **Deterministic ECB Behavior:** Without IVs, identical blocks leak exact equality.
    - **Dense Cauchy Bottleneck:** $O(N^2)$ scalar multiplications over $\mathbb{F}_p$ cannot leverage GPU Tensor Cores, resulting in slow throughput ($\sim 11-80\text{ MiB/s}$ vs $>2,000\text{ MiB/s}$ for CPU AES-GCM).
 
-**Policy:** The raw AHCC cipher must remain strictly a research prototype.
+**Policy:** The raw TorchShield cipher must remain strictly a research prototype.
 
 ---
 

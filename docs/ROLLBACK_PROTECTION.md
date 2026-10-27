@@ -2,7 +2,7 @@
 
 **Document:** `docs/ROLLBACK_PROTECTION.md`  
 **Date:** 2026-10-26  
-**Implementation:** `ahcc.provenance.FreshnessLedger`, `ahcc.provenance.FreshnessBackend`  
+**Implementation:** `torchshield.provenance.FreshnessLedger`, `torchshield.provenance.FreshnessBackend`  
 **Status:** `VERIFIED`
 
 ---
@@ -17,7 +17,7 @@ While digital signatures and AEAD encryption guarantee authenticity and integrit
 
 ## 2. Attacker Model & Trust Boundaries
 
-The AHCC rollback mitigation framework distinguishes 6 threat scenarios:
+The TorchShield rollback mitigation framework distinguishes 6 threat scenarios:
 
 | Scenario | Attacker Capability | Local File Backend | Trusted External Backend |
 |---|---|---|---|
@@ -36,7 +36,7 @@ The AHCC rollback mitigation framework distinguishes 6 threat scenarios:
 ## 3. Pluggable Backend Architecture
 
 ```python
-from ahcc.provenance import (
+from torchshield.provenance import (
     FreshnessLedger,
     LocalFileFreshnessBackend,
     TransactionalMemoryFreshnessBackend,
@@ -66,8 +66,8 @@ For any checkpoint restoration or promotion:
 4. Fail-closed: if the freshness service is unreachable, restoration raises `FreshnessServiceUnavailableError`.
 
 ```python
-from ahcc.provenance import FreshnessLedger, RollbackError
-from ahcc.distributed import load_sharded_checkpoint
+from torchshield.provenance import FreshnessLedger, RollbackError
+from torchshield.distributed import load_sharded_checkpoint
 
 ledger = FreshnessLedger(backend=sql_backend)
 

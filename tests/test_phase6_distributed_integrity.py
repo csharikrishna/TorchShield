@@ -18,7 +18,7 @@ import tempfile
 import pytest
 import torch
 
-from ahcc.distributed import (
+from torchshield.distributed import (
     save_sharded_checkpoint,
     build_global_inventory,
     verify_sharded_checkpoint,
@@ -26,7 +26,7 @@ from ahcc.distributed import (
     get_shard_filename,
     DistributedCheckpointError,
 )
-from ahcc.provenance import Ed25519Signer, FreshnessLedger
+from torchshield.provenance import Ed25519Signer, FreshnessLedger
 
 
 def test_distributed_save_and_restore_4_ranks():
@@ -210,7 +210,7 @@ def test_distributed_interrupted_rank_during_save():
         save_sharded_checkpoint({"w": torch.randn(4)}, tmp_dir, rank=1, world_size=world_size, key=key)
 
         # Rank 2 crashes during chunk encryption
-        with mock.patch("ahcc.checkpoint.ChunkCryptoSession.encrypt_next_chunk", side_effect=RuntimeError("Rank 2 power loss")):
+        with mock.patch("torchshield.checkpoint.ChunkCryptoSession.encrypt_next_chunk", side_effect=RuntimeError("Rank 2 power loss")):
             with pytest.raises(RuntimeError, match="Rank 2 power loss"):
                 save_sharded_checkpoint({"w": torch.randn(4)}, tmp_dir, rank=2, world_size=world_size, key=key)
 

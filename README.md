@@ -1,11 +1,11 @@
-# AHCC Secure AI Checkpoint Platform
+# TorchShield Secure AI Checkpoint Platform
 
 [![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](pyproject.toml)
-[![Status](https://img.shields.io/badge/status-Restricted_Pilot_Approved-green.svg)](reports/RELEASE_CLOSEOUT_V070.md)
-[![Tests](https://img.shields.io/badge/tests-199_passed-brightgreen.svg)](tests/)
+[![Status](https://img.shields.io/badge/status-Pilot_Approved-green.svg)](docs/)
+[![Tests](https://img.shields.io/badge/tests-204_passed-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
 
-**AHCC Secure AI Checkpoint Platform** is a cryptographically hardened, high-performance training and model checkpoint platform for PyTorch. It protects model weights, optimizer states, learning rate schedulers, and RNG generators against unauthorized inspection, weight tampering, supply-chain deserialization exploits (`pickle`), and unauthorized rollbacks.
+**TorchShield Secure AI Checkpoint Platform** is a cryptographically hardened, high-performance training and model checkpoint platform for PyTorch. It protects model weights, optimizer states, learning rate schedulers, and RNG generators against unauthorized inspection, weight tampering, supply-chain deserialization exploits (`pickle`), and unauthorized rollbacks.
 
 ---
 
@@ -26,7 +26,7 @@
 ```
 +------------------------------------------------------------------------------------+
 |                                CONTAINER HEADER (40 Bytes)                         |
-|  Magic: "AHCC\x00CK5" (8B) | Version: 0x05 (1B) | Salt: 32B Public HKDF Salt (32B) |
+|  Magic: "TSHD\x00CK5" (8B) | Version: 0x05 (1B) | Salt: 32B Public HKDF Salt (32B) |
 +------------------------------------------------------------------------------------+
 |                                 CHUNK ENVELOPES (1..M)                             |
 |  [Chunk Header: Chunk ID (8B) || Payload Size (8B)]                                |
@@ -49,10 +49,10 @@
 
 ### 1. Installation
 
-Install the verified standalone distribution wheel from [`dist/release_v070/`](dist/release_v070/):
+Install the verified standalone distribution wheel from [`dist/`](dist/):
 
 ```bash
-pip install dist/release_v070/ahcc_gpu_engine-0.7.0-py3-none-any.whl
+pip install dist/torchshield-0.7.0-py3-none-any.whl
 ```
 
 Or install from source in editable mode:
@@ -67,7 +67,7 @@ pip install -e . --no-build-isolation --no-deps
 import secrets
 import torch
 import torch.nn as nn
-from ahcc import save_training_checkpoint, TrainingProgress
+from torchshield import save_training_checkpoint, TrainingProgress
 
 # Setup training components
 model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
@@ -79,7 +79,7 @@ key = secrets.token_bytes(32)
 
 # Save checkpoint with atomic flush and tamper-proof streaming AEAD
 save_training_checkpoint(
-    checkpoint_path="checkpoints/run_01_step5000.ahcc",
+    checkpoint_path="checkpoints/run_01_step5000.shield",
     key=key,
     model=model,
     optimizer=optimizer,
@@ -93,7 +93,7 @@ save_training_checkpoint(
 ```python
 import torch
 import torch.nn as nn
-from ahcc import load_training_checkpoint
+from torchshield import load_training_checkpoint
 
 # Initialize fresh model and optimizer instances
 model = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 10))
@@ -101,7 +101,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
 # Load and verify cryptographic authenticity (fails closed if tampered)
 metadata = load_training_checkpoint(
-    checkpoint_path="checkpoints/run_01_step5000.ahcc",
+    checkpoint_path="checkpoints/run_01_step5000.shield",
     key=key,
     model=model,
     optimizer=optimizer,
@@ -117,22 +117,22 @@ print(f"Successfully resumed at epoch {metadata.progress.epoch}, step {metadata.
 Inspect container headers without decrypting or allocating tensors:
 
 ```python
-from ahcc import inspect_training_checkpoint
+from torchshield import inspect_training_checkpoint
 
 # Zero-key inspect (public container envelope)
-info = inspect_training_checkpoint("checkpoints/run_01_step5000.ahcc")
+info = inspect_training_checkpoint("checkpoints/run_01_step5000.shield")
 print(f"Format Version: {info.version}, Salt: {info.salt.hex()[:16]}...")
 
 # Authenticated inspect (reads training progress and parameter inventory)
-auth_info = inspect_training_checkpoint("checkpoints/run_01_step5000.ahcc", key=key)
+auth_info = inspect_training_checkpoint("checkpoints/run_01_step5000.shield", key=key)
 print(f"Progress: Epoch {auth_info.progress.epoch}, Step {auth_info.progress.global_step}")
 print(f"Tensor Count: {auth_info.total_tensors}, Raw Size: {auth_info.total_raw_bytes} B")
 ```
 
 Or via command-line:
 ```bash
-ahcc info checkpoints/run_01_step5000.ahcc
-ahcc inspect checkpoints/run_01_step5000.ahcc --key-hex <64_HEX_CHARS>
+torchshield info checkpoints/run_01_step5000.shield
+torchshield inspect checkpoints/run_01_step5000.shield --key-hex <64_HEX_CHARS>
 ```
 
 ### 5. Hugging Face Trainer Integration
@@ -141,12 +141,12 @@ Eliminate insecure unpickling of `optimizer.pt`, `scheduler.pt`, and `rng_state.
 
 ```python
 from transformers import Trainer, TrainingArguments
-from ahcc import TorchVaultTrainerCallback
+from torchshield import TorchShieldTrainerCallback
 
 # Attach callback to automatically save encrypted, pickle-free checkpoints
-callback = TorchVaultTrainerCallback(
+callback = TorchShieldTrainerCallback(
     key=key,
-    vault_filename="torchvault_checkpoint.ahcc",
+    vault_filename="torchshield_checkpoint.shield",
     remove_insecure_pickle=True,  # Purges unsafe pickle files generated by default Trainer
 )
 
@@ -202,7 +202,7 @@ pytest tests
 
 Run independent consumer integration tests:
 ```bash
-cd ../ahcc_test_codebase
+cd ../torchshield_test_codebase
 .venv/Scripts/pytest tests
 ```
 *Consumer test suite: **27 passed in ~21s** (0 failed, 0 errors).*
@@ -222,4 +222,4 @@ Earlier research prototypes, paper cryptanalysis notes, and benchmark execution 
 
 - **Security Disclosures:** Please review [`SECURITY.md`](SECURITY.md) for vulnerability reporting procedures.
 - **Changelog:** Detailed version history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
-- **Release Audit:** The formal release closeout report is in [`reports/RELEASE_CLOSEOUT_V070.md`](reports/RELEASE_CLOSEOUT_V070.md).
+- **Release Audit:** The formal release closeout report is in [`docs/`](docs/).

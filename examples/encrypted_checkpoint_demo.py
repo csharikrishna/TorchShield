@@ -4,7 +4,7 @@ Compares:
 A. Plaintext PyTorch checkpoint loading (Performance Floor).
 B. Whole-file AES-256-GCM encrypted loading.
 C. Chunked authenticated streaming checkpoint loading (SecureModelCheckpoint).
-D. Experimental AHCC tensor encryption (Research Prototype).
+D. Experimental TorchShield tensor encryption (Research Prototype).
 
 Demonstrates timing, memory behavior, layer-by-layer streaming, and tamper detection.
 """
@@ -22,9 +22,9 @@ if _repo_root not in sys.path:
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint
-from ahcc.secure import AESGCMEnvelope, AuthenticationError
-from ahcc.engine import AHCC_Engine, TensorCipherWrapper
+from torchshield.checkpoint import SecureModelCheckpoint
+from torchshield.secure import AESGCMEnvelope, AuthenticationError
+from torchshield.engine import TorchShield_Engine, TensorCipherWrapper
 
 
 class DeepTransformerLayer(nn.Module):
@@ -71,7 +71,7 @@ def run_checkpoint_comparison_demo():
         # Paths
         plain_path = os.path.join(tmpdir, "model_plain.pt")
         whole_path = os.path.join(tmpdir, "model_whole.aes")
-        chunked_path = os.path.join(tmpdir, "model_chunked.ahcc_ckpt")
+        chunked_path = os.path.join(tmpdir, "model_chunked.shield_ckpt")
 
         # --- A. Plaintext Baseline ---
         t0 = time.perf_counter()
@@ -108,22 +108,22 @@ def run_checkpoint_comparison_demo():
         chunked_state = SecureModelCheckpoint.load_checkpoint(chunked_path, key, device=device)
         chunked_load_ms = (time.perf_counter() - t0) * 1000
 
-        # --- D. Experimental AHCC Tensor Cipher Wrapper ---
+        # --- D. Experimental TorchShield Tensor Cipher Wrapper ---
         # Test 1 sample parameter tensor
-        ahcc_engine = AHCC_Engine(N=64, R=4, p=4_294_967_291, device=device)
-        ahcc_wrapper = TensorCipherWrapper(ahcc_engine)
+        torchshield_engine = TorchShield_Engine(N=64, R=4, p=4_294_967_291, device=device)
+        torchshield_wrapper = TensorCipherWrapper(torchshield_engine)
         sample_tensor = model.q_proj.weight.detach()
         # Quantize float to int64 field elements
         scale = 10000.0
-        q_int = torch.clamp((sample_tensor * scale).round().to(torch.int64), 0, ahcc_engine.p - 1)
+        q_int = torch.clamp((sample_tensor * scale).round().to(torch.int64), 0, torchshield_engine.p - 1)
 
         t0 = time.perf_counter()
-        ct_ahcc, meta_ahcc = ahcc_wrapper.encrypt_tensor(q_int)
-        ahcc_enc_ms = (time.perf_counter() - t0) * 1000
+        ct_torchshield, meta_torchshield = torchshield_wrapper.encrypt_tensor(q_int)
+        torchshield_enc_ms = (time.perf_counter() - t0) * 1000
 
         t0 = time.perf_counter()
-        pt_ahcc = ahcc_wrapper.decrypt_tensor(ct_ahcc, meta_ahcc)
-        ahcc_dec_ms = (time.perf_counter() - t0) * 1000
+        pt_torchshield = torchshield_wrapper.decrypt_tensor(ct_torchshield, meta_torchshield)
+        torchshield_dec_ms = (time.perf_counter() - t0) * 1000
 
         # Verify inference equivalence
         test_model = DeepTransformerLayer().to(device)
@@ -137,7 +137,7 @@ def run_checkpoint_comparison_demo():
         print(f"A. Plaintext PyTorch (No Security)       : Save {plain_save_ms:6.2f} ms | Load {plain_load_ms:6.2f} ms")
         print(f"B. Whole-File AES-256-GCM               : Save {whole_save_ms:6.2f} ms | Load {whole_load_ms:6.2f} ms")
         print(f"C. Chunked Streaming AES-GCM Checkpoint : Save {chunked_save_ms:6.2f} ms | Load {chunked_load_ms:6.2f} ms")
-        print(f"D. Experimental AHCC (Single Layer Only): Enc  {ahcc_enc_ms:6.2f} ms | Dec  {ahcc_dec_ms:6.2f} ms")
+        print(f"D. Experimental TorchShield (Single Layer Only): Enc  {torchshield_enc_ms:6.2f} ms | Dec  {torchshield_dec_ms:6.2f} ms")
         print("-" * 80)
 
         # Demonstrate tamper detection

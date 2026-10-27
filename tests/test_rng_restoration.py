@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     serialize_python_rng,
     restore_python_rng,
     serialize_numpy_rng,

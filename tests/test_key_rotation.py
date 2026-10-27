@@ -5,7 +5,7 @@ import secrets
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from ahcc.key_providers.local import LocalDevKeyProvider
+from torchshield.key_providers.local import LocalDevKeyProvider
 
 
 def test_dek_rewrap_under_rotated_kek():

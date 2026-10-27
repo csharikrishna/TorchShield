@@ -7,14 +7,14 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 
-from ahcc.training_state import (
+from torchshield.training_state import (
     save_training_checkpoint,
     load_training_checkpoint,
     TrainingProgress,
 )
-from ahcc.key_providers.local import LocalDevKeyProvider
-from ahcc.provenance import Ed25519Signer
-from ahcc.checkpoint import CheckpointError
+from torchshield.key_providers.local import LocalDevKeyProvider
+from torchshield.provenance import Ed25519Signer
+from torchshield.checkpoint import CheckpointError
 
 
 class ToyModel(nn.Module):
@@ -45,7 +45,7 @@ def test_training_checkpoint_full_roundtrip_raw_key():
         scheduler.step()
 
     key = os.urandom(32)
-    with tempfile.NamedTemporaryFile(suffix=".ahcc", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
         path = tmp.name
 
     try:
@@ -113,7 +113,7 @@ def test_training_checkpoint_roundtrip_kms_provider_and_provenance():
     provider = LocalDevKeyProvider(key_id="local-kms-key-1", master_kek=kek)
     signer = Ed25519Signer()
 
-    with tempfile.NamedTemporaryFile(suffix=".ahcc", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
         path = tmp.name
 
     try:
@@ -125,7 +125,7 @@ def test_training_checkpoint_roundtrip_kms_provider_and_provenance():
             optimizer=optimizer,
             progress=progress_in,
             key_provider=provider,
-            encryption_context={"env": "staging", "project": "ahcc-p5"},
+            encryption_context={"env": "staging", "project": "torchshield-p5"},
             signer_private_key=signer.private_bytes,
         )
 
@@ -138,7 +138,7 @@ def test_training_checkpoint_roundtrip_kms_provider_and_provenance():
             model=restored_model,
             optimizer=restored_opt,
             key_provider=provider,
-            encryption_context={"env": "staging", "project": "ahcc-p5"},
+            encryption_context={"env": "staging", "project": "torchshield-p5"},
             expected_signer_public_key=signer.public_bytes,
         )
 

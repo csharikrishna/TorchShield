@@ -14,7 +14,7 @@ import struct
 import pytest
 import torch
 
-from ahcc.checkpoint import (
+from torchshield.checkpoint import (
     SecureModelCheckpoint,
     CheckpointError,
     ResourceLimits,
@@ -47,7 +47,7 @@ def test_custom_limits_rejection_on_save(tmp_path):
     with pytest.raises(ValueError, match="Tensor count 3 exceeds maximum limit 2"):
         SecureModelCheckpoint.save_checkpoint(
             excessive_state,
-            str(tmp_path / "excess_tensors.ahcc"),
+            str(tmp_path / "excess_tensors.shield"),
             key,
             limits=strict_limits,
         )
@@ -57,7 +57,7 @@ def test_custom_limits_rejection_on_save(tmp_path):
     with pytest.raises(ValueError, match="Invalid dimension size 100 in tensor 'large'"):
         SecureModelCheckpoint.save_checkpoint(
             large_dim_state,
-            str(tmp_path / "large_dim.ahcc"),
+            str(tmp_path / "large_dim.shield"),
             key,
             chunk_bytes=512 * 1024,
             limits=strict_limits,
@@ -72,7 +72,7 @@ def test_custom_limits_rejection_on_load(tmp_path):
         "layer_b": torch.randn(20, 20),
         "layer_c": torch.randn(20, 20),
     }
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     # Try loading with max_tensor_count = 2
@@ -85,7 +85,7 @@ def test_manifest_length_ceiling_enforcement(tmp_path):
     """Verify that declared manifest length exceeding limits.max_manifest_bytes is rejected before reading."""
     key = secrets.token_bytes(32)
     state = {"w": torch.randn(4, 4)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     # Load with tiny manifest limit
@@ -98,7 +98,7 @@ def test_file_size_ceiling_enforcement(tmp_path):
     """Verify that file size exceeding limits.max_file_size is rejected before processing."""
     key = secrets.token_bytes(32)
     state = {"w": torch.randn(100, 100)}
-    path = str(tmp_path / "model.ahcc")
+    path = str(tmp_path / "model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     # Set max_file_size below actual file size

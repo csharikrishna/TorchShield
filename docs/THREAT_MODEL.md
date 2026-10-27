@@ -1,4 +1,4 @@
-# AHCC Secure AI Checkpoint Platform: Threat Model
+# TorchShield Secure AI Checkpoint Platform: Threat Model
 
 **Document:** `docs/THREAT_MODEL.md`  
 **Date:** 2026-10-26  
@@ -9,7 +9,7 @@
 
 ## 1. System Context and Trust Boundaries
 
-The AHCC Secure Checkpoint Platform operates across three primary security perimeters:
+The TorchShield Secure Checkpoint Platform operates across three primary security perimeters:
 
 ```
 +---------------------------------------------------------------------------------------------------+
@@ -53,7 +53,7 @@ The AHCC Secure Checkpoint Platform operates across three primary security perim
 
 ## 3. Threat Mitigation Matrix
 
-| Threat | Attack Vector | AHCC Platform Mitigation |
+| Threat | Attack Vector | TorchShield Platform Mitigation |
 |---|---|---|
 | **Remote Code Execution (RCE)** | Crafting malicious Python pickle payloads in model weights or optimizer states. | **Strictly Pickle-Free Architecture:** All weights are dense numerical buffers; all metadata is canonical JSON; zero deserialization hooks exist. |
 | **Weight Exfiltration** | Snooping on checkpoint files stored in public or compromised object storage. | **NIST SP 800-38D AES-256-GCM:** 256-bit symmetric encryption with fresh per-artifact DEK derived via RFC 5869 HKDF-SHA256. |
@@ -68,5 +68,5 @@ The AHCC Secure Checkpoint Platform operates across three primary security perim
 
 ## 4. Quarantined Components & Out-of-Scope Items
 
-1. **Experimental AHCC Cipher:** The custom algebraic S-box and Cauchy diffusion cipher is strictly quarantined as research code and **must never be used in production**.
+1. **Experimental TorchShield Cipher:** The custom algebraic S-box and Cauchy diffusion cipher is strictly quarantined as research code and **must never be used in production**.
 2. **Physical GPU Memory Snooping:** Physical cold-boot attacks against host DRAM or GPU VRAM are out of scope (requires confidential computing / AMD SEV-SNP / Intel TDX).

@@ -12,7 +12,7 @@ import secrets
 from typing import Dict, Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from ahcc.key_providers.base import KeyProvider, KeyProviderError
+from torchshield.key_providers.base import KeyProvider, KeyProviderError
 
 
 class LocalDevKeyProvider(KeyProvider):
@@ -26,7 +26,7 @@ class LocalDevKeyProvider(KeyProvider):
             self._kek = master_kek
         else:
             # Fall back to environment variable or generate in-memory key
-            env_key = os.environ.get("AHCC_LOCAL_KEK")
+            env_key = os.environ.get("TorchShield_LOCAL_KEK")
             if env_key:
                 try:
                     self._kek = bytes.fromhex(env_key)

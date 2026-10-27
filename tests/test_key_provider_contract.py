@@ -5,9 +5,9 @@ import secrets
 from unittest import mock
 import pytest
 
-from ahcc.key_providers.base import KeyProviderError
-from ahcc.key_providers.local import LocalDevKeyProvider
-from ahcc.key_providers.kms import AWSKMSProvider
+from torchshield.key_providers.base import KeyProviderError
+from torchshield.key_providers.local import LocalDevKeyProvider
+from torchshield.key_providers.kms import AWSKMSProvider
 
 
 def test_local_dev_key_provider_lifecycle():

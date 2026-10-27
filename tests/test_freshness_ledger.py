@@ -3,7 +3,7 @@ import os
 import tempfile
 import pytest
 
-from ahcc.provenance import FreshnessLedger, RollbackError
+from torchshield.provenance import FreshnessLedger, RollbackError
 
 
 def test_freshness_ledger_advancement_and_rollback_detection():

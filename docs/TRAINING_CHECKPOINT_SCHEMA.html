@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkpoint Schema (v5) — TorchVault Documentation</title>
+  <title>Checkpoint Schema (v5) — TorchShield Documentation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -45,7 +45,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <div class="flex items-baseline gap-2">
-            <span class="font-bold text-lg tracking-tight text-slate-900">TorchVault</span>
+            <span class="font-bold text-lg tracking-tight text-slate-900">TorchShield</span>
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
@@ -57,7 +57,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
           Back to Showcase
         </a>
-        <a href="https://github.com/csharpe/AHCC_GPU_Engine" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
+        <a href="https://github.com/csharpe/TorchShield" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition flex items-center gap-2">
           <svg class="w-3.5 h-3.5 fill-slate-800" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
@@ -147,24 +147,24 @@
         <h1 id="safe-pickle-free-training-checkpoint-schema-specification">Safe, Pickle-Free Training Checkpoint Schema Specification</h1>
 <p><strong>Document:</strong> <code>docs/TRAINING_CHECKPOINT_SCHEMA.md</code><br />
 <strong>Date:</strong> 2026-10-26<br />
-<strong>Format Version:</strong> <code>AHCC-SafeTrainingCheckpoint-v1</code> (Container Version 5)<br />
+<strong>Format Version:</strong> <code>TorchShield-SafeTrainingCheckpoint-v1</code> (Container Version 5)<br />
 <strong>Status:</strong> <code>VERIFIED</code></p>
 <hr />
 <h2 id="1-architectural-philosophy-the-zero-pickle-imperative">1. Architectural Philosophy: The Zero-Pickle Imperative</h2>
 <p>Standard deep learning frameworks historically rely on Python <code>pickle</code> (e.g., <code>torch.save(..., f)</code>), which serializes arbitrary Python bytecode. This creates an unacceptable remote code execution (RCE) vulnerability when loading checkpoints from external, untrusted, or distributed storage buckets.</p>
-<p>The AHCC Secure Checkpoint Engine establishes a <strong>strictly non-executable serialization contract</strong>:<br />
+<p>The TorchShield Secure Checkpoint Engine establishes a <strong>strictly non-executable serialization contract</strong>:<br />
 - <strong>Tensors:</strong> Serialized exclusively as raw binary numerical buffers with strictly allowlisted PyTorch dtypes (<code>float32</code>, <code>float16</code>, <code>bfloat16</code>, <code>float64</code>, <code>int64</code>, <code>int32</code>, <code>int16</code>, <code>int8</code>, <code>uint8</code>, <code>bool</code>).<br />
 - <strong>Metadata &amp; State:</strong> Stored as deterministic canonical UTF-8 JSON specifications (<code>RFC 8785</code>), parsed with duplicate-key rejection and strict schema enforcement.<br />
 - <strong>No Deserialization Hooks:</strong> No <code>__reduce__</code>, no <code>eval()</code>, and zero execution pathways exist during model loading.</p>
 <hr />
 <h2 id="2-container-format-version-5-layout">2. Container Format: Version 5 Layout</h2>
-<p>A Version 5 AHCC checkpoint file is an authenticated binary container with the following byte sequence:</p>
+<p>A Version 5 TorchShield checkpoint file is an authenticated binary container with the following byte sequence:</p>
 <pre><code>+--------------------------------------------------------------------------------------------------+
-|                                  AHCC VERSION 5 BINARY CONTAINER                                 |
+|                                  TorchShield VERSION 5 BINARY CONTAINER                                 |
 +--------------------------------------------------------------------------------------------------+
 | Offset (Bytes) | Length (Bytes) | Field Name       | Description                                 |
 +----------------+----------------+------------------+---------------------------------------------+
-| 0x00 - 0x07    | 8              | Magic Bytes      | b&quot;AHCCMOD5&quot;                                 |
+| 0x00 - 0x07    | 8              | Magic Bytes      | b&quot;TSHDMOD5&quot;                                 |
 | 0x08           | 1              | Container Ver    | 0x05 (uint8)                                |
 | 0x09 - 0x28    | 32             | Salt             | Public random HKDF derivation salt (non-secret)|
 | 0x29           | 1              | Artifact ID Len  | Length of Artifact ID (N &lt;= 64)             |
@@ -208,7 +208,7 @@
 </tbody>
 </table>
 <h3 id="stable-parameter-name-mapping">Stable Parameter Name Mapping</h3>
-<p>PyTorch native optimizers store state keyed by internal integer indices (<code>0, 1, 2...</code>) or transient Python object IDs. These indices are unstable across separate process invocations or model reinstantiations. AHCC maps optimizer state to canonical parameter names (<code>dict(model.named_parameters())</code>), ensuring 100% portable and deterministic state restoration.</p>
+<p>PyTorch native optimizers store state keyed by internal integer indices (<code>0, 1, 2...</code>) or transient Python object IDs. These indices are unstable across separate process invocations or model reinstantiations. TorchShield maps optimizer state to canonical parameter names (<code>dict(model.named_parameters())</code>), ensuring 100% portable and deterministic state restoration.</p>
 <hr />
 <h2 id="4-training-manifest-specification-schema">4. Training Manifest Specification Schema</h2>
 <p>The encrypted manifest payload contains the canonical JSON specification (<code>M_spec</code>):</p>
@@ -221,7 +221,7 @@
   &quot;total_raw_bytes&quot;: 48234496,
   &quot;metadata&quot;: {
     &quot;schema_version&quot;: 1,
-    &quot;format&quot;: &quot;AHCC-SafeTrainingCheckpoint-v1&quot;,
+    &quot;format&quot;: &quot;TorchShield-SafeTrainingCheckpoint-v1&quot;,
     &quot;global_step&quot;: 15000,
     &quot;epoch&quot;: 3,
     &quot;batch_idx&quot;: 450,
@@ -319,7 +319,7 @@
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchVault &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
   </footer>
 
   <script>

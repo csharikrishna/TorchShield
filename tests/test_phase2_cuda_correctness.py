@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from ahcc.checkpoint import SecureModelCheckpoint, CheckpointError
+from torchshield.checkpoint import SecureModelCheckpoint, CheckpointError
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA hardware is not available")
@@ -26,7 +26,7 @@ def test_direct_cuda_tensor_loading(tmp_path):
         "fc.weight": torch.randn(128, 256),
         "fc.bias": torch.randn(128),
     }
-    path = str(tmp_path / "cuda_model.ahcc")
+    path = str(tmp_path / "cuda_model.shield")
     SecureModelCheckpoint.save_checkpoint(state, path, key)
 
     loaded = SecureModelCheckpoint.load_checkpoint(path, key, device="cuda")
@@ -60,7 +60,7 @@ def test_cuda_model_streaming_and_inference(tmp_path):
         cpu_out = model_cpu(dummy_input)
 
     key = secrets.token_bytes(32)
-    path = str(tmp_path / "mlp.ahcc")
+    path = str(tmp_path / "mlp.shield")
     SecureModelCheckpoint.save_checkpoint(model_cpu.state_dict(), path, key)
 
     # Instantiate model on CUDA

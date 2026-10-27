@@ -12,18 +12,18 @@ import shutil
 import tempfile
 import torch
 
-from ahcc.distributed import (
+from torchshield.distributed import (
     save_sharded_checkpoint,
     build_global_inventory,
     load_sharded_checkpoint,
     verify_sharded_checkpoint,
 )
-from ahcc.provenance import Ed25519Signer, FreshnessLedger
+from torchshield.provenance import Ed25519Signer, FreshnessLedger
 
 
 def run_distributed_demo():
     print("================================================================================")
-    print("  AHCC SECURE DISTRIBUTED SHARDED CHECKPOINT DEMONSTRATION")
+    print("  TorchShield SECURE DISTRIBUTED SHARDED CHECKPOINT DEMONSTRATION")
     print("  Phase 5 Multi-Rank Coordination, Inventory Seal & Rollback Protection")
     print("================================================================================\n")
 
@@ -32,7 +32,7 @@ def run_distributed_demo():
     STEP = 10000
     EPOCH = 3
 
-    checkpoint_dir = tempfile.mkdtemp(prefix="ahcc_dist_demo_")
+    checkpoint_dir = tempfile.mkdtemp(prefix="torchshield_dist_demo_")
     ledger_path = os.path.join(checkpoint_dir, "freshness_ledger.json")
 
     try:
