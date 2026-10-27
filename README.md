@@ -4,6 +4,7 @@
 [![Status](https://img.shields.io/badge/status-Pilot_Approved-green.svg)](docs/)
 [![Tests](https://img.shields.io/badge/tests-204_passed-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/csharikrishna/TorchShield/blob/master/notebooks/TorchShield_Interactive_Walkthrough.ipynb)
 
 **TorchShield Secure AI Checkpoint Platform** is a cryptographically hardened, high-performance training and model checkpoint platform for PyTorch. It protects model weights, optimizer states, learning rate schedulers, and RNG generators against unauthorized inspection, weight tampering, supply-chain deserialization exploits (`pickle`), and unauthorized rollbacks.
 
