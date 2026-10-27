@@ -5,10 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TorchVault / AHCC — Secure AI Checkpoint Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="docs_data.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
     body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; }
     code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Styled Markdown Typography for Reader Modal */
+    .prose-custom h1 { font-size: 1.85rem; font-weight: 800; color: #0f172a; margin-top: 1.25rem; margin-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; letter-spacing: -0.02em; }
+    .prose-custom h2 { font-size: 1.3rem; font-weight: 700; color: #1e293b; margin-top: 1.75rem; margin-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.35rem; letter-spacing: -0.01em; }
+    .prose-custom h3 { font-size: 1.1rem; font-weight: 700; color: #334155; margin-top: 1.25rem; margin-bottom: 0.35rem; }
+    .prose-custom p { margin-top: 0.65rem; margin-bottom: 0.65rem; line-height: 1.7; color: #475569; font-size: 0.925rem; }
+    .prose-custom ul { list-style-type: disc; padding-left: 1.5rem; margin-top: 0.65rem; margin-bottom: 0.65rem; color: #475569; font-size: 0.925rem; }
+    .prose-custom ol { list-style-type: decimal; padding-left: 1.5rem; margin-top: 0.65rem; margin-bottom: 0.65rem; color: #475569; font-size: 0.925rem; }
+    .prose-custom li { margin-top: 0.25rem; margin-bottom: 0.25rem; line-height: 1.6; }
+    .prose-custom strong { color: #0f172a; font-weight: 600; }
+    .prose-custom code:not(pre code) { background-color: #f1f5f9; color: #4338ca; padding: 0.15rem 0.35rem; border-radius: 0.375rem; font-size: 0.85em; border: 1px solid #e2e8f0; font-family: 'JetBrains Mono', monospace; }
+    .prose-custom pre { background-color: #0f172a; border-radius: 0.75rem; padding: 1.25rem; overflow-x: auto; margin-top: 1rem; margin-bottom: 1rem; border: 1px solid #1e293b; position: relative; }
+    .prose-custom pre code { color: #f8fafc; font-size: 0.85rem; line-height: 1.6; font-family: 'JetBrains Mono', monospace; background: transparent; padding: 0; }
+    .prose-custom table { width: 100%; border-collapse: collapse; margin-top: 1.25rem; margin-bottom: 1.25rem; font-size: 0.85rem; }
+    .prose-custom th { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0.65rem 0.85rem; font-weight: 700; text-align: left; color: #1e293b; }
+    .prose-custom td { border: 1px solid #e2e8f0; padding: 0.65rem 0.85rem; color: #475569; vertical-align: top; }
+    .prose-custom tr:nth-child(even) { background-color: #fbfcfe; }
+    .prose-custom blockquote { border-left: 4px solid #6366f1; background-color: #f5f7ff; padding: 0.65rem 1rem; border-radius: 0 0.5rem 0.5rem 0; margin-top: 0.75rem; margin-bottom: 0.75rem; color: #334155; }
+    .prose-custom hr { border: 0; border-top: 1px solid #e2e8f0; margin-top: 1.5rem; margin-bottom: 1.5rem; }
+    .prose-custom a { color: #4f46e5; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+    .prose-custom a:hover { color: #3730a3; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
@@ -443,52 +467,166 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
-        <a href="INSTALLATION.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>Installation Guide</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 1: Installation -->
+        <a href="INSTALLATION.html" onclick="openDocModal('INSTALLATION'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Getting Started</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Installation Guide
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Standalone wheel, source distribution, CUDA & CPU setup.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">Standalone wheel, source distribution, CUDA & CPU setup.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>INSTALLATION.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
-        <a href="USAGE.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>Usage & API Guide</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 2: Usage & API -->
+        <a href="USAGE.html" onclick="openDocModal('USAGE'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Core Tutorials</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Usage & API Guide
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Training checkpoint recipes, metadata inspection, and CLI.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">Training checkpoint recipes, metadata inspection, and CLI.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>USAGE.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
-        <a href="HUGGINGFACE_INTEGRATION.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>Hugging Face Integration</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 3: Hugging Face -->
+        <a href="HUGGINGFACE_INTEGRATION.html" onclick="openDocModal('HUGGINGFACE_INTEGRATION'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">Core Tutorials</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Hugging Face Integration
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">TorchVaultTrainerCallback, Trainer subclass, and pickle purging.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">TorchVaultTrainerCallback, Trainer subclass, and pickle purging.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>HUGGINGFACE_INTEGRATION.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
-        <a href="THREAT_MODEL.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>Threat Model</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 4: Threat Model -->
+        <a href="THREAT_MODEL.html" onclick="openDocModal('THREAT_MODEL'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-700">Security & Architecture</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Threat Model
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Formal adversary capabilities, trust boundaries, and defense limits.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">Formal adversary capabilities, trust boundaries, and defense limits.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>THREAT_MODEL.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
-        <a href="TRAINING_CHECKPOINT_SCHEMA.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>Checkpoint Schema (v5)</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 5: Checkpoint Schema -->
+        <a href="TRAINING_CHECKPOINT_SCHEMA.html" onclick="openDocModal('TRAINING_CHECKPOINT_SCHEMA'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">Security & Architecture</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Checkpoint Schema (v5)
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Byte-level layout, AAD serialization, and nonces.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">Byte-level layout, AAD serialization, and nonces.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>TRAINING_CHECKPOINT_SCHEMA.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
-        <a href="KMS_INTEGRATION.md" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group">
-          <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition flex items-center justify-between">
-            <span>KMS Key Management</span>
-            <svg class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        <!-- Doc 6: KMS Integration -->
+        <a href="KMS_INTEGRATION.html" onclick="openDocModal('KMS_INTEGRATION'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Security & Architecture</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              KMS Key Management
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Envelope encryption with AWS KMS, local keys, and rotation.</div>
           </div>
-          <div class="text-xs text-slate-600 mt-2 leading-relaxed">Envelope encryption with AWS KMS, local keys, and rotation.</div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>KMS_INTEGRATION.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
+        </a>
+
+        <!-- Doc 7: Rollback Protection -->
+        <a href="ROLLBACK_PROTECTION.html" onclick="openDocModal('ROLLBACK_PROTECTION'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">Security & Architecture</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Rollback & Freshness Ledger
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Monotonic anti-replay ledger and race condition prevention.</div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>ROLLBACK_PROTECTION.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
+        </a>
+
+        <!-- Doc 8: Distributed Checkpoints -->
+        <a href="DISTRIBUTED_CHECKPOINTS.html" onclick="openDocModal('DISTRIBUTED_CHECKPOINTS'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Advanced Systems</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Distributed Checkpointing
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Multi-GPU and multi-node training state synchronization.</div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>DISTRIBUTED_CHECKPOINTS.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
+        </a>
+
+        <!-- Doc 9: Artifact Provenance -->
+        <a href="ARTIFACT_PROVENANCE.html" onclick="openDocModal('ARTIFACT_PROVENANCE'); return false;" class="p-6 rounded-2xl bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md transition group flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Compliance & Release</span>
+              <span class="text-xs text-indigo-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">Read &rarr;</span>
+            </div>
+            <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition text-base">
+              Release Artifact Provenance
+            </div>
+            <div class="text-xs text-slate-600 mt-2 leading-relaxed">Deterministic reproducible builds, cryptographic wheel hashes.</div>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+            <span>ARTIFACT_PROVENANCE.html</span>
+            <span class="font-mono">v0.7.0</span>
+          </div>
         </a>
 
       </div>
@@ -661,9 +799,99 @@ ahcc verify checkpoints/signed_model.ahcc --public-key <PUBKEY_HEX></code></pre>
       alert("Code copied to clipboard!");
     }
 
+    // Documentation Reader Modal Logic
+    function openDocModal(docId) {
+      if (!window.DOCS_DATA || !window.DOCS_DATA[docId]) {
+        window.location.href = docId + '.html';
+        return;
+      }
+      const doc = window.DOCS_DATA[docId];
+      document.getElementById('modal-title').textContent = doc.title;
+      document.getElementById('modal-category').textContent = doc.category;
+      document.getElementById('modal-fullpage-link').href = doc.html_file;
+      
+      const body = document.getElementById('modal-body');
+      body.innerHTML = doc.html_content;
+      body.scrollTop = 0;
+      
+      if (window.hljs) {
+        body.querySelectorAll('pre code').forEach(el => {
+          hljs.highlightElement(el);
+        });
+      }
+
+      body.querySelectorAll('pre').forEach(pre => {
+        if (!pre.querySelector('button.copy-btn')) {
+          const button = document.createElement('button');
+          button.className = 'copy-btn absolute top-3 right-3 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono border border-slate-700 transition';
+          button.innerText = 'Copy';
+          button.addEventListener('click', () => {
+            const code = pre.querySelector('code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+              button.innerText = 'Copied!';
+              setTimeout(() => button.innerText = 'Copy', 2000);
+            });
+          });
+          pre.appendChild(button);
+        }
+      });
+
+      const modal = document.getElementById('doc-modal');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDocModal() {
+      const modal = document.getElementById('doc-modal');
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeDocModal();
+      }
+    });
+
     // Initialize clean scenario on load
     runScenario('clean');
   </script>
+
+  <!-- DOCUMENT VIEWER MODAL -->
+  <div id="doc-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-3 sm:p-6 md:p-8">
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onclick="closeDocModal()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden z-10 animate-in fade-in duration-150">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/90 backdrop-blur">
+        <div class="flex items-center gap-3">
+          <span id="modal-category" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">Category</span>
+          <h3 id="modal-title" class="text-base font-bold text-slate-900">Document Title</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <a id="modal-fullpage-link" href="#" target="_blank" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 transition flex items-center gap-1.5 shadow-sm">
+            <span>Open Full Page</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+          <button onclick="closeDocModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition" title="Close (Esc)">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable rendered markdown) -->
+      <div id="modal-body" class="p-6 sm:p-10 overflow-y-auto prose-custom max-w-none flex-1 bg-white">
+        <!-- Rendered doc content will be injected here -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+        <span>Press <kbd class="px-1.5 py-0.5 rounded bg-slate-200 font-mono text-[11px] text-slate-700">Esc</kbd> to exit reader</span>
+        <button onclick="closeDocModal()" class="font-semibold text-indigo-600 hover:text-indigo-800">Done Reading</button>
+      </div>
+
+    </div>
+  </div>
 
 </body>
 </html>
