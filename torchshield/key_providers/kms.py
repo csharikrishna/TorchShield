@@ -39,6 +39,8 @@ class AWSKMSProvider(KeyProvider):
         boto3_client: Optional[Any] = None,
         region_name: Optional[str] = None,
         endpoint_url: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
         max_retries: int = 3,
         base_backoff_sec: float = 0.05,
     ):
@@ -58,6 +60,10 @@ class AWSKMSProvider(KeyProvider):
                     client_kwargs["region_name"] = region_name
                 if endpoint_url:
                     client_kwargs["endpoint_url"] = endpoint_url
+                if aws_access_key_id:
+                    client_kwargs["aws_access_key_id"] = aws_access_key_id
+                if aws_secret_access_key:
+                    client_kwargs["aws_secret_access_key"] = aws_secret_access_key
                 self._client = boto3.client("kms", **client_kwargs)
             except ImportError as exc:
                 raise ImportError(
