@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchshield"
-version = "0.7.0"
+version = "0.7.1"
 description = "Production-hardened authenticated AI checkpoint, zero-pickle training state, and distributed streaming platform for PyTorch and Hugging Face"
 readme = "README.md"
 requires-python = ">=3.10"

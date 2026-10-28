@@ -1,7 +1,7 @@
 # Usage Guide: TorchShield Secure AI Checkpoint Platform
 
-**Document:** `docs/USAGE.md`  
-**Platform Version:** `0.7.0`  
+**Document:** `docs/USAGE.md`
+**Platform Version:** `0.7.1`
 
 ---
 

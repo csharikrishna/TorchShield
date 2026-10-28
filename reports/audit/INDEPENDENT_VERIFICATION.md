@@ -1,9 +1,9 @@
 # TorchShield — Independent Verification of Master Security Audit & Technical Readiness
 
-**Audit Date:** 2026-10-28  
-**Repository:** [https://github.com/csharikrishna/TorchShield](https://github.com/csharikrishna/TorchShield)  
-**Package Version:** `0.7.0` (Release Candidate)  
-**Execution Environment:** Windows 11 AMD64, Python 3.12.10, PyTorch 2.5.1+cu121, NVIDIA GeForce GTX 1650 (CUDA 12.1)  
+**Audit Date:** 2026-10-28
+**Repository:** [https://github.com/csharikrishna/TorchShield](https://github.com/csharikrishna/TorchShield)
+**Package Version:** `0.7.1` (Release Candidate)
+**Execution Environment:** Windows 11 AMD64, Python 3.12.10, PyTorch 2.5.1+cu121, NVIDIA GeForce GTX 1650 (CUDA 12.1)
 **Readiness Verdict:** **Conditional Approval — Internal Staging / Research Candidate** (Not General Production GA)
 
 ---
@@ -50,7 +50,7 @@ The **Authoritative Release Candidate (Build 5)** is the authoritative artifact 
 
 ---
 
-## 3. Reconciled Test Suite Accounting (267 Total Checks)
+## 3. Reconciled Test Suite Accounting (270 Total Checks)
 
 The test execution suite comprises two complementary test harnesses:
 
@@ -58,7 +58,7 @@ The test execution suite comprises two complementary test harnesses:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TORCHSHIELD VERIFICATION SUITE ACCOUNTING                              │
 ├─────────────────────────────────────────────────┬──────────────────────┤
-│ 1. Pytest Test Runner (pytest -v)               │ 260 Passed           │
+│ 1. Pytest Test Runner (pytest -v)               │ 263 Passed           │
 │    - Tier 1: Real Hardware & Standard Crypto    │ 229 Tests            │
 │    - Tier 2: Contract Mocks & Protocol Fixtures │ 26 Tests             │
 │    - Skipped / Quarantined / Disabled Tests     │ 0 Tests              │
@@ -66,7 +66,7 @@ The test execution suite comprises two complementary test harnesses:
 │ 2. Standalone Local KMS Suite (verify_local_kms)│ 7 Passed             │
 │    - Embedded Moto KMS Daemon (port 4566)       │ 7 Checks (100% Pass) │
 ├─────────────────────────────────────────────────┼──────────────────────┤
-│ TOTAL VERIFIED CHECKS                           │ 267 Passed (100%)    │
+│ TOTAL VERIFIED CHECKS                           │ 270 Passed (100%)    │
 └─────────────────────────────────────────────────┴──────────────────────┘
 ```
 
@@ -80,7 +80,7 @@ The test execution suite comprises two complementary test harnesses:
 7. `tests/test_etcd_freshness_backend.py` (3 tests): etcd3 CAS transactions, monotonic revisions, network partition fail-closed.
 8. `tests/test_freshness_ledger.py` (1 test): SQLite local ledger advance and rollback detection.
 9. `tests/test_gds_loading.py` (**5 tests**): capability field semantics, libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
-10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge lifecycle, arbitrary and stale challenge rejection fail-closed, single-use consumption and replay rejection, non-destructive evidence handling.
+10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge lifecycle, arbitrary and stale challenge rejection fail-closed, single-use consumption and replay rejection, non-destructive evidence handling, thread-safe challenge lifecycle under RLock, and controlled concurrent interleaving verified with synchronization barriers.
 11. `tests/test_huggingface_integration.py` (6 tests): Callback workflow, vault resume, tamper detection, missing-vault fail-closed rejection.
 12. `tests/test_key_provider_contract.py` (3 tests): LocalKeyProvider, AWSKMSProvider with mock boto3, error handling.
 13. `tests/test_key_rotation.py` (1 test): DEK rewrap under rotated KEK.
@@ -322,7 +322,7 @@ The benchmark in `benchmarks/run_v070_benchmarks.py` records raw AES-256-GCM thr
 - **4 MB Chunks:** **1,528.48 MB/s** Encrypt | **1,496.43 MB/s** Decrypt
 - **16 MB Chunks:** **1,515.69 MB/s** Encrypt | **1,720.04 MB/s** Decrypt
 
-**Methodological Explanation:**  
+**Methodological Explanation:**
 The throughput variation between 64 KiB chunks and $\ge 1$ MiB chunks is governed by CPU cache architecture. On modern x86_64 processors, L1/L2 caches are 32 KiB–1 MiB per core. A 64 KiB buffer fits entirely within the L2 cache, allowing AES-NI hardware instructions to execute at internal cache bandwidth (~3.6 GB/s). For 1 MiB, 4 MiB, and 16 MiB buffers, cache capacity is exceeded, causing working sets to spill into shared L3 cache and host DRAM. Throughput stabilizes at approximately 1.5–1.7 GB/s, reflecting host memory bus bandwidth.
 
 ### 8.2 End-to-End Checkpoint Pipeline (48 MB Model)
@@ -330,16 +330,16 @@ The throughput variation between 64 KiB chunks and $\ge 1$ MiB chunks is governe
 - **Load CPU Throughput:** **224.96 MB/s** (0.2134s, +48.07 MB peak RAM overhead)
 - **Load CUDA Streaming (GTX 1650):** **124.57 MB/s** (0.3853s wall-clock)
 
-**Scope Limitation:**  
+**Scope Limitation:**
 These measurements reflect a 48 MB linear/convolutional PyTorch model on a single workstation. They do not represent multi-billion-parameter LLM workloads. Hypothetical targets exceeding 40 GB/s remain speculative until evaluated on multi-GPU enterprise Linux servers with dedicated NVMe-oF GPUDirect Storage infrastructure.
 
 ---
 
 ## 9. Final Release Readiness Verdict
 
-### Status: Conditional Approval — Internal Staging / Research Candidate (v0.7.0)
+### Status: Conditional Approval — Internal Staging / Research Candidate (v0.7.1)
 
-TorchShield v0.7.0 demonstrates substantial engineering progress, robust defensive architecture, and strict zero-pickle enforcement. 
+TorchShield v0.7.1 demonstrates substantial engineering progress, robust defensive architecture, and strict zero-pickle enforcement.
 
 ### Prerequisites for Unrestricted Enterprise Production Deployment:
 1. **Live Cloud KMS Validation:** Execute end-to-end multi-node training tests under live Google Cloud KMS, Azure Key Vault, and HashiCorp Vault production clusters.
@@ -347,4 +347,4 @@ TorchShield v0.7.0 demonstrates substantial engineering progress, robust defensi
 3. **Physical Hardware TEE Evaluation:** Validate hardware quote verification on physical NVIDIA Hopper CC (H100/H200) or AMD SEV-SNP hardware.
 4. **Third-Party Security Audit:** Complete an independent external penetration test and cryptographic audit before deployment to high-consequence AI pipelines.
 
-TorchShield v0.7.0 is approved for internal staging, security research, and controlled training pilots.
+TorchShield v0.7.1 is approved for internal staging, security research, and controlled training pilots.

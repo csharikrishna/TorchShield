@@ -1,6 +1,6 @@
 # TorchShield Documentation Suite
 
-Welcome to the documentation suite for the **TorchShield Secure AI Checkpoint Platform** (Version 0.7.0).
+Welcome to the documentation suite for the **TorchShield Secure AI Checkpoint Platform** (Version 0.7.1).
 
 ---
 

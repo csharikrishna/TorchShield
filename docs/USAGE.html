@@ -49,7 +49,7 @@
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
-        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.0</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.1</span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -146,7 +146,7 @@
       <article class="prose-custom">
         <h1 id="usage-guide-torchshield-secure-ai-checkpoint-platform">Usage Guide: TorchShield Secure AI Checkpoint Platform</h1>
 <p><strong>Document:</strong> <code>docs/USAGE.md</code><br />
-<strong>Platform Version:</strong> <code>0.7.0</code>  </p>
+<strong>Platform Version:</strong> <code>0.7.1</code></p>
 <hr />
 <h2 id="1-high-level-training-checkpoint-api-recommended">1. High-Level Training Checkpoint API (Recommended)</h2>
 <p>The high-level training state API protects the entire training loop state—model weights, optimizer states, learning-rate schedulers, RNG generators, and iteration progress—without using <code>pickle</code>.</p>
@@ -244,23 +244,45 @@ load_training_checkpoint(
 )
 </code></pre>
 <hr />
-<h2 id="4-key-management-services-kms">4. Key Management Services (KMS)</h2>
+<h2 id="4-key-management-services-kms-local-emulation">4. Key Management Services (KMS) &amp; Local Emulation</h2>
 <p>TorchShield natively integrates with AWS KMS and enterprise secret managers via <code>KeyProvider</code>:</p>
-<pre><code class="language-python">from torchshield.key_providers.kms import AWSKMSKeyProvider
-from torchshield import save_training_checkpoint
+<h3 id="41-production-aws-kms">4.1 Production AWS KMS</h3>
+<pre><code class="language-python">from torchshield import save_training_checkpoint, load_training_checkpoint
+from torchshield.key_providers import AWSKMSProvider
 
-kms_provider = AWSKMSKeyProvider(
-    kms_key_id=&quot;arn:aws:kms:us-east-1:123456789012:key/my-checkpoint-key&quot;,
+kms_provider = AWSKMSProvider(
+    key_arn=&quot;arn:aws:kms:us-east-1:123456789012:key/my-checkpoint-key&quot;,
     region_name=&quot;us-east-1&quot;,
 )
 
 # Pass KMS provider directly; TorchShield handles envelope encryption and unwrap operations
 save_training_checkpoint(
-    checkpoint_path=&quot;checkpoints/kms_model.shield&quot;,
-    key=kms_provider,
+    output_path=&quot;checkpoints/kms_model.shield&quot;,
     model=model,
     optimizer=optimizer,
+    key_provider=kms_provider,
 )
+</code></pre>
+<h3 id="42-zero-cost-local-kms-testing-localstack-moto">4.2 Zero-Cost Local KMS Testing (LocalStack / Moto)</h3>
+<p>To test envelope encryption locally or in CI/CD without cloud accounts or AWS credentials:</p>
+<pre><code class="language-python"># Connect to LocalStack or Moto emulator on standard port 4566
+local_kms = AWSKMSProvider(
+    key_arn=&quot;arn:aws:kms:us-east-1:123456789012:key/test-kek-uuid&quot;,
+    endpoint_url=&quot;http://127.0.0.1:4566&quot;,
+    region_name=&quot;us-east-1&quot;,
+    aws_access_key_id=&quot;test&quot;,
+    aws_secret_access_key=&quot;test&quot;,
+)
+
+save_training_checkpoint(
+    output_path=&quot;checkpoints/local_kms_model.shield&quot;,
+    model=model,
+    optimizer=optimizer,
+    key_provider=local_kms,
+)
+</code></pre>
+<p>Run the self-contained verification suite:</p>
+<pre><code class="language-bash">python scripts/verify_local_kms.py
 </code></pre>
 <hr />
 <h2 id="5-pure-model-weight-checkpointing-securemodelcheckpoint">5. Pure Model Weight Checkpointing (<code>SecureModelCheckpoint</code>)</h2>
@@ -313,7 +335,7 @@ torchshield verify checkpoints/signed_model.shield --public-key &lt;PUB_KEY_HEX&
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.1</p>
   </footer>
 
   <script>

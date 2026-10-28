@@ -2,6 +2,15 @@
 
 All notable changes to the TorchShield GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.7.1] - 2026-10-28
+
+### Security Hardening & Concurrency Protection
+- **Thread-Safe Attestation Challenge Lifecycle:** Enforced synchronized challenge creation, staging, and single-use consumption in `AttestationGatedKeyProvider`. Prevented concurrent `unwrap_key` operations from reusing in-flight or consumed staged evidence, verified by synchronization barrier regression tests.
+- **Fail-Closed Evidence Preservation:** Preserved staged evidence for post-mortem diagnostics upon verification failures without permitting unauthorized key unwrap.
+- **Provider-Key Setup Caching:** Pre-validated `SafeStateProvider.get_state_key()` once during setup, eliminating redundant invocations and ensuring stable key mapping across snapshots, restorations, and transactional rollbacks.
+- **Canonical JSON v1 Specification:** Formally designated metadata and manifest serialization format as deterministic `TorchShield Canonical JSON v1`.
+- **Reconciled Audit Evidence:** Synchronized benchmark metrics to empirical 3-trial medians, reclassified advanced workstreams with explicit reference/prototype boundaries, and established authoritative build provenance.
+
 ## [0.6.0-phase5-final] - 2026-10-26
 
 ### Safe, Pickle-Free AI Training State Engine

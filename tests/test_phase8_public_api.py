@@ -35,7 +35,7 @@ class SimpleModel(nn.Module):
 
 def test_top_level_exports():
     """Verify all expected public APIs are directly accessible from `torchshield`."""
-    assert torchshield.__version__ == "0.7.0"
+    assert torchshield.__version__ == "0.7.1"
     for name in [
         "save_training_checkpoint",
         "load_training_checkpoint",

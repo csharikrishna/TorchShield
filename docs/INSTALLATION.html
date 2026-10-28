@@ -49,7 +49,7 @@
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
-        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.0</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.1</span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -146,7 +146,7 @@
       <article class="prose-custom">
         <h1 id="installation-guide-for-torchshield-secure-ai-checkpoint-platform">Installation Guide for TorchShield Secure AI Checkpoint Platform</h1>
 <p><strong>Document:</strong> <code>docs/INSTALLATION.md</code><br />
-<strong>Platform Version:</strong> <code>0.7.0</code>  </p>
+<strong>Platform Version:</strong> <code>0.7.1</code></p>
 <hr />
 <h2 id="1-prerequisites">1. Prerequisites</h2>
 <ul>
@@ -166,11 +166,11 @@
 <h3 id="option-a-install-from-pre-built-wheel-recommended-for-pilot-production">Option A: Install from Pre-Built Wheel (Recommended for Pilot / Production)</h3>
 <p>Install the standalone distribution wheel without needing build tools:</p>
 <pre><code class="language-bash"># In your target virtual environment:
-pip install dist/release_v070/torchshield-0.7.0-py3-none-any.whl
+pip install dist/release_v070/torchshield-0.7.1-py3-none-any.whl
 </code></pre>
 <p>Verify checksums against <a href="../dist/release_v070/SHA256SUMS"><code>dist/release_v070/SHA256SUMS</code></a>:</p>
 <pre><code class="language-bash"># PowerShell:
-Get-FileHash dist\release_v070\torchshield-0.7.0-py3-none-any.whl -Algorithm SHA256
+Get-FileHash dist\release_v070\torchshield-0.7.1-py3-none-any.whl -Algorithm SHA256
 # Linux:
 sha256sum -c dist/release_v070/SHA256SUMS
 </code></pre>
@@ -199,7 +199,7 @@ pip install -e . --no-build-isolation --no-deps
 <p>Run a quick verification command to confirm import isolation and package version:</p>
 <pre><code class="language-python">import torchshield
 print(f&quot;TorchShield Platform Version: {torchshield.__version__}&quot;)
-# Output: TorchShield Platform Version: 0.7.0
+# Output: TorchShield Platform Version: 0.7.1
 </code></pre>
 <p>Verify the CLI tool:</p>
 <pre><code class="language-bash">torchshield --help
@@ -224,7 +224,7 @@ print(f&quot;TorchShield Platform Version: {torchshield.__version__}&quot;)
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.1</p>
   </footer>
 
   <script>

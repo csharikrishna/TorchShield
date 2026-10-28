@@ -49,7 +49,7 @@
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
-        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.0</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.1</span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -201,7 +201,7 @@
 <li><strong>Authentication:</strong> Standard AWS IAM credentials (roles, instance profiles, or environment).</li>
 </ul>
 <pre><code class="language-python">from torchshield.key_providers import AWSKMSProvider
-from torchshield.training_state import save_training_checkpoint, load_training_checkpoint
+from torchshield import save_training_checkpoint, load_training_checkpoint
 
 # Initialize KMS provider with Key ARN
 kms_provider = AWSKMSProvider(
@@ -234,7 +234,72 @@ load_training_checkpoint(
 <li><strong>Usage:</strong> Ideal for local unit tests, CI test pipelines, and offline debugging without cloud credentials.</li>
 </ul>
 <hr />
-<h2 id="3-key-rotation-migration-without-re-encryption">3. Key Rotation &amp; Migration Without Re-Encryption</h2>
+<h2 id="3-zero-cost-local-kms-emulation-localstack-moto">3. Zero-Cost Local KMS Emulation (LocalStack &amp; Moto)</h2>
+<p>Enterprise workflows need to test key rotation, envelope encryption, and IAM access policies in CI/CD pipelines and local development environments without creating billable cloud resources or requiring active AWS credentials.</p>
+<p>TorchShield's <code>AWSKMSProvider</code> connects to local AWS KMS emulators via <code>endpoint_url</code>:</p>
+<pre><code class="language-python">from torchshield.key_providers import AWSKMSProvider
+
+provider = AWSKMSProvider(
+    key_arn=&quot;arn:aws:kms:us-east-1:123456789012:key/test-kek-uuid&quot;,
+    endpoint_url=&quot;http://127.0.0.1:4566&quot;,
+    region_name=&quot;us-east-1&quot;,
+    aws_access_key_id=&quot;test&quot;,
+    aws_secret_access_key=&quot;test&quot;,
+)
+</code></pre>
+<h3 id="31-local-emulation-options">3.1 Local Emulation Options</h3>
+<table>
+<thead>
+<tr>
+<th>Solution</th>
+<th>Type</th>
+<th>Setup Command</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Moto Server</strong></td>
+<td>Python Package / HTTP Server</td>
+<td><code>python -m moto.server -p 4566 -H 127.0.0.1</code></td>
+<td>Zero-token, instant, 100% offline local KMS emulation</td>
+</tr>
+<tr>
+<td><strong>LocalStack</strong></td>
+<td>Docker Container</td>
+<td><code>docker run -d -p 4566:4566 -e SERVICES=kms localstack/localstack</code></td>
+<td>Multi-service local cloud emulation (requires <code>LOCALSTACK_AUTH_TOKEN</code> in v2026+)</td>
+</tr>
+<tr>
+<td><strong>Automated Test Suite</strong></td>
+<td>Embedded Self-Hosted Harness</td>
+<td><code>python scripts/verify_local_kms.py</code></td>
+<td>1-command verification (auto-spawns local mock server if port 4566 is unallocated)</td>
+</tr>
+<tr>
+<td><strong>LocalDevKeyProvider</strong></td>
+<td>In-Process Python Class</td>
+<td><code>from torchshield.key_providers import LocalDevKeyProvider</code></td>
+<td>Pure software AES-256-GCM envelope encryption with 0 external dependencies</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-automated-local-kms-verification-suite">3.2 Automated Local KMS Verification Suite</h3>
+<p>TorchShield includes an automated 7-step local KMS test script in <code>scripts/verify_local_kms.py</code>:</p>
+<pre><code class="language-bash">python scripts/verify_local_kms.py
+</code></pre>
+<p>This verification suite:<br />
+1. Detects whether port 4566 is active; if not, automatically boots an embedded local KMS server (<code>ThreadedMotoServer</code>).<br />
+2. Dynamically creates a Customer Master Key (<code>create_key</code>).<br />
+3. Verifies <code>AWSKMSProvider</code> initialization, parameters, and security properties.<br />
+4. Generates 256-bit DEKs and performs envelope wrapping (<code>wrap_key</code> and <code>unwrap_key</code>).<br />
+5. Saves an encrypted PyTorch training checkpoint with model weights, AdamW optimizer momentum, and training progress.<br />
+6. Injects a cryptographic fault (modifying 1 ciphertext byte) and asserts that the authenticated streaming AEAD engine catches the tamper attempt and rejects it with <code>CheckpointError</code>.<br />
+7. Restores the clean checkpoint and verifies bit-for-bit weight, bias, and optimizer state equality (<code>100% fidelity</code>).<br />
+8. Encrypts and loads a Hugging Face model container using <code>save_hf_model</code> and <code>load_hf_model</code>.<br />
+9. Shuts down the embedded server cleanly upon completion.</p>
+<hr />
+<h2 id="4-key-rotation-migration-without-re-encryption">4. Key Rotation &amp; Migration Without Re-Encryption</h2>
 <p>When a Key Encryption Key (KEK) is rotated or migrated:<br />
 - <strong>No Payload Re-Encryption:</strong> Model weights and tensors (potentially hundreds of gigabytes) do <strong>not</strong> need to be re-encrypted.<br />
 - <strong>DEK Re-Wrapping:</strong> Calling <code>key_provider.rewrap_key(wrapped_dek, new_key_id)</code> decrypts the 32-byte DEK and re-wraps it under the new KEK in a single sub-second operation.</p>
@@ -255,7 +320,7 @@ load_training_checkpoint(
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.1</p>
   </footer>
 
   <script>

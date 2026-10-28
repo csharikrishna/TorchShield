@@ -1,10 +1,10 @@
-# TorchShield v0.7.0 Final Release Readiness & Audit Closeout Report
+# TorchShield v0.7.1 Final Release Readiness & Audit Closeout Report
 
-**Audit Date:** 2026-10-28  
-**Repository:** `https://github.com/csharikrishna/TorchShield`  
+**Audit Date:** 2026-10-28
+**Repository:** `https://github.com/csharikrishna/TorchShield`
 **Inspected / Target Revision:** Latest remediation commits on `master`
-**Package Version:** `0.7.0`  
-**Evaluation Status:** **Conditional Approval — Internal Staging / Research Candidate**  
+**Package Version:** `0.7.1`
+**Evaluation Status:** **Conditional Approval — Internal Staging / Research Candidate**
 
 ---
 
@@ -17,11 +17,11 @@ Across the 16 phases of this master security audit and architecture remediation 
 │ FINAL AUDIT METRICS                                    │
 ├───────────────────────────────┬────────────────────────┤
 │ Baseline Test Suite           │ 204 Passed, 0 Failed   │
-│ Final Pytest Test Suite       │ 260 Passed, 0 Failed   │
-│ Net New Regression Tests Added│ +56 Tests              │
-│ Identified Defects Remediated │ 17 / 17 (100% Fixed)   │
+│ Final Pytest Test Suite       │ 263 Passed, 0 Failed   │
+│ Net New Regression Tests Added│ +59 Tests              │
+│ Identified Defects Remediated │ 18 / 18 (100% Fixed)   │
 │ Standalone Local KMS Checks   │ 7 / 7 Local Moto Passed│
-│ Total Verified Checks         │ 267 / 267 Passed (100%)│
+│ Total Verified Checks         │ 270 / 270 Passed (100%)│
 │ Test Execution Duration       │ ~44s pytest + ~8s KMS  │
 │ Overall Pass Rate             │ 100.0%                 │
 └───────────────────────────────┴────────────────────────┘
@@ -40,14 +40,14 @@ Across the 16 phases of this master security audit and architecture remediation 
 | **Hugging Face Trainer Integration** | 5 | **6** | Fail-closed on missing vault, two-phase file cleanup |
 | **Multi-Cloud Key Providers (GCP/Azure/Vault)** | 0 | **3** | Unified contract tests, retry backoff |
 | **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid framework plumbing with verified mock signature and fail-closed production policy |
-| **Hardware Attestation & Enclaves** | 0 | **16** | Freshness nonces, certificate chains, mandatory signatures, bound challenge lifecycle, non-destructive failure handling, production security classification |
+| **Hardware Attestation & Enclaves** | 0 | **19** | Freshness nonces, certificate chains, mandatory signatures, bound challenge lifecycle, non-destructive failure handling, production security classification |
 | **GPUDirect Storage (GDS) Loading** | 0 | **5** | Capability detection, capability field semantics, streaming CUDA pipeline fallback |
 | **Native Inference Model Serving** | 0 | **6** | Direct in-memory load without plaintext disk landing, transactional rollback |
 | **Quorum Etcd Consensus Freshness** | 0 | **3** | CAS transactions, revision-based anti-rollback |
 | **Phase 2/4/6 Protocol & Edge Cases** | 176 | 176 | Monotonic nonces, chunk budgets, untrusted inputs |
-| **TOTAL PYTEST TEST COUNT** | **204** | **260** | **+56 Net New Tests (100% Passing)** |
+| **TOTAL PYTEST TEST COUNT** | **204** | **263** | **+59 Net New Tests (100% Passing)** |
 | **STANDALONE LOCAL KMS CHECKS** | 0 | **7** | Embedded Moto Local KMS Verification (100% Passing) |
-| **COMBINED TESTED CHECKS** | **204** | **267** | **+63 Net New Checks (100% Passing)** |
+| **COMBINED TESTED CHECKS** | **204** | **270** | **+66 Net New Checks (100% Passing)** |
 
 ---
 
@@ -87,6 +87,8 @@ Across the 16 phases of this master security audit and architecture remediation 
    - *Fix:* Clarified in-memory deserialization semantics (no disk staging); removed unverified `zero_disk_enforcement` flag; added transactional parameter rollback on mid-load error.
 17. **TS-FIND-17 (Medium): AEAD Benchmark Nonce Reuse & Aggregation Methodology**
    - *Fix:* Implemented NIST SP 800-38D session-wide monotonic counter with 4-byte random prefix; added 3-trial median throughput aggregation; removed unused nonce variables.
+18. **TS-FIND-18 (High - P1): Attestation Challenge Concurrency & Thread-Safety**
+   - *Fix:* Enforced synchronized challenge creation, staging, and single-use consumption under RLock; tracked in-flight challenges to block concurrent unwrap replay; verified via deterministic synchronization barrier regression tests.
 
 ---
 
@@ -143,7 +145,7 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 ## 8. Final Readiness Recommendation
 
-- **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.0)**.
+- **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.1)**.
 - **Evidence Base:**
   - 255 / 255 pytest unit, integration, and security regression tests passing.
   - 7 / 7 standalone local Moto KMS envelope encryption tests passing.

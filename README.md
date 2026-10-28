@@ -1,8 +1,8 @@
 # TorchShield Secure AI Checkpoint Platform
 
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](pyproject.toml)
+[![Version](https://img.shields.io/badge/version-0.7.1-blue.svg)](pyproject.toml)
 [![Status](https://img.shields.io/badge/status-Conditional_Staging_Approved-green.svg)](docs/)
-[![Tests](https://img.shields.io/badge/tests-260_passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-263_passed-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/csharikrishna/TorchShield/blob/master/notebooks/TorchShield_Interactive_Walkthrough.ipynb)
 
@@ -60,7 +60,7 @@ pip install -e . --no-build-isolation --no-deps
 Or build and install the standalone wheel distribution:
 ```bash
 python -m build
-pip install dist/torchshield-0.7.0-py3-none-any.whl
+pip install dist/torchshield-0.7.1-py3-none-any.whl
 ```
 *(Pre-built wheels in `dist/` can be installed directly once built via `python -m build`).*
 
@@ -226,7 +226,7 @@ The complete documentation suite is available under [`docs/`](docs/):
 ## Security Model & Operational Boundaries
 
 > [!IMPORTANT]
-> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.0).
+> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.1).
 >
 > 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
 > 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.
@@ -247,13 +247,13 @@ Run the full core test suite:
 ```bash
 pytest tests
 ```
-*Current test suite: **260 passed in ~44s** (0 failed, 0 errors).*
+*Current test suite: **263 passed in ~45s** (0 failed, 0 errors).*
 
 Run the end-to-end Local KMS envelope encryption test suite:
 ```bash
 python scripts/verify_local_kms.py
 ```
-*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration). Total verified checks: 267/267.*
+*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration). Total verified checks: 270/270.*
 
 Run independent consumer integration tests:
 ```bash

@@ -2,7 +2,7 @@
 
 **Audit Date:** 2026-10-28  
 **Audit Scope:** Full codebase (`torchshield/`, `tests/`, `docs/`, `scripts/`, `benchmarks/`)
-**Resolution Summary:** 17 / 17 Issues Remediated (100% Pass Rate across 262 Verification Checks: 255 pytest + 7 Local KMS)
+**Resolution Summary:** 18 / 18 Issues Remediated (100% Pass Rate across 270 Verification Checks: 263 pytest + 7 Local KMS)
 
 ---
 
@@ -32,10 +32,10 @@
 
 ## Regression Test Suite Execution Summary
 
-- **Total Pytest Test Cases Executed:** 255
+- **Total Pytest Test Cases Executed:** 263
 - **Total Pytest Failures:** 0
 - **Total Standalone Local KMS Checks:** 7
-- **Total Combined Verification Checks:** 262
+- **Total Combined Verification Checks:** 270
 - **Total Errors:** 0
 - **Pass Rate:** **100.0%**
 - **Full Suite Execution Time:** ~44 seconds (pytest) + ~8s (Local KMS)

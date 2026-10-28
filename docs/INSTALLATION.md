@@ -1,7 +1,7 @@
 # Installation Guide for TorchShield Secure AI Checkpoint Platform
 
-**Document:** `docs/INSTALLATION.md`  
-**Platform Version:** `0.7.0`  
+**Document:** `docs/INSTALLATION.md`
+**Platform Version:** `0.7.1`
 
 ---
 
@@ -28,13 +28,13 @@ Install the standalone distribution wheel without needing build tools:
 
 ```bash
 # In your target virtual environment:
-pip install dist/release_v070/torchshield-0.7.0-py3-none-any.whl
+pip install dist/release_v070/torchshield-0.7.1-py3-none-any.whl
 ```
 
 Verify checksums against [`dist/release_v070/SHA256SUMS`](../dist/release_v070/SHA256SUMS):
 ```bash
 # PowerShell:
-Get-FileHash dist\release_v070\torchshield-0.7.0-py3-none-any.whl -Algorithm SHA256
+Get-FileHash dist\release_v070\torchshield-0.7.1-py3-none-any.whl -Algorithm SHA256
 # Linux:
 sha256sum -c dist/release_v070/SHA256SUMS
 ```
@@ -72,7 +72,7 @@ Run a quick verification command to confirm import isolation and package version
 ```python
 import torchshield
 print(f"TorchShield Platform Version: {torchshield.__version__}")
-# Output: TorchShield Platform Version: 0.7.0
+# Output: TorchShield Platform Version: 0.7.1
 ```
 
 Verify the CLI tool:

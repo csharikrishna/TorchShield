@@ -22,7 +22,7 @@ def cmd_version(args: argparse.Namespace) -> int:
     try:
         pkg_ver = version("torchshield")
     except PackageNotFoundError:
-        pkg_ver = "0.7.0"
+        pkg_ver = "0.7.1"
 
     print(f"TorchShield Secure Checkpoint Engine v{pkg_ver}")
     print("Supported Container Formats: Version 1, Version 2, Version 4 (Hardened), Version 5 (KMS+Provenance)")

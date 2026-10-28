@@ -1,7 +1,7 @@
 # Hugging Face Transformers & Trainer Integration
 
-**Document:** `docs/HUGGINGFACE_INTEGRATION.md`  
-**Platform Version:** `0.7.0`  
+**Document:** `docs/HUGGINGFACE_INTEGRATION.md`
+**Platform Version:** `0.7.1`
 
 ---
 

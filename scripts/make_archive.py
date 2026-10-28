@@ -58,11 +58,11 @@ def make_clean_zip(output_zip_path: str, root_dir: str = "."):
 
 if __name__ == "__main__":
     os.makedirs("archives", exist_ok=True)
-    out_archive = os.path.join("archives", "torchshield_v0.7.0.zip")
+    out_archive = os.path.join("archives", "torchshield_v0.7.1.zip")
     make_clean_zip(out_archive)
 
     # Also place a copy at parent folder for direct download convenience
-    parent_archive = os.path.abspath(os.path.join("..", "torchshield_v0.7.0.zip"))
+    parent_archive = os.path.abspath(os.path.join("..", "torchshield_v0.7.1.zip"))
     import shutil
     shutil.copy2(out_archive, parent_archive)
     print(f"Copied archive to parent folder: {parent_archive}")

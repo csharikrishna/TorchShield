@@ -146,7 +146,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
             <span class="text-xs text-slate-500 font-medium">Docs</span>
           </div>
         </a>
-        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.0</span>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 ml-1">v0.7.1</span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -206,7 +206,7 @@ HTML_PAGE_TEMPLATE = """<!DOCTYPE html>
 
   <!-- FOOTER -->
   <footer class="py-6 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
-    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.0</p>
+    <p>TorchShield &bull; Authenticated, Pickle-Free AI Checkpoint Platform &bull; v0.7.1</p>
   </footer>
 
   <script>
