@@ -45,7 +45,7 @@ In accordance with Phase 14 and Phase 16 of the Master Audit, each of the six st
 - **Truth in Advertising:** The present implementation verifies a custom signed evidence structure binding measurement hashes, nonces, and signer identities. It is not yet a vendor-native hardware quote verifier for Hopper/Blackwell CC or AMD SEV-SNP.
 - **Production Classification:** `AttestationGatedKeyProvider.is_production_secure` returns `False` whenever mock verification is active, trusted signing keys are missing, challenge nonces are unbound, or signature validation is disabled.
 - **Security Invariant:** Enforces fresh challenge-nonce binding (`create_challenge()`), expiration timestamps, and root Ed25519 signature checks. Verification failures do not prematurely destroy staged evidence so callers can inspect failure diagnostics. Challenge creation, staging, and single-use consumption are thread-safe; concurrent unwrap attempts on the same staged evidence are blocked fail-closed and verified via barrier regression tests.
-- **Test Status:** `PASS` (`tests/test_hardware_attestation.py` - 12 tests pass).
+- **Test Status:** `PASS` (`tests/test_hardware_attestation.py` - 19 tests pass).
 
 ---
 

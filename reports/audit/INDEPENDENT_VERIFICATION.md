@@ -15,9 +15,9 @@ This document presents the independent, evidence-backed technical verification o
 ### Summary of Independent Verification Outcomes:
 1. **Source Tree Identity & Provenance:** Every modified and newly authored file across the remediation campaign has been formally audited and committed into Git revision control. The tested and packaged source tree is uniquely identified by commit and tree SHA hashes, closing the uncommitted-tree provenance gap.
 2. **Reconciled Test Accounting:**
-   - **Pytest Automated Suite:** **255 / 255 tests passed** in **~44s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
+   - **Pytest Automated Suite:** **263 / 263 tests passed** in **~46s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
    - **Standalone Moto KMS Verification:** **7 / 7 checks passed** in **~8s** via `scripts/verify_local_kms.py` against an embedded mock daemon on `127.0.0.1:4566`.
-   - **Combined Total:** **262 verified checks** executed and passing.
+   - **Combined Total:** **270 verified checks** executed and passing.
 3. **Full Transactional Rollback Verified:** Extended fault-injection tests prove that atomic rollback protects the destination model, optimizer, learning rate scheduler, GradScaler, and all four RNG sources (Python, NumPy, PyTorch CPU, and PyTorch CUDA).
 4. **Clean-Room Virtualenv Installation:** The candidate distribution wheel was installed and tested in an isolated virtual environment completely outside the repository tree. Module imports, `site-packages` location, full checkpoint save/load roundtrip, tamper rejection, and CLI execution (`torchshield version`, `torchshield --help`) were validated with 100% success.
 5. **Accurate Advanced Feature Statuses:**
@@ -44,9 +44,10 @@ To guarantee complete reproducibility, the audited codebase was packaged and fin
 | **Build 2** (Hygiene & Magic Sync) | Rebuild after whitespace cleanup and documentation synchronization | Uncommitted working tree with doc updates | `d89836181b3314e6f8738628cc7796090b0307029311979cb31c5b83f5627d88` (72,762 B) | `dd56f1eb20583a67d99902e58ac4a52d0ea58fc0b74315a96b89af9b86279a53` (129,373 B) |
 | **Build 3** | Intermediate build incorporating full scheduler/scaler/RNG rollback helpers | Committed baseline at `d0afff7` | `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601` (72,934 B) | `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2` (130,837 B) |
 | **Build 4** | Build with optimizer parameter identity preservation, mandatory attestation signatures, and auxiliary state providers rollback | Committed baseline at `1e6d305` | `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685` (73,150 B) | `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077` (131,215 B) |
-| **Build 5** (**Authoritative Release Candidate**) | Final security gap closure: attestation challenge lifecycle & production gating, state provider key lifecycle hardening, GDS capability fields, benchmark monotonic nonces, mock PQC terminology | Working tree validated across 267 checks | `BAB21764F09D517CC3EBB3985FE423C434B9233B6BE3460E05F6BB4795DB409F` (77,314 B) | `5F4C6EA899CA819AF7E82588DFC2CC23E0CD3D37556BD85A5594790FA85E5F07` (141,541 B) |
+| **Build 5** | Security gap closure: attestation challenge lifecycle & production gating, state provider key lifecycle hardening, GDS capability fields, benchmark monotonic nonces, mock PQC terminology | Intermediate release candidate | `BAB21764F09D517CC3EBB3985FE423C434B9233B6BE3460E05F6BB4795DB409F` (77,314 B) | `5F4C6EA899CA819AF7E82588DFC2CC23E0CD3D37556BD85A5594790FA85E5F07` (141,541 B) |
+| **Build 6** (**Authoritative Release Candidate v0.7.1**) | Thread-safe attestation single-use challenge lifecycle under RLock, barrier regression testing, package version bump 0.7.1, documentation and audit reconciliation | Committed baseline at `9897e1c` (tree `e08fb73`) | `F764CD9A23632CF7D2320A6D70C3D28DF98BB5AFA4DFB663DEB9E2E0A95CA722` (77,692 B) | `E69DC4087AA50273DF41C564FA556BC64DE26A9A0F2B8A8972A8C08794A0A76E` (143,303 B) |
 
-The **Authoritative Release Candidate (Build 5)** is the authoritative artifact set recorded in `dist/`.
+The **Authoritative Release Candidate (Build 6)** is the authoritative artifact set recorded in `dist/`.
 
 ---
 
@@ -80,13 +81,13 @@ The test execution suite comprises two complementary test harnesses:
 7. `tests/test_etcd_freshness_backend.py` (3 tests): etcd3 CAS transactions, monotonic revisions, network partition fail-closed.
 8. `tests/test_freshness_ledger.py` (1 test): SQLite local ledger advance and rollback detection.
 9. `tests/test_gds_loading.py` (**5 tests**): capability field semantics, libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
-10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge lifecycle, arbitrary and stale challenge rejection fail-closed, single-use consumption and replay rejection, non-destructive evidence handling, thread-safe challenge lifecycle under RLock, and controlled concurrent interleaving verified with synchronization barriers.
+10. `tests/test_hardware_attestation.py` (**19 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge lifecycle, arbitrary and stale challenge rejection fail-closed, single-use consumption and replay rejection, non-destructive evidence handling, thread-safe challenge lifecycle under RLock, and controlled concurrent interleaving verified with synchronization barriers.
 11. `tests/test_huggingface_integration.py` (6 tests): Callback workflow, vault resume, tamper detection, missing-vault fail-closed rejection.
 12. `tests/test_key_provider_contract.py` (3 tests): LocalKeyProvider, AWSKMSProvider with mock boto3, error handling.
 13. `tests/test_key_rotation.py` (1 test): DEK rewrap under rotated KEK.
 14. `tests/test_multi_cloud_kms_providers.py` (3 tests): GCP KMS, Azure Key Vault, HashiCorp Vault Transit engine contracts.
 15. `tests/test_optimizer_resume.py` (4 tests): Adam, AdamW, SGD momentum extraction/restoration, CUDA optimizer resume.
-16. `tests/test_phase1_training_state_strict_transactional.py` (**13 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback with parameter object identity preservation and post-rollback step verification**, **scheduler/scaler rollback**, **auxiliary safe state provider rollback**, **full multi-component staged RNG rollback**, single `get_state_key` invocation, duplicate state provider key rejection, and restoration vs rollback failure distinction.
+16. `tests/test_phase1_training_state_strict_transactional.py` (**14 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback with parameter object identity preservation and post-rollback step verification**, **scheduler/scaler rollback**, **auxiliary safe state provider rollback**, **full multi-component staged RNG rollback**, single `get_state_key` invocation, duplicate state provider key rejection, and restoration vs rollback failure distinction.
 17. `tests/test_phase2_aead_security.py` (7 tests): Key length, AEAD fail-closed, HKDF domain separation, key rotation, explicit nonces.
 18. `tests/test_phase2_atomic_write.py` (2 tests): Atomic staging/replace, cleanup on failure.
 19. `tests/test_phase2_chunk_integrity.py` (3 tests): Bitflip tampering, chunk reordering, missing chunks.
@@ -216,16 +217,17 @@ To ensure full technical defensibility, advanced roadmap workstreams are labeled
 
 ## 7. Clean-Room Virtual Environment Installation Validation
 
-The candidate release wheel was subjected to an isolated clean-room installation test in a temporary virtual environment outside the repository tree:
+To strictly distinguish fast local smoke testing from genuine distribution packaging validation, two distinct clean-room verification tiers were conducted for the candidate distribution wheel (`dist/torchshield-0.7.1-py3-none-any.whl`):
 
-### Test Execution Command:
+### 7.1 Fast Local Smoke Test (`--system-site-packages` / `--no-deps`)
+A fast sanity check verifying basic wheel layout, entrypoints, and importability against the host environment:
 ```powershell
 python -u -c "
 import subprocess, tempfile, os, sys, shutil
 
 temp_dir = tempfile.mkdtemp(prefix='torchshield_clean_')
 venv_dir = os.path.join(temp_dir, 'venv')
-whl_path = os.path.abspath('dist/torchshield-0.7.0-py3-none-any.whl')
+whl_path = os.path.abspath('dist/torchshield-0.7.1-py3-none-any.whl')
 
 subprocess.run([sys.executable, '-m', 'venv', '--system-site-packages', venv_dir], check=True)
 venv_python = os.path.join(venv_dir, 'Scripts', 'python.exe')
@@ -235,80 +237,66 @@ test_code = '''
 import sys, os
 temp_workdir = sys.argv[1]
 os.chdir(temp_workdir)
-
 import torchshield
-print('Installed torchshield module path:', torchshield.__file__)
-assert 'torchshield_clean_' in torchshield.__file__ or 'venv' in torchshield.__file__, 'Not in venv!'
-assert torchshield.__version__ == '0.7.0'
-
-import torch
-import torch.nn as nn
-from torchshield.training_state import save_training_checkpoint, load_training_checkpoint
-from torchshield.checkpoint import CheckpointError
-
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc = nn.Linear(4, 2)
-    def forward(self, x):
-        return self.fc(x)
-
-model = Net()
-key = os.urandom(32)
-ckpt_file = os.path.join(temp_workdir, 'clean_env_test.shield')
-
-save_training_checkpoint(output_path=ckpt_file, model=model, key=key)
-dest_model = Net()
-load_training_checkpoint(input_path=ckpt_file, model=dest_model, key=key)
-
-for (n1, p1), (n2, p2) in zip(model.named_parameters(), dest_model.named_parameters()):
-    assert torch.equal(p1, p2)
-
-# Tamper test
-with open(ckpt_file, 'r+b') as f:
-    f.seek(-10, os.SEEK_END)
-    b = f.read(1)
-    f.seek(-10, os.SEEK_END)
-    f.write(bytes([b[0] ^ 0xFF]))
-
-tamper_ok = False
-try:
-    load_training_checkpoint(input_path=ckpt_file, model=dest_model, key=key)
-except CheckpointError:
-    tamper_ok = True
-assert tamper_ok
-
-import subprocess
-cli_exe = os.path.join(os.path.dirname(sys.executable), 'torchshield.exe')
-res = subprocess.run([cli_exe, 'version'], capture_output=True, text=True, check=True)
-print('CLI Executable test output:', res.stdout.strip().splitlines()[0])
-print('ALL CLEAN-ENVIRONMENT VERIFICATION CHECKS PASSED [100% SUCCESS]!')
+assert torchshield.__version__ == '0.7.1'
 '''
-
 res = subprocess.run([venv_python, '-c', test_code, temp_dir], capture_output=True, text=True)
-print(res.stdout)
 assert res.returncode == 0
 shutil.rmtree(temp_dir, ignore_errors=True)
 "
 ```
 
-### Verified Test Output:
-```
-[1/5] Creating isolated virtualenv with system-site-packages in: C:\Users\cshar\AppData\Local\Temp\torchshield_clean_d16gq0te\venv...
-[2/5] Installing built wheel into isolated virtualenv: C:\Users\cshar\Downloads\AHCC\AHCC_GPU_Engine\dist\torchshield-0.7.0-py3-none-any.whl...
-Successfully installed torchshield-0.7.0
-Executing verification in isolated process...
-Installed torchshield module path: C:\Users\cshar\AppData\Local\Temp\torchshield_clean_d16gq0te\venv\Lib\site-packages\torchshield\__init__.py
-Installed torchshield version: 0.7.0
-[3/5] Testing end-to-end checkpoint save from clean environment...
-Checkpoint saved successfully, size: 25050 bytes
-[4/5] Testing end-to-end checkpoint load & weight fidelity...
-Weights verified bit-for-bit identical!
-[5/5] Testing tamper detection fail-closed from clean environment...
-Tamper detection verified: raised CheckpointError!
-CLI Executable test output: TorchShield Secure Checkpoint Engine v0.7.0
-ALL CLEAN-ENVIRONMENT VERIFICATION CHECKS PASSED [100% SUCCESS]!
-Cleaned up temporary virtualenv.
+### 7.2 Genuine Dependency-Isolated Clean-Room Verification
+A comprehensive, end-to-end clean-room validation executed in a pristine virtual environment **strictly without `--system-site-packages`**, where pip must independently download, cache, and resolve all runtime dependencies (`torch>=2.0.0`, `cryptography>=42.0`, `numpy>=1.24.0`, etc.) from scratch.
+
+#### Execution Script:
+[`scripts/verify_isolated_wheel.py`](../../scripts/verify_isolated_wheel.py) executes:
+1. `sys.executable -m venv <temp_clean_venv>` (strictly without `--system-site-packages`).
+2. `venv_python -m pip install dist/torchshield-0.7.1-py3-none-any.whl` with full dependency resolution.
+3. Import verification asserting `torchshield` is loaded directly from `<temp_clean_venv>\Lib\site-packages\torchshield\__init__.py`.
+4. Version check asserting `torchshield.__version__ == "0.7.1"`.
+5. Binary executable check: invoking `clean_venv\Scripts\torchshield.exe version` and verifying output string `TorchShield Secure Checkpoint Engine v0.7.1`.
+6. End-to-end checkpoint save/load roundtrip with model, `AdamW` optimizer, auxiliary `SafeStateProvider`, and 32-byte raw key; verifying bit-for-bit weight fidelity and proving `get_state_key()` is called exactly once.
+7. Cryptographic tamper detection test by flipping a byte in the `.shield` artifact and verifying `CheckpointError` / `TrainingStateError` is raised fail-closed.
+8. Complete cleanup of the temporary virtual environment upon exit.
+
+#### Verified Console Output:
+```text
+======================================================================
+TORCHSHIELD v0.7.1 ISOLATED CLEAN-ROOM INSTALLATION VERIFICATION
+======================================================================
+
+[1/5] Creating isolated venv (no --system-site-packages): C:\Users\cshar\AppData\Local\Temp\torchshield_clean_3v6tmxou\clean_venv
+
+[2/5] Installing torchshield-0.7.1-py3-none-any.whl with pip dependency resolution...
+Successfully installed MarkupSafe-3.0.4 cffi-2.1.1 cryptography-50.0.2 filelock-4.2.4 fsspec-2026.9.0 jinja2-3.1.6 mpmath-1.3.0 networkx-3.7 numpy-2.5.4 pycparser-3.12 setuptools-84.2.1 sympy-1.14.0 torch-2.15.0 torchshield-0.7.1 typing-extensions-4.16.0
+
+[3/5] Executing clean-room verification in isolated environment...
+--- Running Inside Clean-Room Isolated Environment ---
+Installed torchshield file: C:\Users\cshar\AppData\Local\Temp\torchshield_clean_3v6tmxou\clean_venv\Lib\site-packages\torchshield\__init__.py
+Version check passed: 0.7.1
+CLI Executable Output: TorchShield Secure Checkpoint Engine v0.7.1
+Supported Container Formats: Version 1, Version 2, Version 4 (Hardened), Version 5 (KMS+Provenance)
+Default Authenticated Cipher: AES-256-GCM (NIST SP 800-38D) with RFC 5869 HKDF-SHA256
+Experimental Research Cipher: TorchShield Invertible S-Box & Cauchy Diffusion (Quarantined)
+
+Saving checkpoint from clean environment...
+Checkpoint saved successfully (25320 bytes)
+
+Loading checkpoint into fresh destination in clean environment...
+Roundtrip state restoration verified bit-for-bit!
+
+Testing cryptographic tamper detection in clean environment...
+Cryptographic tamper detection verified: CheckpointError raised!
+
+[SUCCESS] ALL CLEAN-ROOM ISOLATED VERIFICATION CHECKS PASSED [100% SUCCESS]!
+
+[4/5] Cleaning up isolated virtual environment...
+[5/5] Temporary virtual environment removed.
+
+======================================================================
+GENUINELY ISOLATED CLEAN-ROOM VERIFICATION: COMPLETED WITH 100% SUCCESS
+======================================================================
 ```
 
 ---
@@ -316,19 +304,19 @@ Cleaned up temporary virtualenv.
 ## 8. Empirical Performance Methodology & Cache Effects
 
 ### 8.1 AEAD Raw Throughput Analysis
-The benchmark in `benchmarks/run_v070_benchmarks.py` records raw AES-256-GCM throughput across chunk sizes:
-- **64 KB Chunks:** **3,583.33 MB/s** Encrypt | **3,641.89 MB/s** Decrypt
-- **1 MB Chunks:** **1,450.75 MB/s** Encrypt | **1,474.53 MB/s** Decrypt
-- **4 MB Chunks:** **1,528.48 MB/s** Encrypt | **1,496.43 MB/s** Decrypt
-- **16 MB Chunks:** **1,515.69 MB/s** Encrypt | **1,720.04 MB/s** Decrypt
+The benchmark in `benchmarks/run_v070_benchmarks.py` records raw AES-256-GCM throughput across chunk sizes (3-trial medians reported in [`reports/audit/BENCHMARKS.md`](BENCHMARKS.md)):
+- **64 KB Chunks:** **1026.64 MB/s** Encrypt | **2790.42 MB/s** Decrypt
+- **1 MB Chunks:** **1710.01 MB/s** Encrypt | **1437.00 MB/s** Decrypt
+- **4 MB Chunks:** **1769.28 MB/s** Encrypt | **1510.09 MB/s** Decrypt
+- **16 MB Chunks:** **1607.01 MB/s** Encrypt | **1487.96 MB/s** Decrypt
 
 **Methodological Explanation:**
-The throughput variation between 64 KiB chunks and $\ge 1$ MiB chunks is governed by CPU cache architecture. On modern x86_64 processors, L1/L2 caches are 32 KiB–1 MiB per core. A 64 KiB buffer fits entirely within the L2 cache, allowing AES-NI hardware instructions to execute at internal cache bandwidth (~3.6 GB/s). For 1 MiB, 4 MiB, and 16 MiB buffers, cache capacity is exceeded, causing working sets to spill into shared L3 cache and host DRAM. Throughput stabilizes at approximately 1.5–1.7 GB/s, reflecting host memory bus bandwidth.
+The throughput variation between 64 KiB chunks and $\ge 1$ MiB chunks is governed by CPU cache architecture. On modern x86_64 processors, L1/L2 caches are 32 KiB–1 MiB per core. A 64 KiB buffer fits entirely within the L2 cache, allowing AES-NI hardware instructions to execute at internal cache bandwidth (~2.8 GB/s decrypt). For 1 MiB, 4 MiB, and 16 MiB buffers, cache capacity is exceeded, causing working sets to spill into shared L3 cache and host DRAM. Throughput stabilizes at approximately 1.4–1.7 GB/s, reflecting host memory bus bandwidth.
 
 ### 8.2 End-to-End Checkpoint Pipeline (48 MB Model)
-- **Save Throughput:** **138.47 MB/s** (0.3466s, +33.77 MB peak RAM overhead)
-- **Load CPU Throughput:** **224.96 MB/s** (0.2134s, +48.07 MB peak RAM overhead)
-- **Load CUDA Streaming (GTX 1650):** **124.57 MB/s** (0.3853s wall-clock)
+- **Save Throughput:** **62.62 MB/s** (0.7665s, +0.00 MB host RAM delta)
+- **Load CPU Throughput:** **241.10 MB/s** (0.1991s, +48.01 MB host RAM delta)
+- **Load CUDA Streaming (GTX 1650):** **175.89 MB/s** (0.2729s wall-clock onto NVIDIA GeForce GTX 1650)
 
 **Scope Limitation:**
 These measurements reflect a 48 MB linear/convolutional PyTorch model on a single workstation. They do not represent multi-billion-parameter LLM workloads. Hypothetical targets exceeding 40 GB/s remain speculative until evaluated on multi-GPU enterprise Linux servers with dedicated NVMe-oF GPUDirect Storage infrastructure.

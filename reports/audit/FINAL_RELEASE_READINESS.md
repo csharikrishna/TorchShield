@@ -31,7 +31,7 @@ Across the 16 phases of this master security audit and architecture remediation 
 
 ## 2. Test Execution & Baseline Comparison
 
-| Test Suite / Category | Baseline (v0.7.0 Pre-Audit) | Final (v0.7.0 Post-Remediation) | Delta & Focus Areas |
+| Test Suite / Category | Baseline (v0.7.0 Pre-Audit) | Final (v0.7.1 Post-Remediation) | Delta & Focus Areas |
 |---|:---:|:---:|---|
 | **AEAD Cryptography & Known Answer Tests** | 9 | 9 | AES-256-GCM / Poly1305 NIST KAT vectors |
 | **Artifact Signatures & Manifest Integrity** | 10 | 10 | Ed25519 publisher signature binding |
@@ -94,12 +94,12 @@ Across the 16 phases of this master security audit and architecture remediation 
 
 ## 4. Authoritative Built Artifacts & Provenance Hashes
 
-Distribution packages built via isolated `python -m build` and verified in clean-room environment:
+Distribution packages built via isolated `python -m build` from authoritative Git commit `9897e1c185180d5cf427e60da8d2b078de2adec1` (tree `e08fb736ee10da7932e66c0eb35c946447a85afc`) and verified in clean-room environment:
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|
-| **Wheel (`.whl`)** | 77,314 bytes | `BAB21764F09D517CC3EBB3985FE423C434B9233B6BE3460E05F6BB4795DB409F` |
-| **Source Distribution (`.tar.gz`)** | 141,541 bytes | `5F4C6EA899CA819AF7E82588DFC2CC23E0CD3D37556BD85A5594790FA85E5F07` |
+| **Wheel (`.whl`)** (`torchshield-0.7.1-py3-none-any.whl`) | 77,692 bytes | `F764CD9A23632CF7D2320A6D70C3D28DF98BB5AFA4DFB663DEB9E2E0A95CA722` |
+| **Source Distribution (`.tar.gz`)** (`torchshield-0.7.1.tar.gz`) | 143,303 bytes | `E69DC4087AA50273DF41C564FA556BC64DE26A9A0F2B8A8972A8C08794A0A76E` |
 
 *All release artifact digests are cryptographically anchored in [`dist/SHA256SUMS`](../../dist/SHA256SUMS) and tied to the authoritative Git tree.*
 
@@ -147,9 +147,9 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 - **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.1)**.
 - **Evidence Base:**
-  - 255 / 255 pytest unit, integration, and security regression tests passing.
+  - 263 / 263 pytest unit, integration, and security regression tests passing.
   - 7 / 7 standalone local Moto KMS envelope encryption tests passing.
-  - Combined total: 262 verified checks passed (100% pass rate).
+  - Combined total: 270 verified checks passed (100% pass rate).
   - Zero-pickle guarantee enforced and verified with fail-closed exceptions.
   - Two-stage transactional restoration with atomic rollback verified across model, optimizer (with strict parameter object identity preservation), scheduler, scaler, auxiliary state providers, and all 4 RNG generators.
   - Clean-room virtual environment installation and execution verified outside repository directory.
