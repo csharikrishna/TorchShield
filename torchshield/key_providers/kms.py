@@ -38,6 +38,7 @@ class AWSKMSProvider(KeyProvider):
         key_arn: str,
         boto3_client: Optional[Any] = None,
         region_name: Optional[str] = None,
+        endpoint_url: Optional[str] = None,
         max_retries: int = 3,
         base_backoff_sec: float = 0.05,
     ):
@@ -52,7 +53,12 @@ class AWSKMSProvider(KeyProvider):
         else:
             try:
                 import boto3
-                self._client = boto3.client("kms", region_name=region_name)
+                client_kwargs: Dict[str, Any] = {}
+                if region_name:
+                    client_kwargs["region_name"] = region_name
+                if endpoint_url:
+                    client_kwargs["endpoint_url"] = endpoint_url
+                self._client = boto3.client("kms", **client_kwargs)
             except ImportError as exc:
                 raise ImportError(
                     "boto3 is required to use AWSKMSProvider. Install with: pip install boto3"
