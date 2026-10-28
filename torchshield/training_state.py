@@ -455,12 +455,14 @@ def _rollback_scaler(scaler: Any, snapshot: Optional[dict]) -> None:
 
 def _snapshot_state_providers(
     providers: Optional[List[SafeStateProvider]],
+    provider_keys: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Dict[str, Any]]]:
     """Capture in-memory snapshots of all auxiliary state providers.
 
     Detects duplicate provider keys before taking snapshots and initializes
     diagnostic variables before entering try blocks to avoid UnboundLocalError
-    or secondary exceptions during error handling.
+    or secondary exceptions during error handling. Reuses pre-validated provider_keys
+    when provided to avoid redundant get_state_key() calls.
     """
     if not providers:
         return None
@@ -471,9 +473,12 @@ def _snapshot_state_providers(
         provider_name = type(p).__name__
         desc = f"provider index {idx} ({provider_name})"
         try:
-            key = p.get_state_key()
-            if not isinstance(key, str) or not key:
-                raise ValueError(f"State key must be a non-empty string, got {key!r}")
+            if provider_keys is not None and idx < len(provider_keys):
+                key = provider_keys[idx]
+            else:
+                key = p.get_state_key()
+                if not isinstance(key, str) or not key:
+                    raise ValueError(f"State key must be a non-empty string, got {key!r}")
             desc = f"provider '{key}' (index {idx})"
             if key in seen_keys:
                 raise TrainingStateError(f"Duplicate state provider key detected: '{key}'")
@@ -493,10 +498,12 @@ def _snapshot_state_providers(
 def _rollback_state_providers(
     providers: Optional[List[SafeStateProvider]],
     snapshot: Optional[Dict[str, Dict[str, Any]]],
+    provider_keys: Optional[List[str]] = None,
 ) -> None:
     """Restore auxiliary state providers from captured snapshot.
 
     Safely collects any rollback errors without masking the original exception.
+    Reuses pre-validated provider_keys when provided to avoid redundant get_state_key() calls.
     """
     if not providers or not snapshot:
         return
@@ -506,7 +513,10 @@ def _rollback_state_providers(
         provider_name = type(p).__name__
         desc = f"provider index {idx} ({provider_name})"
         try:
-            key = p.get_state_key()
+            if provider_keys is not None and idx < len(provider_keys):
+                key = provider_keys[idx]
+            else:
+                key = p.get_state_key()
             desc = f"provider '{key}' (index {idx})"
             if key in snapshot:
                 p.restore_state(snapshot[key])
@@ -847,7 +857,9 @@ def load_training_checkpoint(
         validate_safe_metadata(training_meta["scaler"], path="checkpoint.scaler")
 
     # Validate auxiliary state providers if supplied
+    validated_provider_keys: Optional[List[str]] = None
     if state_providers:
+        validated_provider_keys = []
         seen_sp_keys: Set[str] = set()
         for idx, sp in enumerate(state_providers):
             provider_name = type(sp).__name__
@@ -865,6 +877,7 @@ def load_training_checkpoint(
             if sp_key in seen_sp_keys:
                 raise TrainingStateError(f"Duplicate SafeStateProvider key: '{sp_key}'")
             seen_sp_keys.add(sp_key)
+            validated_provider_keys.append(sp_key)
 
     # -----------------------------------------------------------------------
     # STAGE B: Transactional Application with Rollback Protection
@@ -873,7 +886,7 @@ def load_training_checkpoint(
     opt_snapshot = _snapshot_optimizer(optimizer) if optimizer is not None else None
     sched_snapshot = _snapshot_scheduler(scheduler)
     scaler_snapshot = _snapshot_scaler(scaler)
-    prov_snapshot = _snapshot_state_providers(state_providers)
+    prov_snapshot = _snapshot_state_providers(state_providers, provider_keys=validated_provider_keys)
     rng_snapshot = serialize_all_rng() if restore_rng else None
 
     name_to_param = dict(model.named_parameters())
@@ -924,7 +937,11 @@ def load_training_checkpoint(
         if state_providers and "state_providers" in training_meta and training_meta["state_providers"]:
             prov_dict = training_meta["state_providers"]
             for idx, sp in enumerate(state_providers):
-                sp_key = sp.get_state_key()
+                sp_key = (
+                    validated_provider_keys[idx]
+                    if validated_provider_keys is not None and idx < len(validated_provider_keys)
+                    else sp.get_state_key()
+                )
                 if sp_key in prov_dict:
                     try:
                         sp.restore_state(prov_dict[sp_key])
@@ -958,7 +975,9 @@ def load_training_checkpoint(
                 rollback_errors.append(f"scaler: {r_exc}")
         if state_providers and prov_snapshot is not None:
             try:
-                _rollback_state_providers(state_providers, prov_snapshot)
+                _rollback_state_providers(
+                    state_providers, prov_snapshot, provider_keys=validated_provider_keys
+                )
             except Exception as r_exc:
                 rollback_errors.append(f"state_providers: {r_exc}")
         if restore_rng and rng_snapshot is not None:

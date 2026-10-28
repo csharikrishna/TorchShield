@@ -17,11 +17,11 @@ Across the 16 phases of this master security audit and architecture remediation 
 │ FINAL AUDIT METRICS                                    │
 ├───────────────────────────────┬────────────────────────┤
 │ Baseline Test Suite           │ 204 Passed, 0 Failed   │
-│ Final Pytest Test Suite       │ 255 Passed, 0 Failed   │
-│ Net New Regression Tests Added│ +51 Tests              │
+│ Final Pytest Test Suite       │ 260 Passed, 0 Failed   │
+│ Net New Regression Tests Added│ +56 Tests              │
 │ Identified Defects Remediated │ 17 / 17 (100% Fixed)   │
 │ Standalone Local KMS Checks   │ 7 / 7 Local Moto Passed│
-│ Total Verified Checks         │ 262 / 262 Passed (100%)│
+│ Total Verified Checks         │ 267 / 267 Passed (100%)│
 │ Test Execution Duration       │ ~44s pytest + ~8s KMS  │
 │ Overall Pass Rate             │ 100.0%                 │
 └───────────────────────────────┴────────────────────────┘
@@ -35,19 +35,19 @@ Across the 16 phases of this master security audit and architecture remediation 
 |---|:---:|:---:|---|
 | **AEAD Cryptography & Known Answer Tests** | 9 | 9 | AES-256-GCM / Poly1305 NIST KAT vectors |
 | **Artifact Signatures & Manifest Integrity** | 10 | 10 | Ed25519 publisher signature binding |
-| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **13** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation, failing `get_state_key` single call, duplicate keys rejection, restore vs rollback distinction |
+| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **14** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation, failing `get_state_key` single call, duplicate keys rejection, restore vs rollback distinction |
 | **Distributed Checkpoint Hardening** | 4 | **7** | Path traversal, symlink, duplicate rank mitigation |
 | **Hugging Face Trainer Integration** | 5 | **6** | Fail-closed on missing vault, two-phase file cleanup |
 | **Multi-Cloud Key Providers (GCP/Azure/Vault)** | 0 | **3** | Unified contract tests, retry backoff |
 | **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid framework plumbing with verified mock signature and fail-closed production policy |
-| **Hardware Attestation & Enclaves** | 0 | **12** | Freshness nonces, certificate chains, mandatory signatures, bound challenge, non-destructive failure handling, production security classification |
+| **Hardware Attestation & Enclaves** | 0 | **16** | Freshness nonces, certificate chains, mandatory signatures, bound challenge lifecycle, non-destructive failure handling, production security classification |
 | **GPUDirect Storage (GDS) Loading** | 0 | **5** | Capability detection, capability field semantics, streaming CUDA pipeline fallback |
 | **Native Inference Model Serving** | 0 | **6** | Direct in-memory load without plaintext disk landing, transactional rollback |
 | **Quorum Etcd Consensus Freshness** | 0 | **3** | CAS transactions, revision-based anti-rollback |
 | **Phase 2/4/6 Protocol & Edge Cases** | 176 | 176 | Monotonic nonces, chunk budgets, untrusted inputs |
-| **TOTAL PYTEST TEST COUNT** | **204** | **255** | **+51 Net New Tests (100% Passing)** |
+| **TOTAL PYTEST TEST COUNT** | **204** | **260** | **+56 Net New Tests (100% Passing)** |
 | **STANDALONE LOCAL KMS CHECKS** | 0 | **7** | Embedded Moto Local KMS Verification (100% Passing) |
-| **COMBINED TESTED CHECKS** | **204** | **262** | **+58 Net New Checks (100% Passing)** |
+| **COMBINED TESTED CHECKS** | **204** | **267** | **+63 Net New Checks (100% Passing)** |
 
 ---
 
@@ -90,22 +90,16 @@ Across the 16 phases of this master security audit and architecture remediation 
 
 ---
 
-## 4. Built Artifacts & Provenance Hashes
+## 4. Authoritative Built Artifacts & Provenance Hashes
 
-Packages built via isolated `python -m build`:
+Distribution packages built via isolated `python -m build` and verified in clean-room environment:
 
-```
-dist/
-├── torchshield-0.7.0-py3-none-any.whl  (76,353 bytes)
-│   SHA256: 5CD05159C6EE00038CFF7976494892BE21EABBB5D750ADD03C42C0675284525D
-└── torchshield-0.7.0.tar.gz            (138,681 bytes)
-    SHA256: 56BED324CCA0F6BCF6FDA0FF849517A6B41CAAD49F3ACE7C841AC1762399F620
-```
-```
+| Artifact | File Size | SHA-256 Digest |
+|---|---|---|
+| **Wheel (`.whl`)** | 77,314 bytes | `BAB21764F09D517CC3EBB3985FE423C434B9233B6BE3460E05F6BB4795DB409F` |
+| **Source Distribution (`.tar.gz`)** | 141,541 bytes | `5F4C6EA899CA819AF7E82588DFC2CC23E0CD3D37556BD85A5594790FA85E5F07` |
 
-### Cryptographic Hashes (SHA-256):
-- **Wheel:** `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685`
-- **Source Distribution (sdist):** `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077`
+*All release artifact digests are cryptographically anchored in [`dist/SHA256SUMS`](../../dist/SHA256SUMS) and tied to the authoritative Git tree.*
 
 ---
 
@@ -114,14 +108,14 @@ dist/
 Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650 4GB VRAM, Python 3.12.10, PyTorch 2.5.1+cu121):
 
 - **Raw AES-256-GCM AEAD Throughput:**
-  - 64 KB Chunks: 3,583.33 MB/s Encrypt | 3,641.89 MB/s Decrypt
-  - 1 MB Chunks: 1,450.75 MB/s Encrypt | 1,474.53 MB/s Decrypt
-  - 4 MB Chunks: 1,528.48 MB/s Encrypt | 1,496.43 MB/s Decrypt
-  - 16 MB Chunks: 1,515.69 MB/s Encrypt | 1,720.04 MB/s Decrypt
+  - 64 KB Chunks: 1026.64 MB/s Encrypt | 2790.42 MB/s Decrypt
+  - 1 MB Chunks: 1710.01 MB/s Encrypt | 1437.00 MB/s Decrypt
+  - 4 MB Chunks: 1769.28 MB/s Encrypt | 1510.09 MB/s Decrypt
+  - 16 MB Chunks: 1607.01 MB/s Encrypt | 1487.96 MB/s Decrypt
 - **Checkpoint Pipeline End-to-End Throughput (48 MB Model):**
-  - Save Throughput: **138.47 MB/s** (0.3466s, +33.77 MB host RAM overhead)
-  - Load Throughput (CPU): **224.96 MB/s** (0.2134s, +48.07 MB host RAM overhead)
-  - Load Throughput (CUDA Stream Ingestion): **124.57 MB/s** (0.3853s onto GTX 1650)
+  - Save Throughput: **62.62 MB/s** (0.7665s, +0.00 MB host RAM delta)
+  - Load Throughput (CPU): **241.10 MB/s** (0.1991s, +48.01 MB host RAM delta)
+  - Load Throughput (CUDA Pinned Streaming): **175.89 MB/s** (0.2729s onto GTX 1650)
 - **Methodological Disclosure:** Speculative claims of 40+ GB/s throughput are recognized as theoretical hypotheses that require enterprise Linux NVMe arrays with NVIDIA GPUDirect Storage kernel drivers. Real measured wall-clock figures are reported above.
 
 ---

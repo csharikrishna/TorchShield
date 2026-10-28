@@ -810,3 +810,120 @@ def test_state_provider_restore_failure_and_rollback_distinction():
             os.remove(path)
 
 
+def test_state_provider_key_lifecycle_called_once_and_stable_mapping():
+    """Verify get_state_key() is called exactly once per provider during load_training_checkpoint setup,
+    reused stably across snapshotting, state restoration, and rollback, and duplicate keys/errors are rejected.
+    """
+    class CountingStateProvider(SafeStateProvider):
+        def __init__(self, key_name: str, value: int, fail_on_restore: bool = False, fail_on_key: bool = False):
+            self.key_name = key_name
+            self.value = value
+            self.fail_on_restore = fail_on_restore
+            self.fail_on_key = fail_on_key
+            self.key_call_count = 0
+            self.capture_call_count = 0
+            self.restore_call_count = 0
+
+        def get_state_key(self) -> str:
+            self.key_call_count += 1
+            if self.fail_on_key:
+                raise ValueError("Injected get_state_key failure")
+            return self.key_name
+
+        def capture_state(self) -> dict:
+            self.capture_call_count += 1
+            return {"value": self.value}
+
+        def restore_state(self, state: dict) -> None:
+            self.restore_call_count += 1
+            if self.fail_on_restore:
+                raise RuntimeError(f"Simulated restore failure for {self.key_name}")
+            self.value = state["value"]
+
+    key = os.urandom(32)
+    model = NetA()
+    src1 = CountingStateProvider("provider_alpha", 100)
+    src2 = CountingStateProvider("provider_beta", 200)
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            key=key,
+            state_providers=[src1, src2],
+        )
+
+        # 1. Complete successful load path: get_state_key() called EXACTLY ONCE per provider
+        dest_model_ok = NetA()
+        dest1_ok = CountingStateProvider("provider_alpha", 1)
+        dest2_ok = CountingStateProvider("provider_beta", 2)
+
+        load_training_checkpoint(
+            input_path=path,
+            model=dest_model_ok,
+            key=key,
+            state_providers=[dest1_ok, dest2_ok],
+        )
+
+        assert dest1_ok.key_call_count == 1, f"Expected 1 call, got {dest1_ok.key_call_count}"
+        assert dest2_ok.key_call_count == 1, f"Expected 1 call, got {dest2_ok.key_call_count}"
+        assert dest1_ok.value == 100
+        assert dest2_ok.value == 200
+        assert dest1_ok.capture_call_count == 1  # snapshotted once
+        assert dest1_ok.restore_call_count == 1  # restored once
+
+        # 2. Failed restoration triggering rollback: get_state_key() STILL called EXACTLY ONCE
+        dest_model_fail = NetA()
+        initial_fc1 = dest_model_fail.fc1.weight.clone()
+        dest1_fail = CountingStateProvider("provider_alpha", 50)
+        dest2_fail = CountingStateProvider("provider_beta", 60, fail_on_restore=True)
+
+        with pytest.raises(TrainingStateError) as exc_info:
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model_fail,
+                key=key,
+                state_providers=[dest1_fail, dest2_fail],
+            )
+        assert "Simulated restore failure for provider_beta" in str(exc_info.value)
+        assert dest1_fail.key_call_count == 1, f"Expected 1 call during failed load, got {dest1_fail.key_call_count}"
+        assert dest2_fail.key_call_count == 1, f"Expected 1 call during failed load, got {dest2_fail.key_call_count}"
+        assert dest1_fail.value == 50  # rolled back to snapshot value
+        assert torch.equal(dest_model_fail.fc1.weight, initial_fc1)
+
+        # 3. Duplicate key rejection in pre-validation setup
+        dest_model_dup = NetA()
+        dup1 = CountingStateProvider("same_key", 10)
+        dup2 = CountingStateProvider("same_key", 20)
+
+        with pytest.raises(TrainingStateError, match="Duplicate SafeStateProvider key: 'same_key'"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model_dup,
+                key=key,
+                state_providers=[dup1, dup2],
+            )
+        assert dup1.key_call_count == 1
+        assert dup2.key_call_count == 1
+        assert dup1.capture_call_count == 0  # No snapshot taken
+
+        # 4. get_state_key failure in pre-validation does not call get_state_key a second time
+        dest_model_err = NetA()
+        err_prov = CountingStateProvider("bad_key", 0, fail_on_key=True)
+
+        with pytest.raises(TrainingStateError) as exc_info_err:
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model_err,
+                key=key,
+                state_providers=[err_prov],
+            )
+        assert "Pre-validation failed for state provider index 0" in str(exc_info_err.value)
+        assert err_prov.key_call_count == 1, f"Expected 1 call on failure, got {err_prov.key_call_count}"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)

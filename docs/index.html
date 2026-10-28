@@ -114,7 +114,7 @@
         <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
           <div class="text-2xl font-extrabold text-emerald-600 mono">Zero Pickle</div>
           <div class="text-xs font-semibold text-slate-900 mt-1">Exploit Immune</div>
-          <div class="text-xs text-slate-500 mt-0.5">Direct binary tensor buffers & canonical RFC 8785 JSON</div>
+          <div class="text-xs text-slate-500 mt-0.5">Direct binary tensor buffers & canonical TorchShield JSON v1</div>
         </div>
         <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm">
           <div class="text-2xl font-extrabold text-indigo-600 mono">100% Bit-Exact</div>
@@ -170,7 +170,7 @@
           </div>
           <h3 class="font-bold text-base text-slate-900 mb-2">Ed25519 Publisher Signatures</h3>
           <p class="text-xs text-slate-600 leading-relaxed">
-            Cryptographic asymmetric signatures bind canonical RFC 8785 JSON manifests transitively to all model weights. Verify training provenance without sharing decryption keys.
+            Cryptographic asymmetric signatures bind canonical TorchShield JSON v1 manifests transitively to all model weights. Verify training provenance without sharing decryption keys.
           </p>
         </div>
 
@@ -326,7 +326,7 @@
               <span class="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 font-mono text-xs font-bold border border-purple-200">Trailer Envelope</span>
               <span class="font-bold text-slate-900 text-sm">Canonical Manifest & Ed25519 Signature</span>
             </div>
-            <span class="text-xs text-purple-700 font-mono font-medium">RFC 8785 JSON | Ed25519 (64B)</span>
+            <span class="text-xs text-purple-700 font-mono font-medium">Canonical JSON v1 | Ed25519 (64B)</span>
           </div>
           <div class="text-xs text-slate-600 mt-2.5" id="desc-manifest">
             Encrypted canonical JSON cataloging tensor shapes, dtypes, AdamW momentum, RNG states, and training progress. Digitally signed with an Ed25519 publisher key, transitively binding every single weight parameter in the model.

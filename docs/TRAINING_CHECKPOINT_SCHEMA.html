@@ -154,7 +154,7 @@
 <p>Standard deep learning frameworks historically rely on Python <code>pickle</code> (e.g., <code>torch.save(..., f)</code>), which serializes arbitrary Python bytecode. This creates an unacceptable remote code execution (RCE) vulnerability when loading checkpoints from external, untrusted, or distributed storage buckets.</p>
 <p>The TorchShield Secure Checkpoint Engine establishes a <strong>strictly non-executable serialization contract</strong>:<br />
 - <strong>Tensors:</strong> Serialized exclusively as raw binary numerical buffers with strictly allowlisted PyTorch dtypes (<code>float32</code>, <code>float16</code>, <code>bfloat16</code>, <code>float64</code>, <code>int64</code>, <code>int32</code>, <code>int16</code>, <code>int8</code>, <code>uint8</code>, <code>bool</code>).<br />
-- <strong>Metadata &amp; State:</strong> Stored as deterministic canonical UTF-8 JSON specifications (<code>RFC 8785</code>), parsed with duplicate-key rejection and strict schema enforcement.<br />
+- <strong>Metadata &amp; State:</strong> Stored as deterministic canonical UTF-8 JSON specifications (<code>TorchShield Canonical JSON v1</code>), parsed with duplicate-key rejection and strict schema enforcement.<br />
 - <strong>No Deserialization Hooks:</strong> No <code>__reduce__</code>, no <code>eval()</code>, and zero execution pathways exist during model loading.</p>
 <hr />
 <h2 id="2-container-format-version-5-layout">2. Container Format: Version 5 Layout</h2>

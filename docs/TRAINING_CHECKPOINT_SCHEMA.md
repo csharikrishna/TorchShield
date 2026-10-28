@@ -13,7 +13,7 @@ Standard deep learning frameworks historically rely on Python `pickle` (e.g., `t
 
 The TorchShield Secure Checkpoint Engine establishes a **strictly non-executable serialization contract**:
 - **Tensors:** Serialized exclusively as raw binary numerical buffers with strictly allowlisted PyTorch dtypes (`float32`, `float16`, `bfloat16`, `float64`, `int64`, `int32`, `int16`, `int8`, `uint8`, `bool`).
-- **Metadata & State:** Stored as deterministic canonical UTF-8 JSON specifications (`RFC 8785`), parsed with duplicate-key rejection and strict schema enforcement.
+- **Metadata & State:** Stored as deterministic canonical UTF-8 JSON specifications (`TorchShield Canonical JSON v1`), parsed with duplicate-key rejection and strict schema enforcement.
 - **No Deserialization Hooks:** No `__reduce__`, no `eval()`, and zero execution pathways exist during model loading.
 
 ---

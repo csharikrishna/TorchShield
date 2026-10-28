@@ -26,7 +26,7 @@ TorchShield uses **Ed25519 digital signatures** over the canonical manifest spec
                                     [artifact_id, tensors, metadata]
                                                   |
                                                   v
-                                     RFC 8785 Canonical JSON
+                                     TorchShield Canonical JSON v1
                                                   |
                                                   v
                                             SHA-256 Digest

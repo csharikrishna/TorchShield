@@ -223,12 +223,14 @@ class AttestationGatedKeyProvider(KeyProvider):
         self._verifier = verifier
         self._policy = policy
         self._evidence_provider = evidence_provider
-        self._staged_evidence: Optional[Tuple[AttestationEvidence, Optional[bytes]]] = None
-        self._pending_challenge: Optional[bytes] = None
+        self._staged_evidence: Optional[Tuple[AttestationEvidence, bytes]] = None
+        # Track authorized challenges issued by this provider: challenge bytes -> issue timestamp float
+        self._authorized_challenges: Dict[bytes, float] = {}
+        self._active_challenge: Optional[bytes] = None
 
     @property
     def is_production_secure(self) -> bool:
-        """Return True only if underlying provider and attestation configuration provide genuine production trust."""
+        """Return True only if underlying provider, trust configuration, and evidence-acquisition path provide genuine production trust."""
         if not getattr(self._inner, "is_production_secure", False):
             return False
         if getattr(self._verifier, "_allow_mock", False) or getattr(self._policy, "allow_mock", False):
@@ -245,19 +247,38 @@ class AttestationGatedKeyProvider(KeyProvider):
             for sid in allowed_signers:
                 if sid not in trusted_keys:
                     return False
+
+        # Account for evidence-acquisition path:
+        # A usable path exists if there is an automated evidence provider callback,
+        # or if currently valid staged evidence bound to an unconsumed authorized challenge is present.
+        has_provider_path = self._evidence_provider is not None and callable(self._evidence_provider)
+        has_staged_path = False
+        if self._staged_evidence is not None:
+            _, staged_challenge = self._staged_evidence
+            if staged_challenge is not None and staged_challenge in self._authorized_challenges:
+                issued_time = self._authorized_challenges[staged_challenge]
+                age = time.time() - issued_time
+                if 0.0 <= age <= getattr(self._policy, "max_age_seconds", 300.0):
+                    has_staged_path = True
+
+        if not (has_provider_path or has_staged_path):
+            return False
+
         return True
 
     def get_key_id(self) -> str:
         return f"attestation-gated::{self._inner.get_key_id()}"
 
     def create_challenge(self) -> bytes:
-        """Create and register a fresh challenge nonce for staging evidence.
+        """Create and register an authorized fresh challenge nonce for staging evidence.
 
         Returns:
             32-byte cryptographically secure challenge nonce.
         """
-        self._pending_challenge = secrets.token_bytes(32)
-        return self._pending_challenge
+        nonce = secrets.token_bytes(32)
+        self._authorized_challenges[nonce] = time.time()
+        self._active_challenge = nonce
+        return nonce
 
     def stage_evidence(
         self,
@@ -266,13 +287,36 @@ class AttestationGatedKeyProvider(KeyProvider):
     ) -> None:
         """Stage pre-acquired attestation evidence for the next unwrap operation.
 
+        Enforces explicit trust rules for challenge nonces:
+        - If an external challenge is supplied, it MUST match an authorized active
+          challenge issued by create_challenge() on this provider. Arbitrary caller-supplied
+          byte strings that were not issued by this provider are rejected.
+        - If challenge is omitted, binds to the most recent active challenge if valid.
+        - Checks that the authorized challenge has not expired according to policy.max_age_seconds.
+
         Args:
             evidence: AttestationEvidence to stage.
-            challenge: The exact challenge nonce that was bound into evidence.report_data.
-                       If omitted, binds to the challenge from create_challenge() if available.
+            challenge: The authorized challenge nonce bound into evidence.report_data.
         """
-        bound_challenge = challenge if challenge is not None else self._pending_challenge
-        self._staged_evidence = (evidence, bound_challenge)
+        target_challenge = challenge if challenge is not None else self._active_challenge
+        if target_challenge is None:
+            raise AttestationError(
+                "Cannot stage evidence: no challenge provided and no active challenge was created via create_challenge()."
+            )
+
+        if target_challenge not in self._authorized_challenges:
+            raise AttestationError(
+                "Unauthorized challenge: externally supplied challenge was not issued by this provider's challenge lifecycle."
+            )
+
+        issued_time = self._authorized_challenges[target_challenge]
+        age = time.time() - issued_time
+        if age < -60.0 or age > getattr(self._policy, "max_age_seconds", 300.0):
+            raise AttestationError(
+                f"Stale challenge: challenge nonce expired (age {age:.1f}s > max {getattr(self._policy, 'max_age_seconds', 300.0)}s)."
+            )
+
+        self._staged_evidence = (evidence, target_challenge)
 
     def generate_data_key(
         self, encryption_context: Optional[Dict[str, str]] = None
@@ -292,6 +336,7 @@ class AttestationGatedKeyProvider(KeyProvider):
         """Unwrap data key strictly after validating fresh hardware attestation."""
         evidence: Optional[AttestationEvidence] = None
         expected_nonce: Optional[bytes] = None
+        bound_challenge: Optional[bytes] = None
 
         if self._evidence_provider is not None:
             nonce = secrets.token_bytes(32)
@@ -300,11 +345,15 @@ class AttestationGatedKeyProvider(KeyProvider):
         elif self._staged_evidence is not None:
             evidence, bound_challenge = self._staged_evidence
             if getattr(self._policy, "require_fresh_nonce", True):
-                if bound_challenge is None:
+                if bound_challenge not in self._authorized_challenges:
                     raise AttestationError(
-                        "Staged attestation evidence cannot be verified: policy requires fresh-nonce verification, "
-                        "but staged evidence was not bound to a challenge nonce. Call create_challenge() or "
-                        "pass challenge to stage_evidence()."
+                        "Staged attestation challenge is no longer authorized (already consumed, expired, or untrusted)."
+                    )
+                issued_time = self._authorized_challenges[bound_challenge]
+                age = time.time() - issued_time
+                if age < -60.0 or age > getattr(self._policy, "max_age_seconds", 300.0):
+                    raise AttestationError(
+                        f"Stale challenge: staged challenge nonce expired (age {age:.1f}s > max {getattr(self._policy, 'max_age_seconds', 300.0)}s)."
                     )
                 expected_nonce = bound_challenge
         else:
@@ -317,10 +366,12 @@ class AttestationGatedKeyProvider(KeyProvider):
         # verification failures do not irreversibly destroy evidence before inspection.
         self._verifier.verify(evidence, self._policy, expected_nonce=expected_nonce)
 
-        # Verification succeeded: consume staged evidence to enforce single-use / anti-replay
-        if self._staged_evidence is not None:
-            self._staged_evidence = None
-            self._pending_challenge = None
+        # Verification succeeded: consume challenge and staged evidence to enforce single-use / anti-replay
+        if bound_challenge is not None:
+            self._authorized_challenges.pop(bound_challenge, None)
+            if self._active_challenge == bound_challenge:
+                self._active_challenge = None
+        self._staged_evidence = None
 
         # Safely delegate unwrap to inner provider
         return self._inner.unwrap_key(wrapped_key, encryption_context=encryption_context)

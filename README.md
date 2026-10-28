@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](pyproject.toml)
 [![Status](https://img.shields.io/badge/status-Conditional_Staging_Approved-green.svg)](docs/)
-[![Tests](https://img.shields.io/badge/tests-255_passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-260_passed-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/csharikrishna/TorchShield/blob/master/notebooks/TorchShield_Interactive_Walkthrough.ipynb)
 
@@ -16,7 +16,7 @@
 - **Streaming AEAD Cryptography:** Standard AES-256-GCM / ChaCha20-Poly1305 with cryptographically enforced monotonic sequential counter nonces (`b"CHNK" + uint64_be`), guaranteeing zero nonce reuse collision risk ($P=0$).
 - **Exact Bit-for-Bit Training Equivalence:** Restores model weights, AdamW/SGD optimizer momentum states, and Python/NumPy/PyTorch/CUDA RNG states with mathematical bitwise exactness across process interruptions.
 - **Enterprise Key Management:** Native support for local 256-bit keys and AWS KMS envelope encryption (`AWSKMSKeyProvider`) with secure unwrap operations and rotation hooks.
-- **Publisher Signatures & Provenance:** Ed25519 digital signatures bind canonical RFC 8785 JSON manifests transitively to all model weights.
+- **Publisher Signatures & Provenance:** Ed25519 digital signatures bind deterministic canonical JSON (TorchShield Canonical JSON v1) manifests transitively to all model weights.
 - **Anti-Rollback Freshness:** Local freshness ledger tracks monotonic checkpoint generations to block replay attacks.
 - **Distributed & Sharded Training:** Seamless integration with multi-GPU and distributed training frameworks (ZeRO / FSDP sharding).
 
@@ -50,17 +50,19 @@
 
 ### 1. Installation
 
-Install the verified standalone distribution wheel from [`dist/`](dist/):
-
+If cloning the repository from source:
 ```bash
-pip install dist/torchshield-0.7.0-py3-none-any.whl
-```
-
-Or install from source in editable mode:
-```bash
+# Editable development install
 pip install -r requirements.txt
 pip install -e . --no-build-isolation --no-deps
 ```
+
+Or build and install the standalone wheel distribution:
+```bash
+python -m build
+pip install dist/torchshield-0.7.0-py3-none-any.whl
+```
+*(Pre-built wheels in `dist/` can be installed directly once built via `python -m build`).*
 
 ### 2. Saving an Authenticated Training Checkpoint
 
@@ -217,7 +219,7 @@ The complete documentation suite is available under [`docs/`](docs/):
 | [**Rollback Protection**](docs/ROLLBACK_PROTECTION.md) | Anti-rollback freshness ledger and hypervisor snapshot boundary conditions |
 | [**KMS Integration**](docs/KMS_INTEGRATION.md) | Envelope encryption with AWS KMS and cloud secret management |
 | [**Distributed Checkpoints**](docs/DISTRIBUTED_CHECKPOINTS.md) | Multi-node sharding and distributed training coordination |
-| [**Artifact Provenance**](docs/ARTIFACT_PROVENANCE.md) | Ed25519 digital signatures and RFC 8785 canonical manifest signing |
+| [**Artifact Provenance**](docs/ARTIFACT_PROVENANCE.md) | Ed25519 digital signatures and TorchShield Canonical JSON v1 manifest signing |
 
 ---
 
@@ -231,10 +233,11 @@ The complete documentation suite is available under [`docs/`](docs/):
 > 3. **Storage-Level Snapshot Boundary:** Local SQLite/file ledgers detect local replay attacks but cannot prevent hypervisor-level snapshot rollbacks that restore both disk and checkpoint files simultaneously. High-assurance deployments require an out-of-band external freshness store.
 > 4. **Cloud KMS & Zero-Cost Local Emulation:** Production deployments integrate with AWS KMS hardware security modules (HSM). Local testing and CI/CD pipelines can use LocalStack, Moto, or the built-in `LocalDevKeyProvider` at zero cloud cost.
 > 5. **Advanced Hardware, PQC & Serving Boundaries:**
->    - **GDS GPU Loading (`gds.py`):** Reports `available=False` with `active_mode="pinned_streaming_fallback"`. Direct cuFile DMA kernel-bypass I/O read is in engineering development; streaming pinned buffer fallback is verified.
->    - **Hardware Attestation (`attestation.py`):** Verifies a custom signed evidence structure binding measurement hashes and nonces. Vendor-native quotes (NVIDIA Hopper/Blackwell CC, AMD SEV-SNP) remain roadmap items. Fails closed with `is_production_secure=False` when mock or unbound.
->    - **Post-Quantum Cryptography (`pqc.py`):** Hybrid framework architecture supported. Internal test backend uses classical primitives for unit tests; production mode strictly fails closed pending integration with audited native C bindings (`liboqs`).
->    - **Model Serving (`serving.py`):** In-memory tensor deserialization without disk staging; transactional rollback protects target model against partial corruption.
+>    - **GDS GPU Loading (`gds.py`):** Reference prototype (`available=False`, `active_mode="pinned_streaming_fallback"`). Direct cuFile DMA kernel-bypass I/O read is a future roadmap item; streaming pinned buffer fallback is verified.
+>    - **Hardware Attestation (`attestation.py`):** Prototype signed evidence verifier (`AttestationEvidence`). Verifies custom signed structures with Ed25519 platform signatures over measurement digests and nonces. Vendor-native hardware quotes (NVIDIA Hopper CC, AMD SEV-SNP) remain roadmap items. Strictly fails closed with `is_production_secure=False` when mock or without a usable evidence path.
+>    - **Post-Quantum Cryptography (`pqc.py`):** Reference hybrid framework architecture. Internal test backend uses classical primitives strictly for test plumbing; production mode strictly fails closed pending integration with audited native C bindings (`liboqs`).
+>    - **Model Serving (`serving.py`):** Reference serving pipeline. In-memory tensor deserialization without disk staging; transactional rollback protects target model against partial corruption; vLLM / Triton hooks are integration reference adapters.
+>    - **Quorum Freshness (`freshness.py`):** Reference etcd consensus client (`EtcdFreshnessBackend`). Monotonic revision and transactional CAS anti-rollback client verified; live distributed deployment requires an external etcd cluster.
 
 ---
 
@@ -244,13 +247,13 @@ Run the full core test suite:
 ```bash
 pytest tests
 ```
-*Current test suite: **255 passed in ~44s** (0 failed, 0 errors).*
+*Current test suite: **260 passed in ~44s** (0 failed, 0 errors).*
 
 Run the end-to-end Local KMS envelope encryption test suite:
 ```bash
 python scripts/verify_local_kms.py
 ```
-*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration). Total verified checks: 262/262.*
+*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration). Total verified checks: 267/267.*
 
 Run independent consumer integration tests:
 ```bash

@@ -18,7 +18,7 @@ The table below catalogs every specification and integration guide:
 | [`ROLLBACK_PROTECTION.md`](ROLLBACK_PROTECTION.md) | Monotonic version sequencing, freshness ledgers, and hypervisor snapshot boundary conditions. | Infrastructure & Security Teams |
 | [`KMS_INTEGRATION.md`](KMS_INTEGRATION.md) | Envelope encryption via AWS KMS, Local key providers, and rotation protocols. | Cloud Architects, Security Ops |
 | [`DISTRIBUTED_CHECKPOINTS.md`](DISTRIBUTED_CHECKPOINTS.md) | Sharded multi-node and multi-GPU tensor checkpoint coordination (Zero-Redundancy Optimizer / FSDP). | Distributed Training Teams |
-| [`ARTIFACT_PROVENANCE.md`](ARTIFACT_PROVENANCE.md) | Ed25519 publisher signatures, RFC 8785 canonical manifests, and transitively signed model parameters. | Model Governance, Compliance |
+| [`ARTIFACT_PROVENANCE.md`](ARTIFACT_PROVENANCE.md) | Ed25519 publisher signatures, TorchShield Canonical JSON v1 manifests, and transitively signed model parameters. | Model Governance, Compliance |
 
 ---
 

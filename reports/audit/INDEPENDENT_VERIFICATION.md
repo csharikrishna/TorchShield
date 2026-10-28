@@ -44,13 +44,13 @@ To guarantee complete reproducibility, the audited codebase was packaged and fin
 | **Build 2** (Hygiene & Magic Sync) | Rebuild after whitespace cleanup and documentation synchronization | Uncommitted working tree with doc updates | `d89836181b3314e6f8738628cc7796090b0307029311979cb31c5b83f5627d88` (72,762 B) | `dd56f1eb20583a67d99902e58ac4a52d0ea58fc0b74315a96b89af9b86279a53` (129,373 B) |
 | **Build 3** | Intermediate build incorporating full scheduler/scaler/RNG rollback helpers | Committed baseline at `d0afff7` | `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601` (72,934 B) | `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2` (130,837 B) |
 | **Build 4** | Build with optimizer parameter identity preservation, mandatory attestation signatures, and auxiliary state providers rollback | Committed baseline at `1e6d305` | `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685` (73,150 B) | `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077` (131,215 B) |
-| **Build 5** (**Authoritative Release Candidate**) | Final security gap closure: attestation challenge binding & production gating, state provider diagnostic hardening, GDS capability fields, benchmark monotonic nonces, mock PQC terminology | Working tree validated across 262 checks | `5CD05159C6EE00038CFF7976494892BE21EABBB5D750ADD03C42C0675284525D` (76,353 B) | `56BED324CCA0F6BCF6FDA0FF849517A6B41CAAD49F3ACE7C841AC1762399F620` (138,681 B) |
+| **Build 5** (**Authoritative Release Candidate**) | Final security gap closure: attestation challenge lifecycle & production gating, state provider key lifecycle hardening, GDS capability fields, benchmark monotonic nonces, mock PQC terminology | Working tree validated across 267 checks | `BAB21764F09D517CC3EBB3985FE423C434B9233B6BE3460E05F6BB4795DB409F` (77,314 B) | `5F4C6EA899CA819AF7E82588DFC2CC23E0CD3D37556BD85A5594790FA85E5F07` (141,541 B) |
 
 The **Authoritative Release Candidate (Build 5)** is the authoritative artifact set recorded in `dist/`.
 
 ---
 
-## 3. Reconciled Test Suite Accounting (262 Total Checks)
+## 3. Reconciled Test Suite Accounting (267 Total Checks)
 
 The test execution suite comprises two complementary test harnesses:
 
@@ -58,7 +58,7 @@ The test execution suite comprises two complementary test harnesses:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TORCHSHIELD VERIFICATION SUITE ACCOUNTING                              │
 ├─────────────────────────────────────────────────┬──────────────────────┤
-│ 1. Pytest Test Runner (pytest -v)               │ 255 Passed           │
+│ 1. Pytest Test Runner (pytest -v)               │ 260 Passed           │
 │    - Tier 1: Real Hardware & Standard Crypto    │ 229 Tests            │
 │    - Tier 2: Contract Mocks & Protocol Fixtures │ 26 Tests             │
 │    - Skipped / Quarantined / Disabled Tests     │ 0 Tests              │
@@ -66,7 +66,7 @@ The test execution suite comprises two complementary test harnesses:
 │ 2. Standalone Local KMS Suite (verify_local_kms)│ 7 Passed             │
 │    - Embedded Moto KMS Daemon (port 4566)       │ 7 Checks (100% Pass) │
 ├─────────────────────────────────────────────────┼──────────────────────┤
-│ TOTAL VERIFIED CHECKS                           │ 262 Passed (100%)    │
+│ TOTAL VERIFIED CHECKS                           │ 267 Passed (100%)    │
 └─────────────────────────────────────────────────┴──────────────────────┘
 ```
 
@@ -80,7 +80,7 @@ The test execution suite comprises two complementary test harnesses:
 7. `tests/test_etcd_freshness_backend.py` (3 tests): etcd3 CAS transactions, monotonic revisions, network partition fail-closed.
 8. `tests/test_freshness_ledger.py` (1 test): SQLite local ledger advance and rollback detection.
 9. `tests/test_gds_loading.py` (**5 tests**): capability field semantics, libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
-10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge verification, unbound challenge rejection fail-closed, non-destructive evidence handling.
+10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge lifecycle, arbitrary and stale challenge rejection fail-closed, single-use consumption and replay rejection, non-destructive evidence handling.
 11. `tests/test_huggingface_integration.py` (6 tests): Callback workflow, vault resume, tamper detection, missing-vault fail-closed rejection.
 12. `tests/test_key_provider_contract.py` (3 tests): LocalKeyProvider, AWSKMSProvider with mock boto3, error handling.
 13. `tests/test_key_rotation.py` (1 test): DEK rewrap under rotated KEK.
