@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 build/
-dist/
+dist/*
+!dist/SHA256SUMS
 .venv/
 archives/

@@ -1,14 +1,19 @@
 """Native Model-Serving Integrations for TorchShield.
 
-Enforces in-memory loading into production inference runtimes (vLLM, Triton
-Inference Server, TensorRT-LLM, PyTorch Inference) with:
-1. Zero Plaintext Disk Materialization: Checkpoint loads and decrypts in memory
-   directly into model parameter buffers without intermediate plaintext files on disk.
-   (In-memory buffer deserialization; does not require kernel-bypass disk streaming).
-2. Fail-Closed Authentication: Every chunk is authenticated via AES-256-GCM AEAD
-   before weights are loaded into serving runtime tensors.
-3. Transactional Destination Safety: Atomic rollback protects destination models
-   against partial weight corruption if mid-load errors occur.
+Provides in-memory checkpoint loading and layer iteration for inference runtimes
+(vLLM, Triton Inference Server, TensorRT-LLM, PyTorch Inference).
+
+ARCHITECTURE & BEHAVIORAL SPECIFICATION:
+1. In-Memory Deserialization: Checkpoints are authenticated and decrypted entirely in
+   host/device memory, populating model parameters without intermediate plaintext files on disk.
+2. Complete Container Pre-Load: stream_weights() authenticates and loads the entire
+   checkpoint container into memory before yielding individual layer tensors. It is an
+   in-memory layer iterator, NOT an incremental chunk-by-chunk disk streaming loader.
+3. No Kernel-Bypass or OS Disk Isolation: Does not invoke kernel-bypass or OS-level storage
+   isolation mechanisms.
+4. Transactional Destination Rollback: If weight application fails mid-load (e.g. due to
+   missing weights, unexpected layers under strict mode, or unexpected tensor exceptions),
+   the target model's parameters and buffers are atomically restored to their pre-load values.
 """
 from __future__ import annotations
 
@@ -35,23 +40,20 @@ class ServingEngineType(str, Enum):
 
 
 class SecureInferenceLoader:
-    """High-performance streaming inference loader with zero-disk plaintext materialization."""
+    """In-memory model loader for inference runtimes without intermediate plaintext disk staging."""
 
     def __init__(
         self,
         engine: Union[str, ServingEngineType] = ServingEngineType.TORCH,
         device: Union[str, torch.device] = "cpu",
-        zero_disk_enforcement: bool = True,
     ):
         """
         Args:
             engine: Target serving engine ('torch', 'vllm', 'triton', 'tensorrt_llm').
             device: Target execution device ('cpu', 'cuda', 'cuda:0', etc.).
-            zero_disk_enforcement: If True, strictly prevents writing decrypted weights to disk.
         """
         self.engine = ServingEngineType(engine) if isinstance(engine, str) else engine
         self.device = torch.device(device) if isinstance(device, str) else device
-        self.zero_disk_enforcement = zero_disk_enforcement
 
     def stream_weights(
         self,
@@ -60,10 +62,10 @@ class SecureInferenceLoader:
         key_provider: Optional[KeyProvider] = None,
         encryption_context: Optional[Dict[str, str]] = None,
     ) -> Iterator[Tuple[str, torch.Tensor]]:
-        """Stream authenticated layer weights directly into memory.
-        
-        Yields (layer_name, tensor) pairs one by one.
-        Zero plaintext bytes are ever written to disk.
+        """Load authenticated checkpoint into memory and yield (layer_name, tensor) pairs.
+
+        Note: Authenticates and loads the full checkpoint into memory before yielding;
+        operates as an in-memory layer iterator, not incremental chunk streaming from disk.
         """
         if not os.path.isfile(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
@@ -82,6 +84,9 @@ class SecureInferenceLoader:
 
         for name, tensor in tensors.items():
             yield name, tensor
+
+    # Explicit alias for in-memory layer iteration
+    iter_weights = stream_weights
 
     def load_into_model(
         self,

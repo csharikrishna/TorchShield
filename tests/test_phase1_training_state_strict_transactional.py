@@ -618,3 +618,195 @@ def test_transactional_rollback_on_state_provider_failure(monkeypatch):
             os.remove(path)
 
 
+def test_state_provider_failing_get_state_key():
+    """Verify that a provider whose get_state_key() raises an exception fails fast
+    with clear diagnostics without calling get_state_key() a second time.
+    """
+    call_count = [0]
+
+    class BrokenKeyProvider(SafeStateProvider):
+        def get_state_key(self) -> str:
+            call_count[0] += 1
+            raise RuntimeError("Key lookup catastrophic failure!")
+
+        def capture_state(self):
+            return {}
+
+        def restore_state(self, state):
+            pass
+
+    key = os.urandom(32)
+    model = NetA()
+    broken_prov = BrokenKeyProvider()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        # 1. During save, duplicate/failing key check fails fast
+        with pytest.raises(TrainingStateError, match="Failed to obtain state key from provider index 0"):
+            save_training_checkpoint(
+                output_path=path,
+                model=model,
+                key=key,
+                state_providers=[broken_prov],
+            )
+        assert call_count[0] == 1, "get_state_key() must NOT be called a second time in exception handling!"
+
+        # 2. Reset count, save valid checkpoint, then test pre-validation on load
+        call_count[0] = 0
+        save_training_checkpoint(output_path=path, model=model, key=key)
+
+        dest_model = NetA()
+        with pytest.raises(TrainingStateError, match="Pre-validation failed for state provider index 0"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[broken_prov],
+            )
+        assert call_count[0] == 1, "get_state_key() must NOT be called a second time during load pre-validation!"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_state_provider_duplicate_keys_rejected():
+    """Verify duplicate state-provider keys are rejected before mutation or snapshot."""
+    class DummyProvider(SafeStateProvider):
+        def __init__(self, key):
+            self._key = key
+
+        def get_state_key(self) -> str:
+            return self._key
+
+        def capture_state(self):
+            return {"k": 1}
+
+        def restore_state(self, state):
+            pass
+
+    key = os.urandom(32)
+    model = NetA()
+    prov1 = DummyProvider("dup_key")
+    prov2 = DummyProvider("dup_key")
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        # Save fails with duplicate key
+        with pytest.raises(TrainingStateError, match="Duplicate SafeStateProvider key: 'dup_key'"):
+            save_training_checkpoint(
+                output_path=path,
+                model=model,
+                key=key,
+                state_providers=[prov1, prov2],
+            )
+
+        # Save valid checkpoint
+        save_training_checkpoint(output_path=path, model=model, key=key)
+
+        # Load fails pre-validation with duplicate keys
+        dest_model = NetA()
+        with pytest.raises(TrainingStateError, match="Duplicate SafeStateProvider key: 'dup_key'"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[prov1, prov2],
+            )
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_state_provider_restore_failure_and_rollback_distinction():
+    """Verify that a failure during provider restore triggers rollback,
+    and if rollback itself fails, the exception cleanly distinguishes
+    the restoration failure from the rollback failure without masking either.
+    """
+    restore_calls = [0]
+
+    class CustomStateProvider(SafeStateProvider):
+        def __init__(self, key="custom_p", value=10, fail_on_restore=False, fail_on_rollback=False):
+            self.key = key
+            self.value = value
+            self.fail_on_restore = fail_on_restore
+            self.fail_on_rollback = fail_on_rollback
+
+        def get_state_key(self) -> str:
+            return self.key
+
+        def capture_state(self):
+            return {"value": self.value}
+
+        def restore_state(self, state):
+            restore_calls[0] += 1
+            if restore_calls[0] == 1 and self.fail_on_restore:
+                raise RuntimeError("Injected restore failure in provider!")
+            if restore_calls[0] > 1 and self.fail_on_rollback:
+                raise RuntimeError("Injected secondary rollback failure in provider!")
+            self.value = state["value"]
+
+    key = os.urandom(32)
+    model = NetA()
+    src_provider = CustomStateProvider(value=123)
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            key=key,
+            state_providers=[src_provider],
+        )
+
+        # Case A: Restore fails, but rollback succeeds cleanly
+        restore_calls[0] = 0
+        dest_model = NetA()
+        initial_weight = dest_model.fc1.weight.clone()
+        dest_prov = CustomStateProvider(value=50, fail_on_restore=True, fail_on_rollback=False)
+
+        with pytest.raises(TrainingStateError) as exc_info:
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[dest_prov],
+            )
+        msg = str(exc_info.value)
+        assert "Restoration failed; rolled back all state mutations" in msg
+        assert "Injected restore failure in provider!" in msg
+        # Model rolled back cleanly
+        assert torch.equal(dest_model.fc1.weight, initial_weight)
+        # Provider rolled back cleanly to 50
+        assert dest_prov.value == 50
+
+        # Case B: Restore fails, AND rollback also fails
+        restore_calls[0] = 0
+        dest_model = NetA()
+        dest_prov_b = CustomStateProvider(value=77, fail_on_restore=True, fail_on_rollback=True)
+
+        with pytest.raises(TrainingStateError) as exc_info:
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[dest_prov_b],
+            )
+        msg_b = str(exc_info.value)
+        # Message distinguishes restoration failure from rollback failure
+        assert "Restoration failed (Failed to restore state provider 'custom_p': Injected restore failure in provider!)" in msg_b
+        assert "rollback encountered errors: state_providers:" in msg_b
+        assert "Injected secondary rollback failure in provider!" in msg_b
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+

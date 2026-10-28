@@ -181,28 +181,38 @@ A comprehensive multi-phase security, cryptographic, and systems correctness aud
 
 ---
 
-### TS-FIND-12: Attestation Verifier Accepted Unsigned Quotes (P1)
+### TS-FIND-12: Attestation Verifier Accepted Unsigned Quotes & Lacked Challenge Binding (P1)
 - **Severity:** `Critical (P1)`
-- **Component:** `torchshield/attestation.py` (`HardwareAttestationVerifier.verify`)
-- **Evidence:** `HardwareAttestationVerifier.verify()` guarded signature verification inside `if evidence.signature is not None:`. If an attestation quote omitted the cryptographic signature (`evidence.signature is None`), the verification loop fell through and returned `True`.
-- **Impact:** Attackers could forge hardware quotes (e.g. spoofing TDX or SEV-SNP golden hashes) without possessing a valid hardware root-of-trust private signing key.
-- **Reproduction:** Tested in `tests/test_hardware_attestation.py::test_attestation_missing_signature_fails_closed`.
-- **Fix:** Added `require_signature: bool = True` to `AttestationPolicy` by default. In `HardwareAttestationVerifier.verify()`, enforced mandatory signature and signer_id verification; raises `AttestationError("Attestation evidence lacks required platform signature or signer_id.")` if missing.
-- **Regression Test:** `tests/test_hardware_attestation.py::test_attestation_missing_signature_fails_closed`.
+- **Component:** `torchshield/attestation.py` (`HardwareAttestationVerifier.verify`, `AttestationGatedKeyProvider`)
+- **Evidence:** `HardwareAttestationVerifier.verify()` guarded signature verification inside `if evidence.signature is not None:`. If an attestation quote omitted the cryptographic signature (`evidence.signature is None`), the verification loop fell through and returned `True`. Furthermore, staged evidence in `AttestationGatedKeyProvider` lacked binding to the verifier's fresh challenge nonce, and `is_production_secure` could advertise `True` even under mock modes or unsigned quotes.
+- **Impact:** Attackers could forge hardware quotes (e.g. spoofing TDX or SEV-SNP golden hashes) without possessing a valid hardware root-of-trust private signing key, and replay quotes without fresh challenge binding.
+- **Reproduction:** Tested in `tests/test_hardware_attestation.py::test_attestation_missing_signature_fails_closed` and `test_attestation_stage_evidence_without_challenge_fails_closed`.
+- **Fix:**
+  1. Added `require_signature: bool = True` to `AttestationPolicy` by default, failing closed if signatures or signer IDs are absent.
+  2. Hardened `AttestationGatedKeyProvider.is_production_secure` to strictly return `False` when mock attestation is active, trusted signing keys are missing, challenge nonces are unbound, or signature validation is disabled.
+  3. Implemented `create_challenge()` and `stage_evidence(evidence, challenge)` requiring cryptographic challenge nonce binding under `require_fresh_nonce=True`.
+  4. Preserved staged evidence on verification failure so callers can inspect failure diagnostics without premature destruction.
+  5. Documented that current verification covers a custom signed evidence structure, not vendor hardware quotes.
+- **Regression Tests:** `tests/test_hardware_attestation.py` (12 tests pass).
 - **Status:** `Fixed`
 - **Verification:** `pytest tests/test_hardware_attestation.py` (Exit code 0).
-- **Residual Risk:** None. Mocking is only permitted when explicitly opted in via `allow_mock=True`.
+- **Residual Risk:** Full vendor-native hardware quote verifiers (Hopper/Blackwell CC, AMD SEV-SNP) remain on roadmap.
 
 ---
 
 ### TS-FIND-13: Incomplete Rollback Coverage for State Providers and Suppressed Errors (P1)
 - **Severity:** `High (P1)`
-- **Component:** `torchshield/training_state.py` (`load_training_checkpoint`, `_snapshot_scheduler`, `_rollback_scheduler`, `_snapshot_scaler`, `_rollback_scaler`)
-- **Evidence:** `load_training_checkpoint` restored auxiliary `SafeStateProvider` instances in Stage B but did not snapshot or roll them back on error. Furthermore, `_snapshot_scheduler` and `_snapshot_scaler` swallowed errors and returned `None`, while `_rollback_scheduler` and `_rollback_scaler` suppressed errors with `pass`.
-- **Impact:** Partial restoration failure left auxiliary state providers corrupted, while snapshot/rollback failures were silently concealed from operators.
-- **Reproduction:** Tested in `tests/test_phase1_training_state_strict_transactional.py::test_transactional_rollback_on_state_provider_failure`.
-- **Fix:** Added `_snapshot_state_providers()` and `_rollback_state_providers()`. Updated `_snapshot_scheduler` and `_snapshot_scaler` to fail-fast with `TrainingStateError`. Updated rollback exception handler to collect and surface all rollback errors rather than silently suppressing them.
-- **Regression Test:** `tests/test_phase1_training_state_strict_transactional.py::test_transactional_rollback_on_state_provider_failure`.
+- **Component:** `torchshield/training_state.py` (`load_training_checkpoint`, `_snapshot_state_providers`, `_rollback_state_providers`)
+- **Evidence:** `load_training_checkpoint` restored auxiliary `SafeStateProvider` instances in Stage B but did not snapshot or roll them back on error. Furthermore, snapshot/rollback errors were suppressed with `pass`, duplicate state provider keys could corrupt snapshots, and error handlers invoked `get_state_key()` a second time, risking secondary exceptions and unhandled variable scoping errors.
+- **Impact:** Partial restoration failure left auxiliary state providers corrupted, duplicate keys caused undefined snapshot states, and secondary exceptions masked original errors.
+- **Reproduction:** Tested in `tests/test_phase1_training_state_strict_transactional.py::test_transactional_rollback_on_state_provider_failure`, `test_state_provider_failing_get_state_key`, and `test_state_provider_duplicate_keys_rejected`.
+- **Fix:**
+  1. Pre-initialized diagnostic variables (`desc`) before all `try` blocks to prevent `UnboundLocalError`.
+  2. Enforced duplicate key detection before mutating or applying snapshots.
+  3. Never re-invoked `get_state_key()` inside exception handlers; used pre-computed diagnostic descriptors.
+  4. Preserved optimizer parameter identity (`p is model_param`) on rollback.
+  5. Implemented comprehensive exception collection distinguishing restoration vs rollback errors.
+- **Regression Tests:** `tests/test_phase1_training_state_strict_transactional.py` (13 tests pass).
 - **Status:** `Fixed`
 - **Verification:** `pytest tests/test_phase1_training_state_strict_transactional.py` (Exit code 0).
 - **Residual Risk:** None.
@@ -211,26 +221,31 @@ A comprehensive multi-phase security, cryptographic, and systems correctness aud
 
 ### TS-FIND-14: GPUDirect Storage Mode Advertising Inaccuracy
 - **Severity:** `Medium`
-- **Component:** `torchshield/gds.py` (`probe_gds_capability`)
-- **Evidence:** `probe_gds_capability()` returned `active_mode="direct_cufile"` if `libcufile` was dynamically loaded, even though direct cuFile DMA read bindings (`cuFileRead`, `cuFileHandleRegister`) are not wired into the loader.
+- **Component:** `torchshield/gds.py` (`probe_gds_capability`, `GDSStatus`)
+- **Evidence:** `probe_gds_capability()` previously indicated active direct cuFile support when `libcufile` was present, even though direct cuFile DMA read bindings (`cuFileRead`, `cuFileHandleRegister`) are not wired into the loader.
 - **Impact:** Misleading diagnostic status advertising an un-wired hardware pathway.
 - **Reproduction:** Inspected `GDSLoader.load_model_direct()`, which operates via pinned CUDA streaming.
-- **Fix:** Set `active_mode="pinned_streaming_fallback"` in all probe paths and documented that the active operational pipeline is pinned host-memory CUDA streaming, preserving architectural integrity.
-- **Regression Test:** `tests/test_gds_loading.py`.
+- **Fix:** Explicitly defined `GDSStatus` fields: `available=False` (since direct cuFile DMA read I/O is not implemented), `cufile_loaded` (bool diagnostic), and `active_mode="pinned_streaming_fallback"`. Added unit test asserting exact field meanings across CUDA and cuFile permutations.
+- **Regression Tests:** `tests/test_gds_loading.py` (5 tests pass).
 - **Status:** `Fixed`
 - **Verification:** `pytest tests/test_gds_loading.py` (Exit code 0).
-- **Residual Risk:** None.
+- **Residual Risk:** None. Pinned streaming fallback is verified and operational.
 
 ---
 
-### TS-FIND-15: PQC Signature Test Verifier Checked Only Length
+### TS-FIND-15: PQC Signature Test Verifier Checked Only Length & Overclaimed KAT/CAVP Compliance
 - **Severity:** `High`
-- **Component:** `torchshield/pqc.py` (`HybridSignatureEngine.verify`)
-- **Evidence:** In the prototype test harness (`use_test_backend=True`), `HybridSignatureEngine.verify()` only checked `len(mldsa_sig_bytes) != 64` without checking signature bytes against the expected public key or digest.
-- **Impact:** An arbitrary 64-byte payload was accepted as a valid post-quantum signature in tests.
+- **Component:** `torchshield/pqc.py` (`MockTestPQCBackend`, `HybridSignatureEngine.verify`)
+- **Evidence:** In the prototype test harness (`use_test_backend=True`), `HybridSignatureEngine.verify()` only checked `len(mldsa_sig_bytes) != 64` without checking signature bytes against the expected public key or digest. Furthermore, the mock backend was labeled with KAT/CAVP claims despite using classical primitives.
+- **Impact:** Arbitrary 64-byte payloads were accepted as valid signatures in tests, and mock testing primitives were inaccurately labeled as standard-validated lattice cryptography.
 - **Reproduction:** Tested in `tests/test_pqc_hybrid_crypto.py::test_hybrid_signatures_tampered_pqc_component_fails`.
-- **Fix:** Implemented `dsa_sign` and `dsa_verify` on `MockAuditedPQCBackend`, and updated `HybridSignatureEngine.verify()` to cryptographically verify signature bytes against the public key and manifest digest, failing closed on tampering.
-- **Regression Test:** `tests/test_pqc_hybrid_crypto.py::test_hybrid_signatures_tampered_pqc_component_fails`.
+- **Fix:**
+  1. Renamed `MockAuditedPQCBackend` to `MockTestPQCBackend` (retained backwards-compatibility aliases).
+  2. Updated docstrings to explicitly state that the backend is strictly an internal test fixture using classical primitives (X25519/Ed25519) to test framework plumbing, NOT NIST FIPS 203/204 or KAT/CAVP vectors.
+  3. Replaced all salts/domains with `b"TorchShield-MockTestPQC-..."`.
+  4. Wired `MockTestPQCBackend.dsa_sign` / `dsa_verify` to cryptographically verify signature bytes against the public key and manifest digest, failing closed on tampering.
+  5. Enforced that production mode strictly fails closed with `PQCUnavailableError` when an external audited C library (`liboqs`) is not present.
+- **Regression Tests:** `tests/test_pqc_hybrid_crypto.py` (5 tests pass).
 - **Status:** `Fixed`
 - **Verification:** `pytest tests/test_pqc_hybrid_crypto.py` (Exit code 0).
 - **Residual Risk:** Production PQC continues to fail closed until audited liboqs C library bindings are linked.
@@ -239,25 +254,29 @@ A comprehensive multi-phase security, cryptographic, and systems correctness aud
 
 ### TS-FIND-16: Model Serving In-Memory Semantics & Rollback
 - **Severity:** `Medium`
-- **Component:** `torchshield/integrations/serving.py` (`SecureInferenceLoader.load_into_model`)
-- **Evidence:** `load_into_model()` partially updated model parameters before validating the complete key set or stream, leaving destination tensors in a broken state if an error occurred. The docstring also claimed streaming rather than in-memory deserialization.
-- **Impact:** Mid-load failures corrupt inference service models in memory.
+- **Component:** `torchshield/integrations/serving.py` (`SecureInferenceLoader.load_into_model`, `stream_weights`)
+- **Evidence:** `load_into_model()` partially updated model parameters before validating the complete key set or stream, leaving destination tensors in a broken state if an error occurred. The docstring also claimed streaming and kernel-bypass disk isolation with an unverified `zero_disk_enforcement` parameter.
+- **Impact:** Mid-load failures corrupted inference models in host memory; speculative policy flags conveyed unverified security promises.
 - **Reproduction:** Tested in `tests/test_serving_integration.py::test_secure_inference_loader_rollback_on_mid_load_error`.
-- **Fix:** Clarified module and class docstrings to state in-memory deserialization without intermediate plaintext disk staging. Added snapshot and rollback to `load_into_model()` to cleanly restore original model parameters if loading encounters any error.
-- **Regression Test:** `tests/test_serving_integration.py::test_secure_inference_loader_rollback_on_mid_load_error`.
+- **Fix:** Clarified module and class docstrings to state in-memory deserialization without intermediate plaintext disk staging. Removed unused `zero_disk_enforcement` parameter. Added snapshot and rollback to `load_into_model()` to cleanly restore original model parameters if loading encounters any error.
+- **Regression Tests:** `tests/test_serving_integration.py` (6 tests pass).
 - **Status:** `Fixed`
 - **Verification:** `pytest tests/test_serving_integration.py` (Exit code 0).
 - **Residual Risk:** None.
 
 ---
 
-### TS-FIND-17: AEAD Benchmark Nonce Reuse
+### TS-FIND-17: AEAD Benchmark Nonce Reuse & Aggregation Methodology
 - **Severity:** `Medium`
-- **Component:** `benchmarks/run_v070_benchmarks.py` (`benchmark_aead_raw`)
-- **Evidence:** A single static 12-byte nonce was generated once outside the benchmark loop and reused across 1,024 encryption iterations with the same key.
-- **Impact:** Reusing nonces in AES-256-GCM violates NIST SP 800-38D guidelines and compromises Galois/Counter Mode authenticity.
+- **Component:** `benchmarks/run_v070_benchmarks.py` (`benchmark_aead_raw`, `benchmark_checkpoint_pipeline`)
+- **Evidence:** Earlier benchmarks reused nonces across iterations, resetting counters per chunk size and using static nonces. Results also reported single-run iterations without multi-trial median aggregation.
+- **Impact:** Reusing nonces in AES-256-GCM violates NIST SP 800-38D guidelines. Single-run benchmarks are sensitive to host jitter.
 - **Reproduction:** Inspected loop in `benchmarks/run_v070_benchmarks.py`.
-- **Fix:** Generated a fresh unique 12-byte nonce for each benchmark iteration using `struct.pack(">Q", i) + secrets.token_bytes(4)`. Re-ran benchmarks and updated benchmark JSON and Markdown reports.
+- **Fix:** Implemented NIST SP 800-38D Section 8.2.1 deterministic IV construction with a single 4-byte random session prefix and a monotonically increasing 8-byte counter across all sizes, warmups, and iterations under the benchmark key. Added 3-trial median throughput aggregation for both AEAD and checkpoint pipelines. Removed all unused nonce variables.
+- **Regression Tests:** Executed `python benchmarks/run_v070_benchmarks.py`.
+- **Status:** `Fixed`
+- **Verification:** Benchmarks regenerated with 3-trial medians (Exit code 0).
+- **Residual Risk:** None.
 - **Regression Test:** Executed `python benchmarks/run_v070_benchmarks.py`.
 - **Status:** `Fixed`
 - **Verification:** Script executes cleanly, benchmarks complete with zero nonce collisions.

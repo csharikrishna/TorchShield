@@ -15,9 +15,9 @@ This document presents the independent, evidence-backed technical verification o
 ### Summary of Independent Verification Outcomes:
 1. **Source Tree Identity & Provenance:** Every modified and newly authored file across the remediation campaign has been formally audited and committed into Git revision control. The tested and packaged source tree is uniquely identified by commit and tree SHA hashes, closing the uncommitted-tree provenance gap.
 2. **Reconciled Test Accounting:**
-   - **Pytest Automated Suite:** **247 / 247 tests passed** in **55.41s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
-   - **Standalone Moto KMS Verification:** **7 / 7 checks passed** in **18.2s** via `scripts/verify_local_kms.py` against an embedded mock daemon on `127.0.0.1:4566`.
-   - **Combined Total:** **254 verified checks** executed and passing.
+   - **Pytest Automated Suite:** **255 / 255 tests passed** in **~44s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
+   - **Standalone Moto KMS Verification:** **7 / 7 checks passed** in **~8s** via `scripts/verify_local_kms.py` against an embedded mock daemon on `127.0.0.1:4566`.
+   - **Combined Total:** **262 verified checks** executed and passing.
 3. **Full Transactional Rollback Verified:** Extended fault-injection tests prove that atomic rollback protects the destination model, optimizer, learning rate scheduler, GradScaler, and all four RNG sources (Python, NumPy, PyTorch CPU, and PyTorch CUDA).
 4. **Clean-Room Virtualenv Installation:** The candidate distribution wheel was installed and tested in an isolated virtual environment completely outside the repository tree. Module imports, `site-packages` location, full checkpoint save/load roundtrip, tamper rejection, and CLI execution (`torchshield version`, `torchshield --help`) were validated with 100% success.
 5. **Accurate Advanced Feature Statuses:**
@@ -43,13 +43,14 @@ To guarantee complete reproducibility, the audited codebase was packaged and fin
 | **Build 1** (Initial Audit Baseline) | Pre-verification baseline build following initial audit phase | Uncommitted working tree at `7b07f1f` | `3bbff840809663e4b1488e977955da8e7952a21066f871b04acffc30b4b1527e` (72,784 B) | `86148dc1d12ee80c13279d21362c856930d866bef619685de37d3549b963a980` (129,456 B) |
 | **Build 2** (Hygiene & Magic Sync) | Rebuild after whitespace cleanup and documentation synchronization | Uncommitted working tree with doc updates | `d89836181b3314e6f8738628cc7796090b0307029311979cb31c5b83f5627d88` (72,762 B) | `dd56f1eb20583a67d99902e58ac4a52d0ea58fc0b74315a96b89af9b86279a53` (129,373 B) |
 | **Build 3** | Intermediate build incorporating full scheduler/scaler/RNG rollback helpers | Committed baseline at `d0afff7` | `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601` (72,934 B) | `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2` (130,837 B) |
-| **Build 4** (**Authoritative Release Candidate**) | Final build with optimizer parameter identity preservation, mandatory attestation signatures, auxiliary state providers rollback, and unique nonces | Working tree validated across 254 checks | `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685` | `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077` |
+| **Build 4** | Build with optimizer parameter identity preservation, mandatory attestation signatures, and auxiliary state providers rollback | Committed baseline at `1e6d305` | `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685` (73,150 B) | `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077` (131,215 B) |
+| **Build 5** (**Authoritative Release Candidate**) | Final security gap closure: attestation challenge binding & production gating, state provider diagnostic hardening, GDS capability fields, benchmark monotonic nonces, mock PQC terminology | Working tree validated across 262 checks | `5CD05159C6EE00038CFF7976494892BE21EABBB5D750ADD03C42C0675284525D` (76,353 B) | `56BED324CCA0F6BCF6FDA0FF849517A6B41CAAD49F3ACE7C841AC1762399F620` (138,681 B) |
 
-The **Authoritative Release Candidate (Build 4)** is the authoritative artifact set recorded in `dist/`.
+The **Authoritative Release Candidate (Build 5)** is the authoritative artifact set recorded in `dist/`.
 
 ---
 
-## 3. Reconciled Test Suite Accounting (254 Total Checks)
+## 3. Reconciled Test Suite Accounting (262 Total Checks)
 
 The test execution suite comprises two complementary test harnesses:
 
@@ -57,15 +58,15 @@ The test execution suite comprises two complementary test harnesses:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TORCHSHIELD VERIFICATION SUITE ACCOUNTING                              │
 ├─────────────────────────────────────────────────┬──────────────────────┤
-│ 1. Pytest Test Runner (pytest -v)               │ 247 Passed           │
-│    - Tier 1: Real Hardware & Standard Crypto    │ 221 Tests            │
+│ 1. Pytest Test Runner (pytest -v)               │ 255 Passed           │
+│    - Tier 1: Real Hardware & Standard Crypto    │ 229 Tests            │
 │    - Tier 2: Contract Mocks & Protocol Fixtures │ 26 Tests             │
 │    - Skipped / Quarantined / Disabled Tests     │ 0 Tests              │
 │    - Failures / Errors                          │ 0 Tests              │
 │ 2. Standalone Local KMS Suite (verify_local_kms)│ 7 Passed             │
 │    - Embedded Moto KMS Daemon (port 4566)       │ 7 Checks (100% Pass) │
 ├─────────────────────────────────────────────────┼──────────────────────┤
-│ TOTAL VERIFIED CHECKS                           │ 254 Passed (100%)    │
+│ TOTAL VERIFIED CHECKS                           │ 262 Passed (100%)    │
 └─────────────────────────────────────────────────┴──────────────────────┘
 ```
 
@@ -78,14 +79,14 @@ The test execution suite comprises two complementary test harnesses:
 6. `tests/test_checkpoint_integrity.py` (6 tests): Inference equivalence, wrong key, truncation, BatchNorm buffers, scalars, dtypes.
 7. `tests/test_etcd_freshness_backend.py` (3 tests): etcd3 CAS transactions, monotonic revisions, network partition fail-closed.
 8. `tests/test_freshness_ledger.py` (1 test): SQLite local ledger advance and rollback detection.
-9. `tests/test_gds_loading.py` (4 tests): libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
-10. `tests/test_hardware_attestation.py` (**8 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed.
+9. `tests/test_gds_loading.py` (**5 tests**): capability field semantics, libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
+10. `tests/test_hardware_attestation.py` (**12 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed, production-security classification, bound challenge verification, unbound challenge rejection fail-closed, non-destructive evidence handling.
 11. `tests/test_huggingface_integration.py` (6 tests): Callback workflow, vault resume, tamper detection, missing-vault fail-closed rejection.
 12. `tests/test_key_provider_contract.py` (3 tests): LocalKeyProvider, AWSKMSProvider with mock boto3, error handling.
 13. `tests/test_key_rotation.py` (1 test): DEK rewrap under rotated KEK.
 14. `tests/test_multi_cloud_kms_providers.py` (3 tests): GCP KMS, Azure Key Vault, HashiCorp Vault Transit engine contracts.
 15. `tests/test_optimizer_resume.py` (4 tests): Adam, AdamW, SGD momentum extraction/restoration, CUDA optimizer resume.
-16. `tests/test_phase1_training_state_strict_transactional.py` (**10 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback with parameter object identity preservation and post-rollback step verification**, **scheduler/scaler rollback**, **auxiliary safe state provider rollback**, and **full multi-component staged RNG rollback**.
+16. `tests/test_phase1_training_state_strict_transactional.py` (**13 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback with parameter object identity preservation and post-rollback step verification**, **scheduler/scaler rollback**, **auxiliary safe state provider rollback**, **full multi-component staged RNG rollback**, single `get_state_key` invocation, duplicate state provider key rejection, and restoration vs rollback failure distinction.
 17. `tests/test_phase2_aead_security.py` (7 tests): Key length, AEAD fail-closed, HKDF domain separation, key rotation, explicit nonces.
 18. `tests/test_phase2_atomic_write.py` (2 tests): Atomic staging/replace, cleanup on failure.
 19. `tests/test_phase2_chunk_integrity.py` (3 tests): Bitflip tampering, chunk reordering, missing chunks.
@@ -205,11 +206,11 @@ To ensure full technical defensibility, advanced roadmap workstreams are labeled
 |---|---|---|---|
 | **Multi-Cloud KMS (AWS, GCP, Azure, Vault)** | **Contract-tested; live services unverified** | Unified `KeyProvider` base class implemented; retry backoff and error wrapping tested via mocked SDK clients; AWS KMS envelope flow verified 100% via local Moto emulation. | Production live-cloud smoke testing requires active GCP Project, Azure Tenant, or HashiCorp Vault server credentials. |
 | **Quorum Freshness (etcd CAS)** | **Contract-tested; live quorum unverified** | `EtcdFreshnessBackend` implements transactional compare-and-swap (CAS) via etcd revisions; network partition fail-closed logic verified with mocked etcd3 client. | Production deployment requires a live multi-node etcd consensus cluster. |
-| **Hardware Attestation** | **Verification prototype; hardware unverified** | `HardwareAttestationVerifier` verifies quote freshness, replay nonce hashes, golden measurement policies, and Ed25519 platform signatures using cryptographic test fixtures. | Real hardware attestation quote generation requires physical NVIDIA H100 Hopper CC or AMD SEV-SNP hypervisor instances. |
-| **Post-Quantum Cryptography (PQC)** | **Prototype; production cryptography unverified** | Hybrid X25519 + ML-KEM-768 and Ed25519 + ML-DSA-65 protocols pass reference KAT vector tests; production mode enforces fail-closed exception when external PQC library is absent. | NIST FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) standards include errata that must be validated in operating environments; requires linking against compiled, NIST-validated libraries (`liboqs`). |
-| **GPUDirect Storage (GDS)** | **Fallback tested; genuine GDS blocked** | `probe_gds_capability()` detects absence of `libcufile.so`; `GDSLoader` transparently executes pinned-memory asynchronous CUDA stream pipelining on local GTX 1650. | Genuine GDS requires a Linux kernel `cuFile` driver, direct PCIe storage-to-GPU DMA path, and compatible NVMe storage arrays. |
-| **Native Model Serving (vLLM / Triton)** | **Partial integration; actual runtime compatibility unverified** | `SecureInferenceLoader` stream-decrypts layer weights directly into memory/GPU with zero plaintext landing on disk; provides vLLM weight loader callback and Triton model provider decorator. | Verified against standard in-memory PyTorch models; full multi-worker distributed vLLM server cluster was not deployed. |
-| **Core Checkpoint Recovery** | **Locally test-validated, pending source review** | Zero-pickle deserialization, two-stage transactional rollback, and bit-for-bit resume equivalence across 5 training steps pass local test suites. | Requires independent peer review and third-party penetration audit prior to general production deployment. |
+| **Hardware Attestation** | **Signed custom evidence verified; vendor quotes unverified** | `HardwareAttestationVerifier` verifies signed evidence structure, bound challenge nonces, expiration, and trusted signer identity; `is_production_secure=False` when mock or unbound. | Real vendor-native hardware attestation quotes (Hopper/Blackwell CC, AMD SEV-SNP) remain roadmap items. |
+| **Post-Quantum Cryptography (PQC)** | **Framework plumbing verified; production crypto unverified** | `MockTestPQCBackend` uses classical primitives strictly to verify envelope, transcript binding, and tamper detection; production mode strictly fails closed when external PQC library is absent. | Does NOT implement pure-Python lattice math; production ML-KEM/ML-DSA requires linking against compiled, audited libraries (`liboqs`). |
+| **GPUDirect Storage (GDS)** | **Fallback tested; direct cuFile unimplemented** | `probe_gds_capability()` reports `available=False` with `cufile_loaded` diagnostic; `GDSLoader` transparently executes pinned-memory asynchronous CUDA stream pipelining. | Direct cuFile DMA kernel-bypass read APIs (`cuFileRead`, `cuFileHandleRegister`) are not yet wired into the loader. |
+| **Native Model Serving (vLLM / Triton)** | **In-memory loading verified; full cluster unverified** | `SecureInferenceLoader` performs in-memory deserialization without intermediate plaintext disk staging; preserves transactional rollback on mid-load failure. | Verified against standard in-memory PyTorch models; full multi-worker distributed vLLM server cluster was not deployed. |
+| **Core Checkpoint Recovery** | **Locally test-validated, pending external peer audit** | Zero-pickle deserialization, two-stage transactional rollback, and bit-for-bit resume equivalence across 5 training steps pass local test suites. | Requires independent peer review and third-party penetration audit prior to general production deployment. |
 
 ---
 

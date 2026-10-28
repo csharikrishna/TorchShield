@@ -4,6 +4,15 @@ Provides cryptographic verification of Trusted Execution Environments (TEEs)
 including NVIDIA Hopper/Blackwell Confidential Computing (CC), AMD SEV-SNP,
 and Intel TDX. Hardware attestation quotes and measurements are verified before
 releasing cryptographic Data Encryption Keys (DEKs).
+
+ARCHITECTURE & HARDWARE LIMITATION NOTICE:
+The current verifier evaluates a structured, cryptographically signed evidence format
+(AttestationEvidence with Ed25519 platform signatures over measurement digests, report
+nonces, and timestamps). It establishes the verifiable protocol contract for TEE
+key-gating. It is NOT yet a complete vendor-specific hardware quote parser (e.g. Intel
+TDX PCK / SGX quote verification via Intel QVL, AMD SEV-SNP VCEK verification via AMD KDS,
+or NVIDIA SPDM NV-Attestation SDK). Full vendor quote verification requires linking
+vendor-specific C/Rust parsing libraries and execution on genuine TEE hardware.
 """
 from __future__ import annotations
 
@@ -214,18 +223,56 @@ class AttestationGatedKeyProvider(KeyProvider):
         self._verifier = verifier
         self._policy = policy
         self._evidence_provider = evidence_provider
-        self._staged_evidence: Optional[AttestationEvidence] = None
+        self._staged_evidence: Optional[Tuple[AttestationEvidence, Optional[bytes]]] = None
+        self._pending_challenge: Optional[bytes] = None
 
     @property
     def is_production_secure(self) -> bool:
-        return self._inner.is_production_secure
+        """Return True only if underlying provider and attestation configuration provide genuine production trust."""
+        if not getattr(self._inner, "is_production_secure", False):
+            return False
+        if getattr(self._verifier, "_allow_mock", False) or getattr(self._policy, "allow_mock", False):
+            return False
+        if not getattr(self._policy, "require_signature", True) or not getattr(self._policy, "require_fresh_nonce", True):
+            return False
+        trusted_keys = getattr(self._verifier, "_trusted_keys", {})
+        if not trusted_keys:
+            return False
+        allowed_signers = getattr(self._policy, "allowed_signer_ids", None)
+        if allowed_signers is not None:
+            if not allowed_signers:
+                return False
+            for sid in allowed_signers:
+                if sid not in trusted_keys:
+                    return False
+        return True
 
     def get_key_id(self) -> str:
         return f"attestation-gated::{self._inner.get_key_id()}"
 
-    def stage_evidence(self, evidence: AttestationEvidence) -> None:
-        """Stage pre-acquired attestation evidence for the next unwrap operation."""
-        self._staged_evidence = evidence
+    def create_challenge(self) -> bytes:
+        """Create and register a fresh challenge nonce for staging evidence.
+
+        Returns:
+            32-byte cryptographically secure challenge nonce.
+        """
+        self._pending_challenge = secrets.token_bytes(32)
+        return self._pending_challenge
+
+    def stage_evidence(
+        self,
+        evidence: AttestationEvidence,
+        challenge: Optional[bytes] = None,
+    ) -> None:
+        """Stage pre-acquired attestation evidence for the next unwrap operation.
+
+        Args:
+            evidence: AttestationEvidence to stage.
+            challenge: The exact challenge nonce that was bound into evidence.report_data.
+                       If omitted, binds to the challenge from create_challenge() if available.
+        """
+        bound_challenge = challenge if challenge is not None else self._pending_challenge
+        self._staged_evidence = (evidence, bound_challenge)
 
     def generate_data_key(
         self, encryption_context: Optional[Dict[str, str]] = None
@@ -243,25 +290,39 @@ class AttestationGatedKeyProvider(KeyProvider):
         self, wrapped_key: bytes, encryption_context: Optional[Dict[str, str]] = None
     ) -> bytes:
         """Unwrap data key strictly after validating fresh hardware attestation."""
-        # Generate fresh challenge nonce
-        nonce = secrets.token_bytes(32)
-
         evidence: Optional[AttestationEvidence] = None
-        if self._evidence_provider is not None:
-            evidence = self._evidence_provider(nonce)
-        elif self._staged_evidence is not None:
-            evidence = self._staged_evidence
-            self._staged_evidence = None
+        expected_nonce: Optional[bytes] = None
 
-        if evidence is None:
+        if self._evidence_provider is not None:
+            nonce = secrets.token_bytes(32)
+            evidence = self._evidence_provider(nonce)
+            expected_nonce = nonce
+        elif self._staged_evidence is not None:
+            evidence, bound_challenge = self._staged_evidence
+            if getattr(self._policy, "require_fresh_nonce", True):
+                if bound_challenge is None:
+                    raise AttestationError(
+                        "Staged attestation evidence cannot be verified: policy requires fresh-nonce verification, "
+                        "but staged evidence was not bound to a challenge nonce. Call create_challenge() or "
+                        "pass challenge to stage_evidence()."
+                    )
+                expected_nonce = bound_challenge
+        else:
             raise AttestationError(
                 "Hardware attestation failed: No attestation evidence available to unwrap key."
             )
 
-        # Enforce attestation verification before touching the key
-        self._verifier.verify(evidence, self._policy, expected_nonce=nonce if self._evidence_provider else None)
+        # Enforce attestation verification before touching the key.
+        # Note: Evidence is NOT consumed if verification raises an exception, ensuring
+        # verification failures do not irreversibly destroy evidence before inspection.
+        self._verifier.verify(evidence, self._policy, expected_nonce=expected_nonce)
 
-        # Verification succeeded; safely delegate unwrap to inner provider
+        # Verification succeeded: consume staged evidence to enforce single-use / anti-replay
+        if self._staged_evidence is not None:
+            self._staged_evidence = None
+            self._pending_challenge = None
+
+        # Safely delegate unwrap to inner provider
         return self._inner.unwrap_key(wrapped_key, encryption_context=encryption_context)
 
     def rewrap_key(

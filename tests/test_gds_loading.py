@@ -24,10 +24,58 @@ class SimpleNet(nn.Module):
 def test_probe_gds_capability():
     status = probe_gds_capability()
     assert isinstance(status, GDSStatus)
-    assert status.active_mode in ("direct_cufile", "pinned_streaming_fallback")
-    if torch.cuda.is_available():
-        assert status.cuda_available is True
+    # Available must be False until genuine cuFile DMA read I/O is implemented
+    assert status.available is False
+    assert status.active_mode == "pinned_streaming_fallback"
+    assert isinstance(status.cufile_loaded, bool)
+    assert status.cuda_available == torch.cuda.is_available()
+    if status.cuda_available:
         assert len(status.device_name) > 0
+        assert status.device_name != "None"
+    else:
+        assert status.device_name == "None"
+    assert len(status.reason) > 0
+
+
+def test_probe_gds_capability_field_semantics_mocked(monkeypatch):
+    """Test all capability fields under simulated hardware/driver states."""
+    import ctypes
+    from torchshield import gds
+
+    # Scenario 1: CUDA available and libcufile detected
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda idx: "NVIDIA A100-SXM4-80GB")
+    monkeypatch.setattr(ctypes, "CDLL", lambda name: object())
+
+    status_detected = gds.probe_gds_capability()
+    # Must NOT report available=True merely because library was found
+    assert status_detected.available is False
+    assert status_detected.cufile_loaded is True
+    assert status_detected.cuda_available is True
+    assert status_detected.device_name == "NVIDIA A100-SXM4-80GB"
+    assert status_detected.active_mode == "pinned_streaming_fallback"
+    assert "direct cuFile DMA read I/O is not implemented" in status_detected.reason
+
+    # Scenario 2: CUDA available but libcufile missing
+    def fail_cdll(name):
+        raise OSError("Library not found")
+    monkeypatch.setattr(ctypes, "CDLL", fail_cdll)
+
+    status_no_lib = gds.probe_gds_capability()
+    assert status_no_lib.available is False
+    assert status_no_lib.cufile_loaded is False
+    assert status_no_lib.cuda_available is True
+    assert status_no_lib.active_mode == "pinned_streaming_fallback"
+
+    # Scenario 3: CUDA not available
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    status_no_cuda = gds.probe_gds_capability()
+    assert status_no_cuda.available is False
+    assert status_no_cuda.cufile_loaded is False
+    assert status_no_cuda.cuda_available is False
+    assert status_no_cuda.device_name == "None"
+    assert status_no_cuda.active_mode == "pinned_streaming_fallback"
+    assert "CUDA is not available" in status_no_cuda.reason
 
 
 def test_gds_loader_model_roundtrip():

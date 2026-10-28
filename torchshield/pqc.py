@@ -75,11 +75,16 @@ class HybridKEMTranscript:
     context_digest: bytes
 
 
-class MockAuditedPQCBackend:
-    """Deterministic reference backend for test harnesses and known-answer tests (KAT).
-    
-    WARNING: For development, test harness, and validation verification only.
-    Does NOT replace an independent NIST-validated C/assembly module in production.
+class MockTestPQCBackend:
+    """Mock test backend using classical primitives (X25519/Ed25519) for unit test validation.
+
+    CRITICAL NOTICE:
+    This mock backend is strictly an internal test fixture for verifying encapsulation,
+    decapsulation, transcript binding, and tamper-detection plumbing in automated tests.
+    It does NOT implement NIST FIPS 203 (ML-KEM) or FIPS 204 (ML-DSA) lattice mathematics,
+    does NOT provide post-quantum security, and is NOT a CAVP/KAT-validated implementation.
+    Production PQC mode requires external audited bindings (e.g., liboqs-python) and fails
+    closed when unavailable.
     """
     @staticmethod
     def kem_generate_keypair() -> Tuple[bytes, bytes]:
@@ -95,7 +100,7 @@ class MockAuditedPQCBackend:
         ss = HKDF(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b"TorchShield-KAT-MLKEM768-SharedSecret",
+            salt=b"TorchShield-MockTestPQC-MLKEM768-SharedSecret",
             info=ct + recipient_pub,
         ).derive(raw_ss)
         return ct, ss
@@ -109,7 +114,7 @@ class MockAuditedPQCBackend:
         return HKDF(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b"TorchShield-KAT-MLKEM768-SharedSecret",
+            salt=b"TorchShield-MockTestPQC-MLKEM768-SharedSecret",
             info=ct + recip_pub,
         ).derive(raw_ss)
 
@@ -123,7 +128,7 @@ class MockAuditedPQCBackend:
         if len(manifest_digest) != 32:
             raise ValueError("Manifest digest must be 32 bytes.")
         priv = Ed25519PrivateKey.from_private_bytes(priv_bytes)
-        domain_digest = hashlib.sha256(b"TorchShield-TestBackend-MLDSA65-Domain::" + manifest_digest).digest()
+        domain_digest = hashlib.sha256(b"TorchShield-MockTestPQC-MLDSA65-Domain::" + manifest_digest).digest()
         return priv.sign(domain_digest)
 
     @staticmethod
@@ -131,12 +136,13 @@ class MockAuditedPQCBackend:
         if len(manifest_digest) != 32:
             raise ValueError("Manifest digest must be 32 bytes.")
         pub = Ed25519PublicKey.from_public_bytes(pub_bytes)
-        domain_digest = hashlib.sha256(b"TorchShield-TestBackend-MLDSA65-Domain::" + manifest_digest).digest()
+        domain_digest = hashlib.sha256(b"TorchShield-MockTestPQC-MLDSA65-Domain::" + manifest_digest).digest()
         pub.verify(sig_bytes, domain_digest)
         return True
 
 
-ReferencePQCBackend = MockAuditedPQCBackend
+ReferencePQCBackend = MockTestPQCBackend
+MockAuditedPQCBackend = MockTestPQCBackend  # Backwards-compatibility alias
 
 
 class HybridKEMSession:

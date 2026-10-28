@@ -25,12 +25,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class GDSStatus:
-    """Diagnostic status for NVIDIA GPUDirect Storage (GDS) subsystem."""
+    """Diagnostic status for NVIDIA GPUDirect Storage (GDS) subsystem.
+
+    Field Definitions:
+        available: True ONLY if operational direct cuFile DMA read/write I/O is implemented
+                   and validated on hardware. False in TorchShield v0.7.0 (unimplemented).
+        cufile_loaded: True if the libcufile shared object was found and loaded via ctypes.
+        cuda_available: True if PyTorch detects an operational CUDA-capable device.
+        device_name: Name of the primary CUDA device or 'None'.
+        active_mode: Current active tensor transfer mode ('pinned_streaming_fallback').
+        reason: Human-readable diagnostic description of capability status.
+    """
     available: bool
     cufile_loaded: bool
     cuda_available: bool
     device_name: str
-    active_mode: str  # 'direct_cufile' or 'pinned_streaming_fallback'
+    active_mode: str
     reason: str
 
 
@@ -61,12 +71,12 @@ def probe_gds_capability() -> GDSStatus:
 
     if cufile_lib is not None:
         return GDSStatus(
-            available=True,
+            available=False,
             cufile_loaded=True,
             cuda_available=True,
             device_name=device_name,
             active_mode="pinned_streaming_fallback",
-            reason="libcufile driver detected; direct-DMA cuFile read APIs are not yet wired, active pipeline is pinned host-memory CUDA streaming.",
+            reason="libcufile driver detected on host; direct cuFile DMA read I/O is not implemented in TorchShield, active operational mode is pinned host-memory CUDA streaming pipeline.",
         )
 
     system = platform.system()

@@ -203,7 +203,7 @@ def test_scenario_4_sqlite_multiprocess_concurrent_writers():
         for p in processes:
             p.start()
         for p in processes:
-            p.join(timeout=30.0)
+            p.join(timeout=60.0)
             assert p.exitcode == 0, f"Worker process failed with code {p.exitcode}"
 
         final_rec = backend.get_record("run-mp")

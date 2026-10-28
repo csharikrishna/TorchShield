@@ -1,8 +1,8 @@
 # TorchShield Secure AI Checkpoint Platform
 
 [![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](pyproject.toml)
-[![Status](https://img.shields.io/badge/status-Pilot_Approved-green.svg)](docs/)
-[![Tests](https://img.shields.io/badge/tests-204_passed-brightgreen.svg)](tests/)
+[![Status](https://img.shields.io/badge/status-Conditional_Staging_Approved-green.svg)](docs/)
+[![Tests](https://img.shields.io/badge/tests-255_passed-brightgreen.svg)](tests/)
 [![Security](https://img.shields.io/badge/security-AEAD_AES--256--GCM-blue.svg)](SECURITY.md)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/csharikrishna/TorchShield/blob/master/notebooks/TorchShield_Interactive_Walkthrough.ipynb)
 
@@ -224,12 +224,17 @@ The complete documentation suite is available under [`docs/`](docs/):
 ## Security Model & Operational Boundaries
 
 > [!IMPORTANT]
-> **Deployment Status:** Approved for **Restricted Pilot Deployments** (v0.7.0).
+> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.0).
 >
 > 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
 > 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.
 > 3. **Storage-Level Snapshot Boundary:** Local SQLite/file ledgers detect local replay attacks but cannot prevent hypervisor-level snapshot rollbacks that restore both disk and checkpoint files simultaneously. High-assurance deployments require an out-of-band external freshness store.
 > 4. **Cloud KMS & Zero-Cost Local Emulation:** Production deployments integrate with AWS KMS hardware security modules (HSM). Local testing and CI/CD pipelines can use LocalStack, Moto, or the built-in `LocalDevKeyProvider` at zero cloud cost.
+> 5. **Advanced Hardware, PQC & Serving Boundaries:**
+>    - **GDS GPU Loading (`gds.py`):** Reports `available=False` with `active_mode="pinned_streaming_fallback"`. Direct cuFile DMA kernel-bypass I/O read is in engineering development; streaming pinned buffer fallback is verified.
+>    - **Hardware Attestation (`attestation.py`):** Verifies a custom signed evidence structure binding measurement hashes and nonces. Vendor-native quotes (NVIDIA Hopper/Blackwell CC, AMD SEV-SNP) remain roadmap items. Fails closed with `is_production_secure=False` when mock or unbound.
+>    - **Post-Quantum Cryptography (`pqc.py`):** Hybrid framework architecture supported. Internal test backend uses classical primitives for unit tests; production mode strictly fails closed pending integration with audited native C bindings (`liboqs`).
+>    - **Model Serving (`serving.py`):** In-memory tensor deserialization without disk staging; transactional rollback protects target model against partial corruption.
 
 ---
 
@@ -239,13 +244,13 @@ Run the full core test suite:
 ```bash
 pytest tests
 ```
-*Current test suite: **199 passed in ~16s** (0 failed, 0 errors).*
+*Current test suite: **255 passed in ~44s** (0 failed, 0 errors).*
 
 Run the end-to-end Local KMS envelope encryption test suite:
 ```bash
 python scripts/verify_local_kms.py
 ```
-*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration).*
+*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration). Total verified checks: 262/262.*
 
 Run independent consumer integration tests:
 ```bash

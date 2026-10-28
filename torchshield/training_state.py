@@ -456,18 +456,37 @@ def _rollback_scaler(scaler: Any, snapshot: Optional[dict]) -> None:
 def _snapshot_state_providers(
     providers: Optional[List[SafeStateProvider]],
 ) -> Optional[Dict[str, Dict[str, Any]]]:
+    """Capture in-memory snapshots of all auxiliary state providers.
+
+    Detects duplicate provider keys before taking snapshots and initializes
+    diagnostic variables before entering try blocks to avoid UnboundLocalError
+    or secondary exceptions during error handling.
+    """
     if not providers:
         return None
     snapshots: Dict[str, Dict[str, Any]] = {}
-    for p in providers:
+    seen_keys: Set[str] = set()
+
+    for idx, p in enumerate(providers):
+        provider_name = type(p).__name__
+        desc = f"provider index {idx} ({provider_name})"
         try:
             key = p.get_state_key()
+            if not isinstance(key, str) or not key:
+                raise ValueError(f"State key must be a non-empty string, got {key!r}")
+            desc = f"provider '{key}' (index {idx})"
+            if key in seen_keys:
+                raise TrainingStateError(f"Duplicate state provider key detected: '{key}'")
+            seen_keys.add(key)
             state = p.capture_state()
+            if not isinstance(state, dict):
+                raise ValueError(f"capture_state() must return dict, got {type(state).__name__}")
             snapshots[key] = copy.deepcopy(state)
         except Exception as exc:
-            raise TrainingStateError(
-                f"Failed to snapshot state provider '{getattr(p, 'get_state_key', lambda: str(p))()}': {exc}"
-            ) from exc
+            if isinstance(exc, TrainingStateError):
+                raise
+            raise TrainingStateError(f"Failed to snapshot state {desc}: {exc}") from exc
+
     return snapshots
 
 
@@ -475,16 +494,25 @@ def _rollback_state_providers(
     providers: Optional[List[SafeStateProvider]],
     snapshot: Optional[Dict[str, Dict[str, Any]]],
 ) -> None:
+    """Restore auxiliary state providers from captured snapshot.
+
+    Safely collects any rollback errors without masking the original exception.
+    """
     if not providers or not snapshot:
         return
-    errors = []
-    for p in providers:
+    errors: List[str] = []
+
+    for idx, p in enumerate(providers):
+        provider_name = type(p).__name__
+        desc = f"provider index {idx} ({provider_name})"
         try:
             key = p.get_state_key()
+            desc = f"provider '{key}' (index {idx})"
             if key in snapshot:
                 p.restore_state(snapshot[key])
         except Exception as exc:
-            errors.append(f"Provider '{key}': {exc}")
+            errors.append(f"{desc}: {exc}")
+
     if errors:
         raise TrainingStateError("Failed to rollback state provider(s): " + "; ".join(errors))
 
@@ -681,8 +709,19 @@ def save_training_checkpoint(
     # 5. Capture auxiliary SafeStateProviders if provided
     auxiliary_state: Dict[str, Any] = {}
     if state_providers:
-        for sp in state_providers:
-            sp_key = sp.get_state_key()
+        for idx, sp in enumerate(state_providers):
+            provider_name = type(sp).__name__
+            desc = f"provider index {idx} ({provider_name})"
+            try:
+                sp_key = sp.get_state_key()
+                if not isinstance(sp_key, str) or not sp_key:
+                    raise ValueError(f"State key must be a non-empty string, got {sp_key!r}")
+                desc = f"provider '{sp_key}' (index {idx})"
+            except Exception as exc:
+                if isinstance(exc, TrainingStateError):
+                    raise
+                raise TrainingStateError(f"Failed to obtain state key from {desc}: {exc}") from exc
+
             if sp_key in auxiliary_state:
                 raise TrainingStateError(f"Duplicate SafeStateProvider key: '{sp_key}'")
             st = sp.capture_state()
@@ -807,6 +846,26 @@ def load_training_checkpoint(
     if scaler is not None and "scaler" in training_meta and training_meta["scaler"] is not None:
         validate_safe_metadata(training_meta["scaler"], path="checkpoint.scaler")
 
+    # Validate auxiliary state providers if supplied
+    if state_providers:
+        seen_sp_keys: Set[str] = set()
+        for idx, sp in enumerate(state_providers):
+            provider_name = type(sp).__name__
+            desc = f"provider index {idx} ({provider_name})"
+            try:
+                sp_key = sp.get_state_key()
+                if not isinstance(sp_key, str) or not sp_key:
+                    raise ValueError(f"State key must be a non-empty string, got {sp_key!r}")
+                desc = f"provider '{sp_key}' (index {idx})"
+            except Exception as exc:
+                if isinstance(exc, TrainingStateError):
+                    raise
+                raise TrainingStateError(f"Pre-validation failed for state {desc}: {exc}") from exc
+
+            if sp_key in seen_sp_keys:
+                raise TrainingStateError(f"Duplicate SafeStateProvider key: '{sp_key}'")
+            seen_sp_keys.add(sp_key)
+
     # -----------------------------------------------------------------------
     # STAGE B: Transactional Application with Rollback Protection
     # -----------------------------------------------------------------------
@@ -864,10 +923,13 @@ def load_training_checkpoint(
         # 5. Restore auxiliary safe state providers if provided
         if state_providers and "state_providers" in training_meta and training_meta["state_providers"]:
             prov_dict = training_meta["state_providers"]
-            for sp in state_providers:
+            for idx, sp in enumerate(state_providers):
                 sp_key = sp.get_state_key()
                 if sp_key in prov_dict:
-                    sp.restore_state(prov_dict[sp_key])
+                    try:
+                        sp.restore_state(prov_dict[sp_key])
+                    except Exception as exc:
+                        raise TrainingStateError(f"Failed to restore state provider '{sp_key}': {exc}") from exc
 
         # 6. Restore RNG states ONLY after model, optimizer, scheduler, scaler succeed
         if restore_rng and "rng" in training_meta and training_meta["rng"] is not None:

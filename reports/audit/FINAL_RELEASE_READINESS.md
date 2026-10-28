@@ -2,7 +2,7 @@
 
 **Audit Date:** 2026-10-28  
 **Repository:** `https://github.com/csharikrishna/TorchShield`  
-**Inspected / Target Revision:** `7b07f1f` + Remediation commits on `master`  
+**Inspected / Target Revision:** Latest remediation commits on `master`
 **Package Version:** `0.7.0`  
 **Evaluation Status:** **Conditional Approval — Internal Staging / Research Candidate**  
 
@@ -17,12 +17,12 @@ Across the 16 phases of this master security audit and architecture remediation 
 │ FINAL AUDIT METRICS                                    │
 ├───────────────────────────────┬────────────────────────┤
 │ Baseline Test Suite           │ 204 Passed, 0 Failed   │
-│ Final Pytest Test Suite       │ 247 Passed, 0 Failed   │
-│ Net New Regression Tests Added│ +43 Tests              │
+│ Final Pytest Test Suite       │ 255 Passed, 0 Failed   │
+│ Net New Regression Tests Added│ +51 Tests              │
 │ Identified Defects Remediated │ 17 / 17 (100% Fixed)   │
 │ Standalone Local KMS Checks   │ 7 / 7 Local Moto Passed│
-│ Total Verified Checks         │ 254 / 254 Passed (100%)│
-│ Test Execution Duration       │ 55.41s pytest + 8.2s KMS│
+│ Total Verified Checks         │ 262 / 262 Passed (100%)│
+│ Test Execution Duration       │ ~44s pytest + ~8s KMS  │
 │ Overall Pass Rate             │ 100.0%                 │
 └───────────────────────────────┴────────────────────────┘
 ```
@@ -35,19 +35,19 @@ Across the 16 phases of this master security audit and architecture remediation 
 |---|:---:|:---:|---|
 | **AEAD Cryptography & Known Answer Tests** | 9 | 9 | AES-256-GCM / Poly1305 NIST KAT vectors |
 | **Artifact Signatures & Manifest Integrity** | 10 | 10 | Ed25519 publisher signature binding |
-| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **10** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation |
+| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **13** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation, failing `get_state_key` single call, duplicate keys rejection, restore vs rollback distinction |
 | **Distributed Checkpoint Hardening** | 4 | **7** | Path traversal, symlink, duplicate rank mitigation |
 | **Hugging Face Trainer Integration** | 5 | **6** | Fail-closed on missing vault, two-phase file cleanup |
 | **Multi-Cloud Key Providers (GCP/Azure/Vault)** | 0 | **3** | Unified contract tests, retry backoff |
-| **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid ML-KEM-768 & ML-DSA-65 with verified signature checks |
-| **Hardware Attestation & Enclaves** | 0 | **8** | Freshness nonces, certificate chains, mandatory root signatures |
-| **GPUDirect Storage (GDS) Loading** | 0 | **4** | Capability detection, streaming CUDA pipeline fallback |
+| **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid framework plumbing with verified mock signature and fail-closed production policy |
+| **Hardware Attestation & Enclaves** | 0 | **12** | Freshness nonces, certificate chains, mandatory signatures, bound challenge, non-destructive failure handling, production security classification |
+| **GPUDirect Storage (GDS) Loading** | 0 | **5** | Capability detection, capability field semantics, streaming CUDA pipeline fallback |
 | **Native Inference Model Serving** | 0 | **6** | Direct in-memory load without plaintext disk landing, transactional rollback |
 | **Quorum Etcd Consensus Freshness** | 0 | **3** | CAS transactions, revision-based anti-rollback |
 | **Phase 2/4/6 Protocol & Edge Cases** | 176 | 176 | Monotonic nonces, chunk budgets, untrusted inputs |
-| **TOTAL PYTEST TEST COUNT** | **204** | **247** | **+43 Net New Tests (100% Passing)** |
+| **TOTAL PYTEST TEST COUNT** | **204** | **255** | **+51 Net New Tests (100% Passing)** |
 | **STANDALONE LOCAL KMS CHECKS** | 0 | **7** | Embedded Moto Local KMS Verification (100% Passing) |
-| **COMBINED TESTED CHECKS** | **204** | **254** | **+50 Net New Checks (100% Passing)** |
+| **COMBINED TESTED CHECKS** | **204** | **262** | **+58 Net New Checks (100% Passing)** |
 
 ---
 
@@ -75,18 +75,18 @@ Across the 16 phases of this master security audit and architecture remediation 
    - *Fix:* Synchronized README and docs to canonical `b"TSHDMOD5"` 41-byte fixed header prefix (`0x00` to `0x28`).
 11. **TS-FIND-11 (Critical - P1): Optimizer Rollback Parameter Disconnection**
    - *Fix:* Preserved `nn.Parameter` object identity (`is`) in optimizer rollback; regression test verifies subsequent `step()` updates weights.
-12. **TS-FIND-12 (Critical - P1): Attestation Verifier Accepted Unsigned Quotes**
-   - *Fix:* Enforced mandatory cryptographic signature and signer validation by default; fails closed when unsigned.
+12. **TS-FIND-12 (Critical - P1): Attestation Verifier Accepted Unsigned Quotes & Lacked Challenge Binding**
+   - *Fix:* Enforced mandatory cryptographic signatures and signer IDs by default (`require_signature=True`); bound staged evidence to fresh challenge nonces; non-destructive failure handling; `is_production_secure=False` when mock or unbound.
 13. **TS-FIND-13 (High - P1): Auxiliary State Providers Rollback & Error Concealment**
-   - *Fix:* Implemented `_snapshot_state_providers` / `_rollback_state_providers`, fail-fast on snapshot errors, and surfaced all rollback errors without suppression.
+   - *Fix:* Implemented `_snapshot_state_providers` / `_rollback_state_providers`, pre-initialized diagnostics, rejected duplicate keys, invoked `get_state_key()` once, and surfaced all rollback errors without suppression.
 14. **TS-FIND-14 (Medium): GPUDirect Storage Mode Advertising Inaccuracy**
-   - *Fix:* Kept operational mode labeled as `pinned_streaming_fallback` / CUDA stream pipeline; no unwired cuFile DMA claim.
-15. **TS-FIND-15 (High): PQC Test Verifier Checked Only Length**
-   - *Fix:* Cryptographically verified signature bytes against public key and manifest digest; tampered signature rejected fail-closed.
+   - *Fix:* Explicitly defined `GDSStatus`: `available=False` (direct cuFile read unhooked), `cufile_loaded` diagnostic, and `active_mode="pinned_streaming_fallback"`.
+15. **TS-FIND-15 (High): PQC Test Verifier Checked Only Length & Overclaimed KAT Compliance**
+   - *Fix:* Renamed to `MockTestPQCBackend` using classical primitives strictly for test plumbing; cryptographically verified signature bytes; production mode strictly fails closed with `PQCUnavailableError`.
 16. **TS-FIND-16 (Medium): Model Serving In-Memory Semantics & Rollback**
-   - *Fix:* Clarified in-memory deserialization semantics (no disk staging) and added transactional parameter rollback on mid-load error.
-17. **TS-FIND-17 (Medium): AEAD Benchmark Nonce Reuse**
-   - *Fix:* Generated fresh unique 12-byte nonces per iteration per NIST SP 800-38D.
+   - *Fix:* Clarified in-memory deserialization semantics (no disk staging); removed unverified `zero_disk_enforcement` flag; added transactional parameter rollback on mid-load error.
+17. **TS-FIND-17 (Medium): AEAD Benchmark Nonce Reuse & Aggregation Methodology**
+   - *Fix:* Implemented NIST SP 800-38D session-wide monotonic counter with 4-byte random prefix; added 3-trial median throughput aggregation; removed unused nonce variables.
 
 ---
 
@@ -96,8 +96,11 @@ Packages built via isolated `python -m build`:
 
 ```
 dist/
-├── torchshield-0.7.0-py3-none-any.whl  (73,150 bytes)
-└── torchshield-0.7.0.tar.gz            (131,215 bytes)
+├── torchshield-0.7.0-py3-none-any.whl  (76,353 bytes)
+│   SHA256: 5CD05159C6EE00038CFF7976494892BE21EABBB5D750ADD03C42C0675284525D
+└── torchshield-0.7.0.tar.gz            (138,681 bytes)
+    SHA256: 56BED324CCA0F6BCF6FDA0FF849517A6B41CAAD49F3ACE7C841AC1762399F620
+```
 ```
 
 ### Cryptographic Hashes (SHA-256):
@@ -127,11 +130,11 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 | Workstream | Implementation Level | Verification Type | Live Dependency / Blocker |
 |---|---|---|---|
-| **Workstream A: GDS & Direct Loading** | Complete (`torchshield/gds.py`) | Automated Fallback Tests (PASS) | Requires Linux GPUDirect Storage driver & NVMe subsystem |
-| **Workstream B: Hardware Attestation** | Complete (`torchshield/attestation.py`) | Cryptographic Fixture Tests (PASS) | Requires live NVIDIA H100 CC driver or AMD SEV-SNP hypervisor |
+| **Workstream A: GDS & Direct Loading** | Complete (`torchshield/gds.py`) | Automated Fallback Tests (PASS) | Direct cuFile DMA read unimplemented; pinned streaming fallback operational |
+| **Workstream B: Hardware Attestation** | Complete (`torchshield/attestation.py`) | Signed Evidence Tests (PASS) | Verifies custom signed structure; native Hopper CC / SEV-SNP quotes on roadmap |
 | **Workstream C: Multi-Cloud KMS** | Complete (`gcp.py`, `azure.py`, `vault.py`) | Unified Contract Tests (PASS) | Live smoke testing requires user-configured cloud credentials |
-| **Workstream D: Post-Quantum Crypto** | Complete (`torchshield/pqc.py`) | Hybrid KEM/Sign Tests (PASS) | Production deployment requires standardized FIPS 203/204 shared objects |
-| **Workstream E: Native Model Serving** | Complete (`integrations/serving.py`) | In-Memory Decrypt Tests (PASS) | vLLM / TensorRT-LLM plugin verified via standard torch model interfaces |
+| **Workstream D: Post-Quantum Crypto** | Complete (`torchshield/pqc.py`) | Test Fixture Tests (PASS) | Production deployment requires linking external audited C library (`liboqs`) |
+| **Workstream E: Native Model Serving** | Complete (`integrations/serving.py`) | In-Memory Decrypt Tests (PASS) | In-memory container weight loading; transactional model rollback operational |
 | **Workstream F: Quorum Freshness** | Complete (`EtcdFreshnessBackend`) | Transactional CAS Tests (PASS) | Production deployment requires live external etcd consensus cluster |
 
 ---
@@ -148,14 +151,14 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 - **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.0)**.
 - **Evidence Base:**
-  - 247 / 247 pytest unit, integration, and security regression tests passing.
+  - 255 / 255 pytest unit, integration, and security regression tests passing.
   - 7 / 7 standalone local Moto KMS envelope encryption tests passing.
-  - Combined total: 254 verified checks passed (100% pass rate).
+  - Combined total: 262 verified checks passed (100% pass rate).
   - Zero-pickle guarantee enforced and verified with fail-closed exceptions.
   - Two-stage transactional restoration with atomic rollback verified across model, optimizer (with strict parameter object identity preservation), scheduler, scaler, auxiliary state providers, and all 4 RNG generators.
   - Clean-room virtual environment installation and execution verified outside repository directory.
 - **Prerequisites for Unrestricted Enterprise Production Deployment:**
   - Live multi-node cloud validation with production GCP, Azure, or Vault KMS credentials.
-  - Post-quantum NIST FIPS 203/204 errata review and linking with compiled, CAVP-validated libraries.
+  - Post-quantum NIST FIPS 203/204 integration and linking with compiled, audited libraries (`liboqs`).
   - Hardware quote validation on physical NVIDIA Hopper CC or AMD SEV-SNP instances.
   - Independent third-party cryptographic and penetration audit.
