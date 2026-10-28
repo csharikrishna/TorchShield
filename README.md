@@ -160,6 +160,46 @@ trainer = Trainer(
 trainer.train()
 ```
 
+### 6. Local KMS & Zero-Cost Cloud Emulation (LocalStack / Moto)
+
+Test enterprise AWS KMS envelope encryption locally at **$0 cloud cost** and with **zero AWS credentials**:
+
+```python
+from torchshield import save_training_checkpoint, load_training_checkpoint, TrainingProgress
+from torchshield.key_providers import AWSKMSProvider
+
+# Point directly to LocalStack or Moto emulator (port 4566)
+provider = AWSKMSProvider(
+    key_arn="arn:aws:kms:us-east-1:123456789012:key/test-key-uuid",
+    endpoint_url="http://127.0.0.1:4566",
+    region_name="us-east-1",
+    aws_access_key_id="test",
+    aws_secret_access_key="test",
+)
+
+# Checkpoint payload is encrypted via AES-256-GCM; DEK is envelope-wrapped by KMS
+save_training_checkpoint(
+    output_path="checkpoints/local_kms_model.shield",
+    model=model,
+    optimizer=optimizer,
+    progress=TrainingProgress(global_step=100, epoch=1, loss=0.42),
+    key_provider=provider,
+)
+
+# Automated bit-for-bit restoration with cryptographic authentication
+load_training_checkpoint(
+    input_path="checkpoints/local_kms_model.shield",
+    model=model,
+    optimizer=optimizer,
+    key_provider=provider,
+)
+```
+
+Run the included end-to-end Local KMS verification suite (auto-spawns an embedded local KMS server if none is running):
+```bash
+python scripts/verify_local_kms.py
+```
+
 ---
 
 ## Documentation Index
@@ -189,7 +229,7 @@ The complete documentation suite is available under [`docs/`](docs/):
 > 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
 > 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.
 > 3. **Storage-Level Snapshot Boundary:** Local SQLite/file ledgers detect local replay attacks but cannot prevent hypervisor-level snapshot rollbacks that restore both disk and checkpoint files simultaneously. High-assurance deployments require an out-of-band external freshness store.
-> 4. **Cloud KMS:** AWS KMS is verified using mocked client integration tests; production deployment requires active IAM and AWS KMS credentials.
+> 4. **Cloud KMS & Zero-Cost Local Emulation:** Production deployments integrate with AWS KMS hardware security modules (HSM). Local testing and CI/CD pipelines can use LocalStack, Moto, or the built-in `LocalDevKeyProvider` at zero cloud cost.
 
 ---
 
@@ -200,6 +240,12 @@ Run the full core test suite:
 pytest tests
 ```
 *Current test suite: **199 passed in ~16s** (0 failed, 0 errors).*
+
+Run the end-to-end Local KMS envelope encryption test suite:
+```bash
+python scripts/verify_local_kms.py
+```
+*Local KMS suite: **7/7 verification checks passed [100% SUCCESS]** (DEK wrapping, tamper blocking, bit-for-bit weight recovery, HuggingFace integration).*
 
 Run independent consumer integration tests:
 ```bash

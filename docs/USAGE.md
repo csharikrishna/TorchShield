@@ -121,26 +121,52 @@ load_training_checkpoint(
 
 ---
 
-## 4. Key Management Services (KMS)
+## 4. Key Management Services (KMS) & Local Emulation
 
 TorchShield natively integrates with AWS KMS and enterprise secret managers via `KeyProvider`:
 
+### 4.1 Production AWS KMS
 ```python
-from torchshield.key_providers.kms import AWSKMSKeyProvider
-from torchshield import save_training_checkpoint
+from torchshield import save_training_checkpoint, load_training_checkpoint
+from torchshield.key_providers import AWSKMSProvider
 
-kms_provider = AWSKMSKeyProvider(
-    kms_key_id="arn:aws:kms:us-east-1:123456789012:key/my-checkpoint-key",
+kms_provider = AWSKMSProvider(
+    key_arn="arn:aws:kms:us-east-1:123456789012:key/my-checkpoint-key",
     region_name="us-east-1",
 )
 
 # Pass KMS provider directly; TorchShield handles envelope encryption and unwrap operations
 save_training_checkpoint(
-    checkpoint_path="checkpoints/kms_model.shield",
-    key=kms_provider,
+    output_path="checkpoints/kms_model.shield",
     model=model,
     optimizer=optimizer,
+    key_provider=kms_provider,
 )
+```
+
+### 4.2 Zero-Cost Local KMS Testing (LocalStack / Moto)
+To test envelope encryption locally or in CI/CD without cloud accounts or AWS credentials:
+```python
+# Connect to LocalStack or Moto emulator on standard port 4566
+local_kms = AWSKMSProvider(
+    key_arn="arn:aws:kms:us-east-1:123456789012:key/test-kek-uuid",
+    endpoint_url="http://127.0.0.1:4566",
+    region_name="us-east-1",
+    aws_access_key_id="test",
+    aws_secret_access_key="test",
+)
+
+save_training_checkpoint(
+    output_path="checkpoints/local_kms_model.shield",
+    model=model,
+    optimizer=optimizer,
+    key_provider=local_kms,
+)
+```
+
+Run the self-contained verification suite:
+```bash
+python scripts/verify_local_kms.py
 ```
 
 ---

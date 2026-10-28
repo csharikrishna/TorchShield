@@ -205,3 +205,7 @@ class AWSKMSProvider(KeyProvider):
             return bytes(response["CiphertextBlob"])
         except Exception as exc:
             raise KeyProviderError(f"AWS KMS rewrap_key request failed: {exc}") from exc
+
+
+# Backward-compatible alias
+AWSKMSKeyProvider = AWSKMSProvider
