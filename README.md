@@ -26,8 +26,8 @@
 
 ```
 +------------------------------------------------------------------------------------+
-|                                CONTAINER HEADER (40 Bytes)                         |
-|  Magic: "TSHD\x00CK5" (8B) | Version: 0x05 (1B) | Salt: 32B Public HKDF Salt (32B) |
+|                                CONTAINER HEADER (41 Bytes)                         |
+|  Magic: "TSHDMOD5" (8B) | Version: 0x05 (1B) | Salt: 32B Public HKDF Salt (32B)    |
 +------------------------------------------------------------------------------------+
 |                                 CHUNK ENVELOPES (1..M)                             |
 |  [Chunk Header: Chunk ID (8B) || Payload Size (8B)]                                |

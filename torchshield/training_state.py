@@ -1,20 +1,26 @@
 """Safe, Pickle-Free Training Checkpoint Serialization and Restoration Engine.
 
 Preserves and restores complete training state:
-1. Model parameters and buffers
+1. Model parameters and buffers (BatchNorm, layer norms, embeddings)
 2. Optimizer state (AdamW, Adam, SGD, etc., mapped to stable parameter names)
 3. Learning rate scheduler state
 4. Mixed-precision gradient scaler state (torch.amp / torch.cuda.amp)
 5. RNG states (Python, NumPy, PyTorch CPU, PyTorch CUDA)
 6. Training progress (step, epoch, custom configuration)
+7. Pluggable SafeStateProvider auxiliary state
 
 Strictly non-executable: Zero pickle deserialization. All tensors are stored as dense
 numerical buffers, and metadata is stored as strictly allowlisted canonical JSON.
+Restoration is strictly transactional: Stage A validates compatibility before mutating
+any destination state; Stage B applies state with automatic rollback protection.
 """
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+import copy
 from dataclasses import dataclass, field
 import json
+import math
 import os
 import random
 import secrets
@@ -31,7 +37,64 @@ from torchshield.key_providers.base import KeyProvider
 
 
 class TrainingStateError(ValueError):
-    """Raised when training state serialization or restoration fails."""
+    """Raised when training state serialization, compatibility validation, or restoration fails."""
+
+
+# ---------------------------------------------------------------------------
+# Auxiliary Safe State Provider Interface
+# ---------------------------------------------------------------------------
+
+class SafeStateProvider(ABC):
+    """Abstract base class for components contributing safe, non-executable auxiliary state.
+
+    Prevents arbitrary Python object pickling by requiring all auxiliary state
+    to be explicitly represented as JSON-serializable dictionaries.
+    """
+
+    @abstractmethod
+    def get_state_key(self) -> str:
+        """Unique namespace key for this provider's state within the checkpoint manifest."""
+        pass
+
+    @abstractmethod
+    def capture_state(self) -> Dict[str, Any]:
+        """Capture component state as a strictly JSON-serializable dictionary."""
+        pass
+
+    @abstractmethod
+    def restore_state(self, state: Dict[str, Any]) -> None:
+        """Restore component state from validated dictionary."""
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Strict Recursive Safe Metadata Validator
+# ---------------------------------------------------------------------------
+
+def validate_safe_metadata(val: Any, path: str = "root") -> None:
+    """Recursively validate that metadata contains only safe, JSON-serializable types.
+
+    Rejects arbitrary classes, executable callables, and non-finite floats (NaN/Inf).
+    """
+    if val is None or isinstance(val, (bool, int, str)):
+        return
+    elif isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
+            raise TrainingStateError(f"Non-finite float value '{val}' at path '{path}' is not permitted.")
+        return
+    elif isinstance(val, (list, tuple)):
+        for idx, item in enumerate(val):
+            validate_safe_metadata(item, f"{path}[{idx}]")
+    elif isinstance(val, dict):
+        for k, v in val.items():
+            if not isinstance(k, str):
+                raise TrainingStateError(f"Dictionary key at path '{path}' must be string, got {type(k).__name__}.")
+            validate_safe_metadata(v, f"{path}.{k}")
+    else:
+        raise TrainingStateError(
+            f"Unsafe or non-serializable object of type '{type(val).__name__}' at path '{path}'. "
+            "Arbitrary Python objects and pickle serialization are strictly prohibited."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +203,207 @@ def restore_all_rng(rng_dict: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Strict Model & Optimizer Compatibility Pre-Validation
+# ---------------------------------------------------------------------------
+
+def validate_model_checkpoint(
+    model: nn.Module,
+    restored_tensors: Dict[str, torch.Tensor],
+    strict: bool = True,
+) -> None:
+    """Strictly validate checkpoint tensors against destination model before any mutation.
+
+    Verifies:
+    - Missing or unexpected parameters
+    - Missing or unexpected persistent buffers
+    - Tensor shape equality
+    - Tensor dtype compatibility
+    - Dense strided tensor layouts
+    """
+    name_to_param = dict(model.named_parameters())
+    name_to_buf = dict(model.named_buffers())
+
+    incoming_params = {
+        k[len("model_param::"):]: v for k, v in restored_tensors.items() if k.startswith("model_param::")
+    }
+    incoming_buffers = {
+        k[len("model_buffer::"):]: v for k, v in restored_tensors.items() if k.startswith("model_buffer::")
+    }
+
+    model_param_names = set(name_to_param.keys())
+    ckpt_param_names = set(incoming_params.keys())
+
+    missing_params = model_param_names - ckpt_param_names
+    unexpected_params = ckpt_param_names - model_param_names
+
+    if strict and missing_params:
+        raise TrainingStateError(
+            f"Strict checkpoint restore failed: missing {len(missing_params)} model parameter(s): {sorted(list(missing_params))}"
+        )
+    if strict and unexpected_params:
+        raise TrainingStateError(
+            f"Strict checkpoint restore failed: unexpected {len(unexpected_params)} parameter(s) in checkpoint: {sorted(list(unexpected_params))}"
+        )
+
+    for name in model_param_names.intersection(ckpt_param_names):
+        expected_p = name_to_param[name]
+        incoming_t = incoming_params[name]
+        if tuple(incoming_t.shape) != tuple(expected_p.shape):
+            raise TrainingStateError(
+                f"Shape mismatch for parameter '{name}': checkpoint shape {tuple(incoming_t.shape)} != model shape {tuple(expected_p.shape)}"
+            )
+        if incoming_t.dtype != expected_p.dtype:
+            raise TrainingStateError(
+                f"Dtype mismatch for parameter '{name}': checkpoint dtype {incoming_t.dtype} != model dtype {expected_p.dtype}"
+            )
+        if incoming_t.layout != torch.strided or incoming_t.is_quantized:
+            raise TrainingStateError(f"Unsupported layout or quantized format for parameter '{name}'.")
+
+    model_buf_names = set(name_to_buf.keys())
+    ckpt_buf_names = set(incoming_buffers.keys())
+
+    missing_bufs = model_buf_names - ckpt_buf_names
+    unexpected_bufs = ckpt_buf_names - model_buf_names
+
+    if strict and missing_bufs:
+        raise TrainingStateError(
+            f"Strict checkpoint restore failed: missing {len(missing_bufs)} model buffer(s): {sorted(list(missing_bufs))}"
+        )
+    if strict and unexpected_bufs:
+        raise TrainingStateError(
+            f"Strict checkpoint restore failed: unexpected {len(unexpected_bufs)} buffer(s) in checkpoint: {sorted(list(unexpected_bufs))}"
+        )
+
+    for name in model_buf_names.intersection(ckpt_buf_names):
+        expected_b = name_to_buf[name]
+        incoming_t = incoming_buffers[name]
+        if tuple(incoming_t.shape) != tuple(expected_b.shape):
+            raise TrainingStateError(
+                f"Shape mismatch for buffer '{name}': checkpoint shape {tuple(incoming_t.shape)} != model shape {tuple(expected_b.shape)}"
+            )
+        if incoming_t.dtype != expected_b.dtype:
+            raise TrainingStateError(
+                f"Dtype mismatch for buffer '{name}': checkpoint dtype {incoming_t.dtype} != model dtype {expected_b.dtype}"
+            )
+
+
+def validate_optimizer_checkpoint(
+    optimizer: Optimizer,
+    model: nn.Module,
+    optimizer_tensors: Dict[str, torch.Tensor],
+    optimizer_meta: dict,
+    strict: bool = True,
+) -> None:
+    """Strictly validate optimizer checkpoint compatibility before any mutation."""
+    saved_type = optimizer_meta.get("type")
+    current_type = type(optimizer).__name__
+    if strict and saved_type and saved_type != current_type:
+        raise TrainingStateError(
+            f"Optimizer type mismatch: checkpoint saved with {saved_type}, but current optimizer is {current_type}."
+        )
+
+    saved_groups = optimizer_meta.get("param_groups", [])
+    if len(saved_groups) != len(optimizer.param_groups):
+        raise TrainingStateError(
+            f"Parameter group count mismatch: checkpoint has {len(saved_groups)} groups, optimizer has {len(optimizer.param_groups)}."
+        )
+
+    name_to_param = dict(model.named_parameters())
+    prefix = "opt::"
+    for full_key, tensor in optimizer_tensors.items():
+        if not full_key.startswith(prefix):
+            continue
+        parts = full_key[len(prefix):].split("::", 1)
+        if len(parts) != 2:
+            continue
+        param_name, state_key = parts
+        if param_name not in name_to_param:
+            if strict:
+                raise TrainingStateError(f"Unexpected optimizer state tensor for nonexistent model parameter: '{param_name}'.")
+        else:
+            param = name_to_param[param_name]
+            if state_key in ("exp_avg", "exp_avg_sq", "momentum_buffer") and tuple(tensor.shape) != tuple(param.shape):
+                raise TrainingStateError(
+                    f"Optimizer tensor shape mismatch for {param_name} ({state_key}): {tuple(tensor.shape)} != parameter shape {tuple(param.shape)}"
+                )
+
+
+# ---------------------------------------------------------------------------
+# Transactional Snapshot & Rollback Helpers
+# ---------------------------------------------------------------------------
+
+def _snapshot_model(model: nn.Module) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    params = {name: p.detach().clone() for name, p in model.named_parameters()}
+    bufs = {name: b.detach().clone() for name, b in model.named_buffers()}
+    return params, bufs
+
+
+def _rollback_model(model: nn.Module, snapshot: Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]) -> None:
+    saved_params, saved_bufs = snapshot
+    for name, p in model.named_parameters():
+        if name in saved_params:
+            p.data.copy_(saved_params[name])
+    for name, b in model.named_buffers():
+        if name in saved_bufs:
+            b.copy_(saved_bufs[name])
+
+
+def _snapshot_optimizer(optimizer: Optimizer) -> Tuple[Dict[Any, Dict[str, Any]], List[Dict[str, Any]]]:
+    saved_state: Dict[Any, Dict[str, Any]] = {}
+    for p, st in optimizer.state.items():
+        saved_state[p] = {}
+        for k, v in st.items():
+            if isinstance(v, torch.Tensor):
+                saved_state[p][k] = v.detach().clone()
+            else:
+                saved_state[p][k] = copy.deepcopy(v)
+    saved_groups = copy.deepcopy(optimizer.param_groups)
+    return saved_state, saved_groups
+
+
+def _rollback_optimizer(optimizer: Optimizer, snapshot: Tuple[Dict[Any, Dict[str, Any]], List[Dict[str, Any]]]) -> None:
+    saved_state, saved_groups = snapshot
+    optimizer.state.clear()
+    for p, st in saved_state.items():
+        optimizer.state[p] = st
+    optimizer.param_groups = saved_groups
+
+
+def _snapshot_scheduler(scheduler: Any) -> Optional[dict]:
+    if scheduler is None:
+        return None
+    try:
+        return copy.deepcopy(scheduler.state_dict())
+    except Exception:
+        return None
+
+
+def _rollback_scheduler(scheduler: Any, snapshot: Optional[dict]) -> None:
+    if scheduler is not None and snapshot is not None:
+        try:
+            scheduler.load_state_dict(snapshot)
+        except Exception:
+            pass
+
+
+def _snapshot_scaler(scaler: Any) -> Optional[dict]:
+    if scaler is None:
+        return None
+    try:
+        return copy.deepcopy(scaler.state_dict())
+    except Exception:
+        return None
+
+
+def _rollback_scaler(scaler: Any, snapshot: Optional[dict]) -> None:
+    if scaler is not None and snapshot is not None:
+        try:
+            scaler.load_state_dict(snapshot)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Safe Optimizer Extraction & In-Place Restoration (Mapped to Parameter Names)
 # ---------------------------------------------------------------------------
 
@@ -192,6 +456,7 @@ def extract_optimizer_state(
         "param_groups": serialized_param_groups,
         "scalars": optimizer_scalars,
     }
+    validate_safe_metadata(optimizer_meta, path="optimizer_meta")
     return optimizer_tensors, optimizer_meta
 
 
@@ -217,7 +482,12 @@ def restore_optimizer_state(
                 else:
                     live_grp[k] = v
 
-    # 2. Restore state tensors and scalars
+    # 2. Clear existing optimizer state for model parameters to prevent state bleed
+    for param in name_to_param.values():
+        if param in optimizer.state:
+            optimizer.state[param].clear()
+
+    # 3. Restore state tensors and scalars
     saved_scalars = optimizer_meta.get("scalars", {})
     prefix = "opt::"
 
@@ -242,7 +512,7 @@ def restore_optimizer_state(
 
 
 # ---------------------------------------------------------------------------
-# Safe Training Checkpoint Container
+# Structured Training Progress Metadata
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -256,9 +526,13 @@ class TrainingProgress:
     config: Dict[str, Any] = field(default_factory=dict)
 
 
+# ---------------------------------------------------------------------------
+# Training Checkpoint Save Engine
+# ---------------------------------------------------------------------------
+
 def save_training_checkpoint(
-    output_path: str,
-    model: nn.Module,
+    output_path: Optional[str] = None,
+    model: Optional[nn.Module] = None,
     optimizer: Optional[Optimizer] = None,
     scheduler: Optional[Any] = None,
     scaler: Optional[Any] = None,
@@ -270,12 +544,19 @@ def save_training_checkpoint(
     signer_private_key: Optional[bytes] = None,
     chunk_bytes: int = 4 * 1024 * 1024,
     limits: Optional[ResourceLimits] = None,
+    state_providers: Optional[List[SafeStateProvider]] = None,
+    checkpoint_path: Optional[str] = None,
 ) -> None:
     """Save an end-to-end encrypted, authenticated AI training checkpoint with zero pickle.
 
     Encrypts model parameters/buffers, optimizer state tensors, scheduler state,
     scaler state, and all RNG states in a single atomic container.
     """
+    resolved_path = output_path or checkpoint_path
+    if not resolved_path:
+        raise ValueError("output_path (or checkpoint_path) must be specified.")
+    if model is None:
+        raise ValueError("model must be provided.")
     if key is None and key_provider is None:
         raise ValueError("Either 'key' (32 bytes) or 'key_provider' must be specified.")
 
@@ -298,21 +579,36 @@ def save_training_checkpoint(
     # 3. Extract scheduler state if provided
     scheduler_meta: Optional[dict] = None
     if scheduler is not None and hasattr(scheduler, "state_dict"):
-        scheduler_meta = scheduler.state_dict()
+        raw_sched = scheduler.state_dict()
+        validate_safe_metadata(raw_sched, path="scheduler")
         scheduler_meta = {
-            k: (list(v) if isinstance(v, tuple) else v) for k, v in scheduler_meta.items()
+            k: (list(v) if isinstance(v, tuple) else v) for k, v in raw_sched.items()
         }
 
     # 4. Extract gradient scaler state if provided
     scaler_meta: Optional[dict] = None
     if scaler is not None and hasattr(scaler, "state_dict"):
-        scaler_meta = scaler.state_dict()
+        raw_scaler = scaler.state_dict()
+        validate_safe_metadata(raw_scaler, path="scaler")
+        scaler_meta = raw_scaler
 
-    # 5. Capture full RNG state
+    # 5. Capture auxiliary SafeStateProviders if provided
+    auxiliary_state: Dict[str, Any] = {}
+    if state_providers:
+        for sp in state_providers:
+            sp_key = sp.get_state_key()
+            if sp_key in auxiliary_state:
+                raise TrainingStateError(f"Duplicate SafeStateProvider key: '{sp_key}'")
+            st = sp.capture_state()
+            validate_safe_metadata(st, path=f"state_providers.{sp_key}")
+            auxiliary_state[sp_key] = st
+
+    # 6. Capture full RNG state
     rng_meta = serialize_all_rng()
 
-    # 6. Compile structured training manifest
+    # 7. Compile structured training manifest
     prog = progress or TrainingProgress()
+    validate_safe_metadata(prog.config, path="progress.config")
     training_manifest = {
         "schema_version": 1,
         "format": "TorchShield-SafeTrainingCheckpoint-v1",
@@ -325,14 +621,15 @@ def save_training_checkpoint(
         "optimizer": optimizer_meta,
         "scheduler": scheduler_meta,
         "scaler": scaler_meta,
+        "state_providers": auxiliary_state,
         "rng": rng_meta,
         "encryption_context": encryption_context,
     }
 
-    # 7. Encrypt and write checkpoint using SecureModelCheckpoint
+    # 8. Encrypt and write checkpoint using SecureModelCheckpoint
     SecureModelCheckpoint.save_checkpoint(
         state_dict=unified_tensors,
-        output_path=output_path,
+        output_path=resolved_path,
         key=key,
         chunk_bytes=chunk_bytes,
         key_id=key_id,
@@ -344,9 +641,13 @@ def save_training_checkpoint(
     )
 
 
+# ---------------------------------------------------------------------------
+# Training Checkpoint Restoration Engine (Strict & Transactional)
+# ---------------------------------------------------------------------------
+
 def load_training_checkpoint(
-    input_path: str,
-    model: nn.Module,
+    input_path: Optional[str] = None,
+    model: Optional[nn.Module] = None,
     optimizer: Optional[Optimizer] = None,
     scheduler: Optional[Any] = None,
     scaler: Optional[Any] = None,
@@ -356,19 +657,35 @@ def load_training_checkpoint(
     expected_signer_public_key: Optional[bytes] = None,
     device: Union[str, torch.device] = "cpu",
     restore_rng: bool = True,
+    strict: bool = True,
     limits: Optional[ResourceLimits] = None,
+    state_providers: Optional[List[SafeStateProvider]] = None,
+    checkpoint_path: Optional[str] = None,
 ) -> TrainingProgress:
     """Authenticate and restore a complete training checkpoint in-place with zero pickle.
+
+    Two-stage restoration design:
+    Stage A — Validate: Authenticates container and pre-validates model, optimizer,
+                        scheduler, scaler, and RNG metadata BEFORE mutating destination.
+    Stage B — Apply: Applies changes in-place with destination snapshots and full rollback
+                     protection if an unexpected error occurs during application.
 
     Returns:
         TrainingProgress metadata (global_step, epoch, loss, config).
     """
+    resolved_path = input_path or checkpoint_path
+    if not resolved_path:
+        raise ValueError("input_path (or checkpoint_path) must be specified.")
+    if model is None:
+        raise ValueError("model must be provided.")
     if key is None and key_provider is None:
         raise ValueError("Either 'key' (32 bytes) or 'key_provider' must be specified.")
 
-    # Load unified tensors and authenticated training manifest
+    # -----------------------------------------------------------------------
+    # STAGE A: Authentication and Compatibility Pre-Validation
+    # -----------------------------------------------------------------------
     restored_tensors, manifest_meta = SecureModelCheckpoint.load_checkpoint(
-        input_path=input_path,
+        input_path=resolved_path,
         key=key,
         device="cpu",
         target_model=None,
@@ -380,53 +697,109 @@ def load_training_checkpoint(
     )
 
     training_meta = manifest_meta.get("metadata", manifest_meta)
+    if not isinstance(training_meta, dict):
+        raise TrainingStateError("Corrupted checkpoint metadata: expected JSON object.")
 
-    # 2. In-place restore model parameters and buffers
-    name_to_param = dict(model.named_parameters())
-    name_to_buf = dict(model.named_buffers())
+    # Validate model parameters and buffers compatibility
+    validate_model_checkpoint(model=model, restored_tensors=restored_tensors, strict=strict)
 
-    for k, tensor in restored_tensors.items():
-        if k.startswith("model_param::"):
-            param_name = k[len("model_param::"):]
-            if param_name in name_to_param:
-                name_to_param[param_name].data.copy_(tensor.to(device=name_to_param[param_name].device))
-        elif k.startswith("model_buffer::"):
-            buf_name = k[len("model_buffer::"):]
-            if buf_name in name_to_buf:
-                name_to_buf[buf_name].copy_(tensor.to(device=name_to_buf[buf_name].device))
-
-    # 3. Restore optimizer state if provided
+    # Validate optimizer compatibility if provided
     if optimizer is not None and "optimizer" in training_meta and training_meta["optimizer"] is not None:
         opt_tensors = {k: v for k, v in restored_tensors.items() if k.startswith("opt::")}
-        restore_optimizer_state(
+        validate_optimizer_checkpoint(
             optimizer=optimizer,
             model=model,
             optimizer_tensors=opt_tensors,
             optimizer_meta=training_meta["optimizer"],
-            device=device,
+            strict=strict,
         )
 
-    # 4. Restore scheduler state if provided
+    # Validate scheduler & scaler metadata
     if scheduler is not None and "scheduler" in training_meta and training_meta["scheduler"] is not None:
-        sched_state = training_meta["scheduler"]
-        try:
-            scheduler.load_state_dict(sched_state)
-        except Exception as exc:
-            raise TrainingStateError(f"Failed to restore scheduler state: {exc}") from exc
+        validate_safe_metadata(training_meta["scheduler"], path="checkpoint.scheduler")
 
-    # 5. Restore gradient scaler state if provided
     if scaler is not None and "scaler" in training_meta and training_meta["scaler"] is not None:
-        scaler_state = training_meta["scaler"]
-        try:
-            scaler.load_state_dict(scaler_state)
-        except Exception as exc:
-            raise TrainingStateError(f"Failed to restore gradient scaler state: {exc}") from exc
+        validate_safe_metadata(training_meta["scaler"], path="checkpoint.scaler")
 
-    # 6. Restore RNG state if requested
-    if restore_rng and "rng" in training_meta and training_meta["rng"] is not None:
-        restore_all_rng(training_meta["rng"])
+    # -----------------------------------------------------------------------
+    # STAGE B: Transactional Application with Rollback Protection
+    # -----------------------------------------------------------------------
+    model_snapshot = _snapshot_model(model)
+    opt_snapshot = _snapshot_optimizer(optimizer) if optimizer is not None else None
+    sched_snapshot = _snapshot_scheduler(scheduler)
+    scaler_snapshot = _snapshot_scaler(scaler)
+    rng_snapshot = serialize_all_rng() if restore_rng else None
 
-    # 7. Return progress metadata
+    name_to_param = dict(model.named_parameters())
+    name_to_buf = dict(model.named_buffers())
+
+    try:
+        # 1. Restore model parameters and buffers
+        for k, tensor in restored_tensors.items():
+            if k.startswith("model_param::"):
+                param_name = k[len("model_param::"):]
+                if param_name in name_to_param:
+                    target_param = name_to_param[param_name]
+                    target_param.data.copy_(tensor.to(device=target_param.device))
+            elif k.startswith("model_buffer::"):
+                buf_name = k[len("model_buffer::"):]
+                if buf_name in name_to_buf:
+                    target_buf = name_to_buf[buf_name]
+                    target_buf.copy_(tensor.to(device=target_buf.device))
+
+        # 2. Restore optimizer state if provided
+        if optimizer is not None and "optimizer" in training_meta and training_meta["optimizer"] is not None:
+            opt_tensors = {k: v for k, v in restored_tensors.items() if k.startswith("opt::")}
+            restore_optimizer_state(
+                optimizer=optimizer,
+                model=model,
+                optimizer_tensors=opt_tensors,
+                optimizer_meta=training_meta["optimizer"],
+                device=device,
+            )
+
+        # 3. Restore scheduler state if provided
+        if scheduler is not None and "scheduler" in training_meta and training_meta["scheduler"] is not None:
+            sched_state = training_meta["scheduler"]
+            try:
+                scheduler.load_state_dict(sched_state)
+            except Exception as exc:
+                raise TrainingStateError(f"Failed to restore scheduler state: {exc}") from exc
+
+        # 4. Restore gradient scaler state if provided
+        if scaler is not None and "scaler" in training_meta and training_meta["scaler"] is not None:
+            scaler_state = training_meta["scaler"]
+            try:
+                scaler.load_state_dict(scaler_state)
+            except Exception as exc:
+                raise TrainingStateError(f"Failed to restore gradient scaler state: {exc}") from exc
+
+        # 5. Restore auxiliary safe state providers if provided
+        if state_providers and "state_providers" in training_meta and training_meta["state_providers"]:
+            prov_dict = training_meta["state_providers"]
+            for sp in state_providers:
+                sp_key = sp.get_state_key()
+                if sp_key in prov_dict:
+                    sp.restore_state(prov_dict[sp_key])
+
+        # 6. Restore RNG states ONLY after model, optimizer, scheduler, scaler succeed
+        if restore_rng and "rng" in training_meta and training_meta["rng"] is not None:
+            restore_all_rng(training_meta["rng"])
+
+    except Exception as exc:
+        # Atomic Rollback: revert model, optimizer, scheduler, scaler, and RNG to initial state
+        _rollback_model(model, model_snapshot)
+        if optimizer is not None and opt_snapshot is not None:
+            _rollback_optimizer(optimizer, opt_snapshot)
+        if scheduler is not None and sched_snapshot is not None:
+            _rollback_scheduler(scheduler, sched_snapshot)
+        if scaler is not None and scaler_snapshot is not None:
+            _rollback_scaler(scaler, scaler_snapshot)
+        if restore_rng and rng_snapshot is not None:
+            restore_all_rng(rng_snapshot)
+        raise TrainingStateError(f"Restoration failed; rolled back all state mutations: {exc}") from exc
+
+    # Return structured progress metadata
     return TrainingProgress(
         global_step=training_meta.get("global_step", 0),
         epoch=training_meta.get("epoch", 0),
@@ -437,13 +810,18 @@ def load_training_checkpoint(
     )
 
 
+# ---------------------------------------------------------------------------
+# Training Checkpoint Header & Metadata Inspector
+# ---------------------------------------------------------------------------
+
 def inspect_training_checkpoint(
-    input_path: str,
+    input_path: Optional[str] = None,
     key: Optional[bytes] = None,
     key_provider: Optional[KeyProvider] = None,
     encryption_context: Optional[Dict[str, str]] = None,
     expected_signer_public_key: Optional[bytes] = None,
     limits: Optional[ResourceLimits] = None,
+    checkpoint_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Inspect an TorchShield training checkpoint header and optional authenticated metadata.
 
@@ -453,15 +831,18 @@ def inspect_training_checkpoint(
     If no key is provided, extracts unauthenticated container headers (format, version,
     artifact ID, key ID, wrapped key size, file size) without requiring cryptographic credentials.
     """
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Checkpoint file not found: {input_path}")
+    resolved_path = input_path or checkpoint_path
+    if not resolved_path:
+        raise ValueError("input_path (or checkpoint_path) must be specified.")
+    if not os.path.exists(resolved_path):
+        raise FileNotFoundError(f"Checkpoint file not found: {resolved_path}")
 
-    file_size = os.path.getsize(input_path)
+    file_size = os.path.getsize(resolved_path)
     lim = limits or ResourceLimits()
     if file_size > lim.max_file_size:
         raise CheckpointError(f"File size {file_size} exceeds maximum limit {lim.max_file_size}.")
 
-    with open(input_path, "rb") as f:
+    with open(resolved_path, "rb") as f:
         magic = f.read(8)
         if magic == SecureModelCheckpoint.MAGIC_V5:
             ver_bytes = f.read(1)
@@ -557,7 +938,6 @@ def inspect_training_checkpoint(
                     except InvalidSignature as exc:
                         raise CheckpointError("Checkpoint Ed25519 digital signature verification failed.") from exc
 
-                # Check chunk bounds consistency against remaining file size
                 expected_chunk_bytes = sum(c.get("ciphertext_len", 0) for c in manifest.get("chunks", []))
                 if f.tell() + expected_chunk_bytes > file_size:
                     raise CheckpointError(
@@ -658,4 +1038,3 @@ def inspect_training_checkpoint(
             return info
         else:
             raise CheckpointError(f"Not a valid TorchShield secure model checkpoint (magic={magic!r}).")
-

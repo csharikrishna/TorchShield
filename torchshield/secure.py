@@ -7,9 +7,9 @@ cryptographic primitive, and it does not call the TorchShield engine at all.
 
 Envelope wire format::
 
-    magic (8 bytes) || version (1 byte) || nonce (12 bytes) || ciphertext || tag (16 bytes)
+    magic (15 bytes: b"TorchShieldSEAL") || version (1 byte) || nonce (12 bytes) || ciphertext || tag (16 bytes)
 
-The fixed header, nonce, and caller-supplied associated data are authenticated.
+The fixed header (16 bytes), nonce, and caller-supplied associated data are authenticated.
 A fresh 96-bit nonce is generated for every encryption. Callers must still
 manage key lifetime and rotate keys before encrypting an excessive number of
 messages under one key.
@@ -42,7 +42,7 @@ class AESGCMEnvelope:
     the key. Do not reuse a key/nonce pair.
     """
 
-    MAGIC = b"TorchShieldSEAL"  # 8 bytes; envelope format branding only, not TorchShield encryption.
+    MAGIC = b"TorchShieldSEAL"  # 15 bytes; envelope format branding only, not TorchShield encryption.
     VERSION = 1
     HEADER = MAGIC + bytes([VERSION])
     NONCE_SIZE = 12

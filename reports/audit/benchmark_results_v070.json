@@ -1,0 +1,52 @@
+{
+  "timestamp": 1793178487.266072,
+  "platform": {
+    "os": "Windows 11",
+    "machine": "AMD64",
+    "python": "3.12.10",
+    "pytorch": "2.5.1+cu121",
+    "cuda_available": true,
+    "gpu_device": "NVIDIA GeForce GTX 1650"
+  },
+  "aead": {
+    "64KB": {
+      "chunk_bytes": 65536,
+      "encrypt_mb_s": 3583.33,
+      "decrypt_mb_s": 3641.89
+    },
+    "1MB": {
+      "chunk_bytes": 1048576,
+      "encrypt_mb_s": 1450.75,
+      "decrypt_mb_s": 1474.53
+    },
+    "4MB": {
+      "chunk_bytes": 4194304,
+      "encrypt_mb_s": 1528.48,
+      "decrypt_mb_s": 1496.43
+    },
+    "16MB": {
+      "chunk_bytes": 16777216,
+      "encrypt_mb_s": 1515.69,
+      "decrypt_mb_s": 1720.04
+    }
+  },
+  "checkpoint_pipeline": {
+    "model_payload_mb": 48.0,
+    "save": {
+      "time_seconds": 0.3466,
+      "throughput_mb_s": 138.47,
+      "peak_ram_delta_mb": 33.77,
+      "file_size_mb": 48.0
+    },
+    "load_cpu": {
+      "time_seconds": 0.2134,
+      "throughput_mb_s": 224.96,
+      "peak_ram_delta_mb": 48.07
+    },
+    "load_cuda": {
+      "time_seconds": 0.3853,
+      "throughput_mb_s": 124.57,
+      "device": "NVIDIA GeForce GTX 1650"
+    }
+  }
+}

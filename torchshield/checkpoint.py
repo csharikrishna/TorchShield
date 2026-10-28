@@ -308,8 +308,8 @@ class SecureModelCheckpoint:
     @classmethod
     def save_checkpoint(
         cls,
-        state_dict: Dict[str, torch.Tensor],
-        output_path: str,
+        state_dict: Union[Dict[str, torch.Tensor], nn.Module],
+        output_path: Optional[str] = None,
         key: Optional[bytes] = None,
         chunk_bytes: int = 4 * 1024 * 1024,  # 4 MiB chunks
         key_id: str = "",
@@ -319,12 +319,20 @@ class SecureModelCheckpoint:
         key_provider: Optional[KeyProvider] = None,
         encryption_context: Optional[Dict[str, str]] = None,
         signer_private_key: Optional[bytes] = None,
+        checkpoint_path: Optional[str] = None,
     ) -> None:
         """Encrypt and serialize a model state dict with chunked authenticated envelopes.
         
         Performs atomic file writing via temporary staging and fsync.
         Supports Version 4 and Version 5 (KMS envelope, metadata, and Ed25519 signatures).
         """
+        if output_path is None and checkpoint_path is not None:
+            output_path = checkpoint_path
+        if output_path is None:
+            raise ValueError("output_path or checkpoint_path must be specified.")
+        if isinstance(state_dict, nn.Module):
+            state_dict = state_dict.state_dict()
+
         limits = limits or DEFAULT_LIMITS
 
         if (
@@ -939,9 +947,72 @@ class SecureModelCheckpoint:
             raise
 
     @classmethod
+    def save_model(
+        cls,
+        model: Union[nn.Module, Dict[str, torch.Tensor]],
+        output_path: Optional[str] = None,
+        key: Optional[bytes] = None,
+        checkpoint_path: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """Alias for save_checkpoint accepting either an nn.Module or state_dict."""
+        path = output_path if output_path is not None else checkpoint_path
+        return cls.save_checkpoint(model, output_path=path, key=key, **kwargs)
+
+    @classmethod
+    def load_model(
+        cls,
+        input_path: Optional[str] = None,
+        target_model: Optional[nn.Module] = None,
+        key: Optional[bytes] = None,
+        device: Union[str, torch.device] = "cpu",
+        checkpoint_path: Optional[str] = None,
+        key_bytes: Optional[bytes] = None,
+        strict: bool = True,
+        model: Optional[nn.Module] = None,
+        **kwargs,
+    ) -> Union[nn.Module, Dict[str, torch.Tensor]]:
+        """Alias for load_checkpoint restoring weights into model."""
+        target = target_model if target_model is not None else model
+        path = input_path if input_path is not None else checkpoint_path
+        resolved_key = key if key is not None else key_bytes
+        res = cls.load_checkpoint(
+            input_path=path,
+            key=resolved_key,
+            device=device,
+            target_model=target,
+            strict=strict,
+            **kwargs,
+        )
+        if target is not None:
+            return target
+        return res
+
+    @classmethod
+    def load_tensor(
+        cls,
+        input_path: Optional[str] = None,
+        layer_name: str = "",
+        key: Optional[bytes] = None,
+        device: Union[str, torch.device] = "cpu",
+        checkpoint_path: Optional[str] = None,
+        key_bytes: Optional[bytes] = None,
+        **kwargs,
+    ) -> torch.Tensor:
+        """Load and authenticate a specific tensor/layer from checkpoint."""
+        path = input_path if input_path is not None else checkpoint_path
+        resolved_key = key if key is not None else key_bytes
+        state = cls.load_checkpoint(path, key=resolved_key, device=device, **kwargs)
+        if isinstance(state, tuple):
+            state = state[0]
+        if layer_name not in state:
+            raise KeyError(f"Layer '{layer_name}' not found in checkpoint. Available layers: {list(state.keys())}")
+        return state[layer_name]
+
+    @classmethod
     def load_checkpoint(
         cls,
-        input_path: str,
+        input_path: Optional[str] = None,
         key: Optional[bytes] = None,
         device: Union[str, torch.device] = "cpu",
         target_model: Optional[nn.Module] = None,
@@ -950,6 +1021,9 @@ class SecureModelCheckpoint:
         key_provider: Optional[KeyProvider] = None,
         encryption_context: Optional[Dict[str, str]] = None,
         expected_signer_public_key: Optional[bytes] = None,
+        checkpoint_path: Optional[str] = None,
+        key_bytes: Optional[bytes] = None,
+        strict: bool = True,
     ) -> Union[Dict[str, torch.Tensor], Tuple[Dict[str, torch.Tensor], dict]]:
         """Authenticate manifest and stream-decrypt model layers.
         
@@ -957,6 +1031,13 @@ class SecureModelCheckpoint:
         Version 4 (Hardened), Version 2 (Legacy), and Version 1 formats.
         Fail-closed: raises CheckpointError on any authentication or integrity failure.
         """
+        if input_path is None and checkpoint_path is not None:
+            input_path = checkpoint_path
+        if input_path is None:
+            raise ValueError("input_path or checkpoint_path must be specified.")
+        if key is None and key_bytes is not None:
+            key = key_bytes
+
         limits = limits or DEFAULT_LIMITS
         if key is not None and len(key) != 32:
             raise ValueError("AES-256 key must be exactly 32 bytes.")

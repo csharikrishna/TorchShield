@@ -96,14 +96,16 @@ def build_global_inventory(
     world_size: int,
     epoch: int = 0,
     signer_private_key: Optional[bytes] = None,
+    limits: Optional[ResourceLimits] = None,
 ) -> str:
     """Scan and cryptographically seal the global inventory manifest across all rank shards.
 
-    Fail-closed: all world_size shards must be present on disk.
+    Fail-closed: all world_size shards must be present on disk, non-symlinks, within bounds.
     """
     if world_size <= 0:
         raise ValueError("world_size must be positive.")
 
+    max_file_size = limits.max_file_size if limits else 128 * 1024 * 1024 * 1024
     shards_catalog: List[Dict[str, Any]] = []
 
     for rank in range(world_size):
@@ -113,8 +115,15 @@ def build_global_inventory(
             raise DistributedCheckpointError(
                 f"Missing shard for rank {rank} of {world_size}: expected '{filename}'."
             )
+        if os.path.islink(path):
+            raise DistributedCheckpointError(
+                f"Symlink detected for shard '{filename}'. Symlinks are strictly prohibited."
+            )
 
         file_size = os.path.getsize(path)
+        if file_size > max_file_size:
+            raise DistributedCheckpointError(f"Shard '{filename}' exceeds maximum file size {max_file_size}.")
+
         sha256 = hashlib.sha256()
         with open(path, "rb") as f:
             while chunk := f.read(1024 * 1024):
@@ -175,15 +184,24 @@ def verify_sharded_checkpoint(
     checkpoint_dir: str,
     expected_signer_public_key: Optional[bytes] = None,
     ledger: Optional[FreshnessLedger] = None,
+    limits: Optional[ResourceLimits] = None,
 ) -> Dict[str, Any]:
     """Verify inventory completeness, hashes, signatures, and freshness of a sharded checkpoint."""
     manifest_path = os.path.join(checkpoint_dir, "global_manifest.json")
     if not os.path.exists(manifest_path):
         raise DistributedCheckpointError(f"Missing global manifest: '{manifest_path}'.")
+    if os.path.islink(manifest_path):
+        raise DistributedCheckpointError("Symlink detected for global_manifest.json. Symlinks are strictly prohibited.")
+
+    max_manifest_bytes = limits.max_manifest_bytes if limits else 16 * 1024 * 1024
+    actual_manifest_bytes = os.path.getsize(manifest_path)
+    if actual_manifest_bytes > max_manifest_bytes:
+        raise DistributedCheckpointError(f"Global manifest size {actual_manifest_bytes} exceeds limit {max_manifest_bytes}.")
 
     with open(manifest_path, "rb") as f:
         try:
-            manifest = json.loads(f.read().decode("utf-8"))
+            from torchshield.checkpoint import _strict_json_loads
+            manifest = _strict_json_loads(f.read())
         except Exception as exc:
             raise DistributedCheckpointError(f"Malformed global manifest JSON: {exc}") from exc
 
@@ -225,7 +243,7 @@ def verify_sharded_checkpoint(
             epoch=manifest["epoch"],
         )
 
-    # Shard completeness and integrity
+    # Shard completeness, uniqueness, path traversal check, and integrity
     world_size = manifest["world_size"]
     shards = manifest["shards"]
     if len(shards) != world_size:
@@ -233,17 +251,44 @@ def verify_sharded_checkpoint(
             f"Shard count mismatch: expected {world_size}, found {len(shards)}."
         )
 
+    seen_ranks: Set[int] = set()
+    max_file_size = limits.max_file_size if limits else 128 * 1024 * 1024 * 1024
+
     for shard_record in shards:
-        rank = shard_record["rank"]
-        filename = shard_record["filename"]
+        rank = shard_record.get("rank")
+        if not isinstance(rank, int) or rank < 0 or rank >= world_size:
+            raise DistributedCheckpointError(f"Invalid rank index {rank} for world_size {world_size}.")
+        if rank in seen_ranks:
+            raise DistributedCheckpointError(f"Duplicate rank index detected in shards: {rank}.")
+        seen_ranks.add(rank)
+
+        filename = shard_record.get("filename")
+        if not filename or not isinstance(filename, str):
+            raise DistributedCheckpointError(f"Invalid shard filename for rank {rank}.")
+
+        # Path traversal and symlink rejection
+        base_name = os.path.basename(filename)
+        if filename != base_name or ".." in filename or "/" in filename or "\\" in filename:
+            raise DistributedCheckpointError(f"Path traversal detected in shard filename: {filename!r}")
+
+        expected_filename = get_shard_filename(rank, world_size)
+        if filename != expected_filename:
+            raise DistributedCheckpointError(
+                f"Shard filename mismatch for rank {rank}: expected '{expected_filename}', got '{filename}'"
+            )
+
         expected_size = shard_record["size_bytes"]
         expected_sha256 = shard_record["sha256"]
 
         path = os.path.join(checkpoint_dir, filename)
         if not os.path.exists(path):
             raise DistributedCheckpointError(f"Missing shard file for rank {rank}: '{filename}'.")
+        if os.path.islink(path):
+            raise DistributedCheckpointError(f"Symlink detected for shard '{filename}'. Symlinks are strictly prohibited.")
 
         actual_size = os.path.getsize(path)
+        if actual_size > max_file_size:
+            raise DistributedCheckpointError(f"Shard '{filename}' size {actual_size} exceeds limit {max_file_size}.")
         if actual_size != expected_size:
             raise DistributedCheckpointError(
                 f"File size mismatch for shard '{filename}': {actual_size} != {expected_size}."
@@ -255,6 +300,9 @@ def verify_sharded_checkpoint(
                 sha.update(chunk)
         if sha.hexdigest() != expected_sha256:
             raise DistributedCheckpointError(f"SHA-256 mismatch for shard '{filename}'.")
+
+    if seen_ranks != set(range(world_size)):
+        raise DistributedCheckpointError(f"Missing rank shards: expected all ranks 0..{world_size-1}, found {seen_ranks}")
 
     return manifest
 
@@ -276,6 +324,7 @@ def load_sharded_checkpoint(
         checkpoint_dir=checkpoint_dir,
         expected_signer_public_key=expected_signer_public_key,
         ledger=ledger,
+        limits=limits,
     )
 
     if manifest["world_size"] != world_size:

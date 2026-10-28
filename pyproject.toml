@@ -13,6 +13,9 @@ dependencies = ["torch>=2.0.0", "cryptography>=42.0", "numpy>=1.24.0"]
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
 aws = ["boto3>=1.28.0"]
+gcp = ["google-cloud-kms>=2.14.0"]
+azure = ["azure-keyvault-keys>=4.7.0", "azure-identity>=1.12.0"]
+vault = ["hvac>=1.1.0"]
 
 [project.scripts]
 torchshield = "torchshield.cli:main"
@@ -21,3 +24,7 @@ torchshield-cli = "torchshield.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["torchshield*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["archives*", "build", "dist", ".git", ".pytest_cache", "venv"]

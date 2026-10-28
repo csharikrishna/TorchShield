@@ -97,3 +97,6 @@ class LocalDevKeyProvider(KeyProvider):
             return cipher.decrypt(nonce, ciphertext, aad)
         except Exception as exc:
             raise KeyProviderError("Failed to unwrap DEK: tag mismatch or wrong context.") from exc
+
+
+LocalKeyProvider = LocalDevKeyProvider

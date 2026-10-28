@@ -684,6 +684,192 @@ class SQLiteFreshnessBackend(FreshnessBackend):
                 raise
 
 
+class EtcdFreshnessBackend(FreshnessBackend):
+    """Production quorum-backed external freshness backend integrated with etcd consensus.
+
+    Uses etcd's transactional compare-and-swap (CAS) primitives and revision numbers
+    to guarantee atomic monotonic progression across multi-node distributed clusters.
+    Fails closed if the etcd consensus cluster is unreachable or partitions.
+    """
+
+    def __init__(
+        self,
+        key_prefix: str = "/torchshield/freshness/",
+        client: Optional[Any] = None,
+        host: str = "localhost",
+        port: int = 2379,
+        ca_cert: Optional[str] = None,
+        cert_key: Optional[str] = None,
+        cert_cert: Optional[str] = None,
+        timeout: float = 5.0,
+    ):
+        self.key_prefix = key_prefix
+        self.timeout = timeout
+        if client is not None:
+            self._client = client
+        else:
+            try:
+                import etcd3
+                client_kwargs: Dict[str, Any] = {"host": host, "port": port, "timeout": timeout}
+                if ca_cert:
+                    client_kwargs["ca_cert"] = ca_cert
+                    client_kwargs["cert_key"] = cert_key
+                    client_kwargs["cert_cert"] = cert_cert
+                self._client = etcd3.client(**client_kwargs)
+            except ImportError as exc:
+                raise ImportError(
+                    "etcd3 is required to use EtcdFreshnessBackend. Install via `pip install etcd3`."
+                ) from exc
+            except Exception as exc:
+                raise FreshnessServiceUnavailableError(f"Failed to connect to etcd cluster: {exc}") from exc
+
+    @property
+    def is_external_trusted(self) -> bool:
+        return True
+
+    def _key_for_run(self, run_id: str) -> str:
+        return f"{self.key_prefix.rstrip('/')}/{run_id}"
+
+    def get_record(self, run_id: str) -> Optional[FreshnessRecord]:
+        key = self._key_for_run(run_id)
+        try:
+            value, meta = self._client.get(key)
+        except Exception as exc:
+            raise FreshnessServiceUnavailableError(f"Failed to query etcd for run '{run_id}': {exc}") from exc
+
+        if value is None:
+            return None
+        try:
+            data = json.loads(value.decode("utf-8") if isinstance(value, bytes) else str(value))
+            data["run_id"] = run_id
+            if meta and hasattr(meta, "version"):
+                data["version"] = meta.version
+            return FreshnessRecord.from_dict(data)
+        except Exception as exc:
+            raise RollbackError(f"Malformed freshness payload in etcd for key '{key}': {exc}") from exc
+
+    def check_freshness(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> bool:
+        rec = self.get_record(run_id)
+        if rec is None:
+            return True
+        if step < rec.max_step:
+            raise RollbackError(
+                f"Rollback attack detected in etcd quorum for run '{run_id}': incoming step {step} < "
+                f"highest quorum-recorded step {rec.max_step}."
+            )
+        if step == rec.max_step and epoch < rec.max_epoch:
+            raise RollbackError(
+                f"Rollback attack detected in etcd quorum for run '{run_id}': incoming epoch {epoch} < "
+                f"highest quorum-recorded epoch {rec.max_epoch} at step {step}."
+            )
+        return True
+
+    def advance(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+        expected_version: Optional[int] = None,
+        recovery_token: Optional[str] = None,
+    ) -> FreshnessRecord:
+        key = self._key_for_run(run_id)
+        try:
+            value, meta = self._client.get(key)
+        except Exception as exc:
+            raise FreshnessServiceUnavailableError(f"Failed to access etcd cluster: {exc}") from exc
+
+        current_ver = 0
+        if value is not None:
+            try:
+                rec_dict = json.loads(value.decode("utf-8") if isinstance(value, bytes) else str(value))
+            except Exception as exc:
+                raise RollbackError(f"Corrupted etcd freshness record for key '{key}': {exc}") from exc
+
+            cur_step = rec_dict.get("max_step", 0)
+            cur_epoch = rec_dict.get("max_epoch", 0)
+            current_ver = meta.version if meta and hasattr(meta, "version") else rec_dict.get("version", 1)
+
+            if expected_version is not None and current_ver != expected_version:
+                raise RollbackError(
+                    f"Etcd CAS conflict on run '{run_id}': expected version {expected_version}, got {current_ver}."
+                )
+            if step < cur_step:
+                raise RollbackError(
+                    f"Rollback attack rejected by etcd quorum for run '{run_id}': incoming step {step} < {cur_step}."
+                )
+            if step == cur_step and epoch < cur_epoch:
+                raise RollbackError(
+                    f"Rollback attack rejected by etcd quorum for run '{run_id}': incoming epoch {epoch} < {cur_epoch} at step {step}."
+                )
+
+        new_record = FreshnessRecord(
+            run_id=run_id,
+            max_step=step,
+            max_epoch=epoch,
+            latest_artifact_id=artifact_id,
+            version=current_ver + 1,
+            updated_at=time.time(),
+        )
+        payload = json.dumps(new_record.to_dict(), sort_keys=True)
+
+        try:
+            if hasattr(self._client, "transaction"):
+                if value is None:
+                    status, _ = self._client.transaction(
+                        compare=[self._client.transactions.version(key) == 0],
+                        success=[self._client.transactions.put(key, payload)],
+                        failure=[],
+                    )
+                else:
+                    status, _ = self._client.transaction(
+                        compare=[self._client.transactions.version(key) == current_ver],
+                        success=[self._client.transactions.put(key, payload)],
+                        failure=[],
+                    )
+                if not status:
+                    raise RollbackError(f"Concurrent writer conflict in etcd quorum for run '{run_id}'.")
+            else:
+                self._client.put(key, payload)
+        except RollbackError:
+            raise
+        except Exception as exc:
+            raise FreshnessServiceUnavailableError(f"Etcd transaction failed: {exc}") from exc
+
+        return new_record
+
+    def begin_update(
+        self,
+        run_id: str,
+        step: int,
+        epoch: int = 0,
+        artifact_id: str = "",
+    ) -> str:
+        self.check_freshness(run_id, step, epoch, artifact_id)
+        token = secrets.token_hex(16)
+        key = f"{self._key_for_run(run_id)}/recovery_token"
+        try:
+            self._client.put(key, token)
+        except Exception as exc:
+            raise FreshnessServiceUnavailableError(f"Failed to record pending token in etcd: {exc}") from exc
+        return token
+
+    def abort_update(self, run_id: str, recovery_token: str) -> None:
+        key = f"{self._key_for_run(run_id)}/recovery_token"
+        try:
+            val, _ = self._client.get(key)
+            if val is not None and (val.decode("utf-8") if isinstance(val, bytes) else str(val)) == recovery_token:
+                self._client.delete(key)
+        except Exception as exc:
+            logger.warning("Failed to abort update token in etcd: %s", exc)
+
+
 # ===========================================================================
 # 4. FreshnessLedger Wrapper
 # ===========================================================================

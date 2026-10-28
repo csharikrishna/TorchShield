@@ -1,0 +1,463 @@
+"""Tests for Phase One: Strict Model Validation, Transactional Restoration, Rollback Protection, and SafeStateProvider."""
+import copy
+import os
+import tempfile
+import pytest
+import torch
+import torch.nn as nn
+from torch.optim import AdamW, SGD
+
+from torchshield.training_state import (
+    save_training_checkpoint,
+    load_training_checkpoint,
+    TrainingProgress,
+    TrainingStateError,
+    SafeStateProvider,
+    validate_model_checkpoint,
+    validate_optimizer_checkpoint,
+    validate_safe_metadata,
+)
+from torchshield.checkpoint import SecureModelCheckpoint
+
+
+class NetA(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(4, 8)
+        self.bn = nn.BatchNorm1d(8)
+        self.fc2 = nn.Linear(8, 2)
+
+    def forward(self, x):
+        return self.fc2(torch.relu(self.bn(self.fc1(x))))
+
+
+class NetB_ExtraParam(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(4, 8)
+        self.bn = nn.BatchNorm1d(8)
+        self.fc2 = nn.Linear(8, 2)
+        self.extra = nn.Linear(2, 2)
+
+    def forward(self, x):
+        return self.extra(self.fc2(torch.relu(self.bn(self.fc1(x)))))
+
+
+class NetC_ShapeMismatch(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(4, 16)  # 16 instead of 8
+        self.bn = nn.BatchNorm1d(16)
+        self.fc2 = nn.Linear(16, 2)
+
+    def forward(self, x):
+        return self.fc2(torch.relu(self.bn(self.fc1(x))))
+
+
+def test_strict_validation_missing_and_unexpected_parameters():
+    key = os.urandom(32)
+    model = NetA()
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(checkpoint_path=path, model=model, key=key)
+
+        # 1. Loading into NetB_ExtraParam has missing param for NetB in strict mode
+        net_b = NetB_ExtraParam()
+        with pytest.raises(TrainingStateError, match="missing .* model parameter"):
+            load_training_checkpoint(checkpoint_path=path, model=net_b, key=key, strict=True)
+
+        # In flexible mode (strict=False), loading succeeds for existing params
+        prog = load_training_checkpoint(checkpoint_path=path, model=net_b, key=key, strict=False)
+        assert prog.global_step == 0
+
+        # 2. Saving from NetB and loading into NetA causes unexpected parameter error in strict mode
+        with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp2:
+            path_b = tmp2.name
+        try:
+            save_training_checkpoint(output_path=path_b, model=net_b, key=key)
+            net_a_dest = NetA()
+            with pytest.raises(TrainingStateError, match="unexpected .* parameter"):
+                load_training_checkpoint(input_path=path_b, model=net_a_dest, key=key, strict=True)
+            # Flexible mode succeeds
+            load_training_checkpoint(input_path=path_b, model=net_a_dest, key=key, strict=False)
+        finally:
+            if os.path.exists(path_b):
+                os.remove(path_b)
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_strict_validation_shape_and_dtype_mismatches():
+    key = os.urandom(32)
+    model = NetA()
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(output_path=path, model=model, key=key)
+
+        # Destination model has different shape for fc1
+        mismatched_model = NetC_ShapeMismatch()
+        with pytest.raises(TrainingStateError, match="Shape mismatch for parameter"):
+            load_training_checkpoint(input_path=path, model=mismatched_model, key=key, strict=True)
+
+        # Shape mismatch must fail even if strict=False
+        with pytest.raises(TrainingStateError, match="Shape mismatch for parameter"):
+            load_training_checkpoint(input_path=path, model=mismatched_model, key=key, strict=False)
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_strict_optimizer_validation():
+    key = os.urandom(32)
+    model = NetA()
+    opt = AdamW(model.parameters(), lr=1e-3)
+    # Populate moments
+    x = torch.randn(2, 4)
+    loss = model(x).sum()
+    loss.backward()
+    opt.step()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(output_path=path, model=model, optimizer=opt, key=key)
+
+        # 1. Type mismatch: AdamW checkpoint into SGD optimizer
+        sgd_opt = SGD(model.parameters(), lr=1e-3)
+        with pytest.raises(TrainingStateError, match="Optimizer type mismatch"):
+            load_training_checkpoint(input_path=path, model=model, optimizer=sgd_opt, key=key, strict=True)
+
+        # 2. Param groups mismatch
+        multi_group_opt = AdamW([
+            {"params": [model.fc1.weight, model.fc1.bias], "lr": 1e-3},
+            {"params": [model.fc2.weight, model.fc2.bias], "lr": 1e-4},
+        ])
+        with pytest.raises(TrainingStateError, match="Parameter group count mismatch"):
+            load_training_checkpoint(input_path=path, model=model, optimizer=multi_group_opt, key=key, strict=True)
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_transactional_restoration_rollback_on_injected_error(monkeypatch):
+    key = os.urandom(32)
+    model_orig = NetA()
+    opt_orig = AdamW(model_orig.parameters(), lr=1e-2)
+    for _ in range(2):
+        opt_orig.zero_grad()
+        loss = model_orig(torch.randn(2, 4)).sum()
+        loss.backward()
+        opt_orig.step()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(output_path=path, model=model_orig, optimizer=opt_orig, key=key)
+
+        # Target model initialized with different random weights
+        target_model = NetA()
+        with torch.no_grad():
+            for p in target_model.parameters():
+                p.fill_(999.0)
+            for b in target_model.buffers():
+                b.fill_(888.0)
+        target_opt = AdamW(target_model.parameters(), lr=1e-4)
+
+        # Snapshot initial values
+        init_weights = {n: p.clone() for n, p in target_model.named_parameters()}
+        init_buffers = {n: b.clone() for n, b in target_model.named_buffers()}
+
+        # Inject failure during Stage B (e.g. simulated failure in restore_optimizer_state)
+        def faulty_restore_optimizer(*args, **kwargs):
+            raise RuntimeError("Injected simulated crash during optimizer state restore!")
+
+        import torchshield.training_state
+        monkeypatch.setattr(torchshield.training_state, "restore_optimizer_state", faulty_restore_optimizer)
+
+        with pytest.raises(TrainingStateError, match="Restoration failed; rolled back"):
+            load_training_checkpoint(input_path=path, model=target_model, optimizer=target_opt, key=key)
+
+        # Verify rollback succeeded: destination model weights and buffers are unchanged!
+        for n, p in target_model.named_parameters():
+            assert torch.equal(p, init_weights[n]), f"Parameter {n} was not rolled back!"
+        for n, b in target_model.named_buffers():
+            assert torch.equal(b, init_buffers[n]), f"Buffer {n} was not rolled back!"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_safe_metadata_validation():
+    # Valid primitives and nested containers
+    valid_meta = {
+        "step": 10,
+        "lr": 0.001,
+        "name": "run_1",
+        "nested": {"layers": [1, 2, 3], "flag": True, "empty": None},
+    }
+    validate_safe_metadata(valid_meta)
+
+    # Reject non-finite floats
+    with pytest.raises(TrainingStateError, match="Non-finite float"):
+        validate_safe_metadata({"bad_float": float("nan")})
+
+    with pytest.raises(TrainingStateError, match="Non-finite float"):
+        validate_safe_metadata({"bad_float": float("inf")})
+
+    # Reject arbitrary Python objects
+    class ArbitraryClass:
+        pass
+
+    with pytest.raises(TrainingStateError, match="Unsafe or non-serializable object"):
+        validate_safe_metadata({"arbitrary": ArbitraryClass()})
+
+    with pytest.raises(TrainingStateError, match="Unsafe or non-serializable object"):
+        validate_safe_metadata({"callable": lambda x: x})
+
+
+class CustomStateTracker(SafeStateProvider):
+    def __init__(self, initial_count: int = 0):
+        self.count = initial_count
+
+    def get_state_key(self) -> str:
+        return "custom_tracker"
+
+    def capture_state(self):
+        return {"count": self.count}
+
+    def restore_state(self, state):
+        self.count = state["count"]
+
+
+def test_safe_state_provider_roundtrip():
+    key = os.urandom(32)
+    model = NetA()
+    tracker_save = CustomStateTracker(initial_count=42)
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            key=key,
+            state_providers=[tracker_save],
+        )
+
+        dest_model = NetA()
+        tracker_load = CustomStateTracker(initial_count=0)
+
+        load_training_checkpoint(
+            input_path=path,
+            model=dest_model,
+            key=key,
+            state_providers=[tracker_load],
+        )
+
+        assert tracker_load.count == 42
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_comprehensive_transactional_rollback_across_all_components(monkeypatch):
+    """Verify that staged failures during restoration trigger full atomic rollback of
+    model, optimizer, scheduler, scaler, and all RNG state generators.
+    """
+    import random
+    import numpy as np
+
+    key = os.urandom(32)
+    model = NetA()
+    optimizer = AdamW(model.parameters(), lr=0.05)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.5)
+    scaler = torch.amp.GradScaler('cpu')
+
+    # Step to advance optimizer, scheduler, scaler, and RNG
+    random.seed(111)
+    np.random.seed(222)
+    torch.manual_seed(333)
+
+    x = torch.randn(2, 4)
+    loss = model(x).sum()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    scheduler.step()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            key=key,
+        )
+
+        # Create distinct destination state
+        dest_model = NetA()
+        with torch.no_grad():
+            for p in dest_model.parameters():
+                p.fill_(123.45)
+            for b in dest_model.buffers():
+                b.fill_(67.89)
+        dest_opt = AdamW(dest_model.parameters(), lr=0.01)
+        dest_sched = torch.optim.lr_scheduler.StepLR(dest_opt, step_size=10, gamma=0.1)
+        dest_scaler = torch.amp.GradScaler('cpu')
+        dest_scaler.scale(dest_model(torch.randn(2, 4)).sum()).backward()
+        dest_scaler.step(dest_opt)
+        dest_scaler.update()
+
+        # Capture snapshots of destination state before failed load
+        init_model_params = {n: p.clone() for n, p in dest_model.named_parameters()}
+        init_model_bufs = {n: b.clone() for n, b in dest_model.named_buffers()}
+        init_sched_state = copy.deepcopy(dest_sched.state_dict())
+        init_scaler_state = copy.deepcopy(dest_scaler.state_dict())
+
+        # Set unique initial RNG state
+        random.seed(9999)
+        np.random.seed(8888)
+        torch.manual_seed(7777)
+        init_py_rng = random.getstate()
+        init_np_rng = np.random.get_state()
+        init_torch_cpu_rng = torch.get_rng_state().clone()
+
+        # Inject failure at Stage 6 (first call to RNG restoration fails, rollback succeeds)
+        import torchshield.training_state as ts_mod
+        real_restore_all_rng = ts_mod.restore_all_rng
+        rng_calls = 0
+
+        def faulty_restore_rng(*args, **kwargs):
+            nonlocal rng_calls
+            rng_calls += 1
+            if rng_calls == 1:
+                raise RuntimeError("Injected crash during RNG state restoration stage!")
+            return real_restore_all_rng(*args, **kwargs)
+
+        monkeypatch.setattr(ts_mod, "restore_all_rng", faulty_restore_rng)
+
+        with pytest.raises(TrainingStateError, match="Restoration failed; rolled back all state mutations"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                optimizer=dest_opt,
+                scheduler=dest_sched,
+                scaler=dest_scaler,
+                key=key,
+                restore_rng=True,
+            )
+
+        # 1. Model parameters and buffers rolled back
+        for n, p in dest_model.named_parameters():
+            assert torch.equal(p, init_model_params[n]), f"Model parameter {n} failed rollback!"
+        for n, b in dest_model.named_buffers():
+            assert torch.equal(b, init_model_bufs[n]), f"Model buffer {n} failed rollback!"
+
+        # 2. Scheduler state rolled back
+        assert dest_sched.state_dict() == init_sched_state, "Scheduler state failed rollback!"
+
+        # 3. Scaler state rolled back
+        assert dest_scaler.state_dict() == init_scaler_state, "GradScaler state failed rollback!"
+
+        # 4. RNG generators rolled back to initial destination seeds
+        assert random.getstate() == init_py_rng, "Python RNG failed rollback!"
+        assert np.random.get_state()[0] == init_np_rng[0], "NumPy RNG algorithm failed rollback!"
+        assert np.array_equal(np.random.get_state()[1], init_np_rng[1]), "NumPy RNG keys failed rollback!"
+        assert torch.equal(torch.get_rng_state(), init_torch_cpu_rng), "PyTorch CPU RNG failed rollback!"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_transactional_rollback_on_scaler_failure(monkeypatch):
+    """Verify that a failure during gradient scaler restoration rolls back model,
+    optimizer, and scheduler state mutations.
+    """
+    key = os.urandom(32)
+    model = NetA()
+    optimizer = AdamW(model.parameters(), lr=0.05)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.5)
+    scaler = torch.amp.GradScaler('cpu')
+
+    x = torch.randn(2, 4)
+    loss = model(x).sum()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    scheduler.step()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            key=key,
+        )
+
+        dest_model = NetA()
+        with torch.no_grad():
+            for p in dest_model.parameters():
+                p.fill_(444.0)
+            for b in dest_model.buffers():
+                b.fill_(333.0)
+        dest_opt = AdamW(dest_model.parameters(), lr=0.02)
+        dest_sched = torch.optim.lr_scheduler.StepLR(dest_opt, step_size=5, gamma=0.2)
+        dest_scaler = torch.amp.GradScaler('cpu')
+
+        init_params = {n: p.clone() for n, p in dest_model.named_parameters()}
+        init_bufs = {n: b.clone() for n, b in dest_model.named_buffers()}
+        init_sched = copy.deepcopy(dest_sched.state_dict())
+        init_scaler = copy.deepcopy(dest_scaler.state_dict())
+
+        # Inject failure in scaler load_state_dict
+        def faulty_scaler_load(*args, **kwargs):
+            raise RuntimeError("Injected scaler crash!")
+
+        monkeypatch.setattr(dest_scaler, "load_state_dict", faulty_scaler_load)
+
+        with pytest.raises(TrainingStateError, match="Restoration failed; rolled back all state mutations"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                optimizer=dest_opt,
+                scheduler=dest_sched,
+                scaler=dest_scaler,
+                key=key,
+                restore_rng=False,
+            )
+
+        # Assert rollback of all earlier stages
+        for n, p in dest_model.named_parameters():
+            assert torch.equal(p, init_params[n]), f"Parameter {n} not rolled back!"
+        for n, b in dest_model.named_buffers():
+            assert torch.equal(b, init_bufs[n]), f"Buffer {n} not rolled back!"
+        assert dest_sched.state_dict() == init_sched, "Scheduler not rolled back!"
+        assert dest_scaler.state_dict() == init_scaler, "Scaler not rolled back!"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+

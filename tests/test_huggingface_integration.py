@@ -205,3 +205,34 @@ def test_tamper_detection_in_hf_vault(tmp_path):
             optimizer=fresh_optimizer,
             key=key,
         )
+
+
+def test_trainer_fail_closed_on_missing_vault(tmp_path):
+    """Verify that TorchShieldTrainer fails closed rather than falling back to pickle."""
+    if not TRANSFORMERS_AVAILABLE:
+        pytest.skip("transformers not installed")
+
+    from torchshield.integrations.huggingface import TorchShieldTrainer
+    key = secrets.token_bytes(32)
+    step_dir = str(tmp_path / "checkpoint-300")
+    os.makedirs(step_dir, exist_ok=True)
+
+    # Put only insecure pickle files in the checkpoint directory
+    with open(os.path.join(step_dir, "optimizer.pt"), "wb") as f:
+        f.write(b"insecure_pickle")
+
+    model = SimpleModel()
+    args = TrainingArguments(output_dir=str(tmp_path), use_cpu=True)
+    trainer = TorchShieldTrainer(
+        model=model,
+        args=args,
+        vault_key=key,
+        allow_insecure_fallback=False,
+    )
+
+    # Attempting to load from a checkpoint without a vault file must fail closed
+    with pytest.raises(CheckpointError, match="Refusing silent fallback to unsafe pickle"):
+        trainer._load_optimizer_and_scheduler(step_dir)
+
+    with pytest.raises(CheckpointError, match="Refusing silent fallback to unsafe pickle"):
+        trainer._load_rng_state(step_dir)
