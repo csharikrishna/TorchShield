@@ -193,8 +193,9 @@ def test_attestation_signature_verification(signing_keys):
 
     assert verifier.verify(evidence, policy, expected_nonce=nonce) is True
 
-    # Tampered signature
-    tampered_sig = (bytes.fromhex(sig)[:-1] + b"\x00").hex()
+    # Tampered signature (guarantee modification by bit inversion)
+    sig_raw = bytes.fromhex(sig)
+    tampered_sig = (sig_raw[:-1] + bytes([sig_raw[-1] ^ 0xFF])).hex()
     bad_evidence = AttestationEvidence(
         platform=PlatformType.NVIDIA_CC.value,
         measurement=golden,
@@ -927,3 +928,404 @@ def test_attestation_concurrent_evidence_provider_callbacks(signing_keys):
     # All 5 threads succeed because each gets a fresh independent challenge
     assert len([r for r in results if r[0] == "SUCCESS"]) == num_threads
     assert inner_provider.unwrap_call_count == num_threads
+
+
+def test_attestation_cross_challenge_staging_race(signing_keys):
+    """A. Cross-challenge staging race:
+    Pause verification of A after A has been marked in flight. Create B and stage evidence B.
+    Resume A and let it succeed. Assert that A's successful cleanup does not erase B's staged evidence.
+    Then verify that B can be processed according to the selected concurrency policy.
+    """
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-001"
+    inner_provider = CountingInnerKeyProvider()
+
+    thread_a_in_verify = threading.Event()
+    resume_thread_a = threading.Event()
+
+    class PausableVerifier(HardwareAttestationVerifier):
+        def verify(self, evidence, policy, expected_nonce=None) -> bool:
+            if expected_nonce == challenge_a:
+                thread_a_in_verify.set()
+                if not resume_thread_a.wait(timeout=5.0):
+                    raise RuntimeError("Thread A timed out waiting to resume")
+            return super().verify(evidence, policy, expected_nonce=expected_nonce)
+
+    verifier = PausableVerifier(trusted_root_public_keys={signer_id: pub_bytes})
+    golden = hashlib.sha256(b"confidential_app").hexdigest()
+    policy = AttestationPolicy(
+        allowed_platforms={PlatformType.NVIDIA_CC.value},
+        golden_measurements={golden},
+        allowed_signer_ids={signer_id},
+        require_signature=True,
+        require_fresh_nonce=True,
+    )
+
+    gated_provider = AttestationGatedKeyProvider(
+        inner_provider=inner_provider,
+        verifier=verifier,
+        policy=policy,
+        evidence_provider=None,
+    )
+
+    dek, wrapped = gated_provider.generate_data_key()
+
+    # Create and stage challenge A
+    challenge_a = gated_provider.create_challenge()
+    ts_a = time.time()
+    rd_a = hashlib.sha256(challenge_a).hexdigest()
+    body_a = f"{PlatformType.NVIDIA_CC.value}:{golden}:{rd_a}:{ts_a:.3f}".encode("utf-8")
+    sig_a = priv_key.sign(body_a).hex()
+    evidence_a = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=rd_a,
+        timestamp=ts_a,
+        signature=sig_a,
+        signer_id=signer_id,
+    )
+    gated_provider.stage_evidence(evidence_a, challenge=challenge_a)
+
+    results_a = {}
+
+    def worker_a():
+        try:
+            res = gated_provider.unwrap_key(wrapped)
+            results_a["result"] = ("SUCCESS", res)
+        except Exception as exc:
+            results_a["result"] = ("ERROR", exc)
+
+    thread_a = threading.Thread(target=worker_a)
+    thread_a.start()
+
+    # Wait until Thread A enters verification and marks challenge A in-flight
+    assert thread_a_in_verify.wait(timeout=5.0), "Thread A did not enter verify"
+    assert challenge_a in gated_provider._in_flight_challenges
+
+    # While Thread A is in verify, create and stage challenge B
+    challenge_b = gated_provider.create_challenge()
+    assert challenge_b != challenge_a
+    assert gated_provider._active_challenge == challenge_b
+
+    ts_b = time.time()
+    rd_b = hashlib.sha256(challenge_b).hexdigest()
+    body_b = f"{PlatformType.NVIDIA_CC.value}:{golden}:{rd_b}:{ts_b:.3f}".encode("utf-8")
+    sig_b = priv_key.sign(body_b).hex()
+    evidence_b = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=rd_b,
+        timestamp=ts_b,
+        signature=sig_b,
+        signer_id=signer_id,
+    )
+    # Stage evidence B while A is in flight
+    gated_provider.stage_evidence(evidence_b, challenge=challenge_b)
+    assert gated_provider._staged_evidence is not None
+    assert gated_provider._staged_evidence[1] == challenge_b
+
+    # Resume Thread A and allow it to complete successfully
+    resume_thread_a.set()
+    thread_a.join(timeout=10.0)
+
+    # Thread A must succeed
+    assert results_a["result"][0] == "SUCCESS"
+    assert results_a["result"][1] == dek
+    assert challenge_a not in gated_provider._in_flight_challenges
+    assert challenge_a not in gated_provider._authorized_challenges
+
+    # CRITICAL INVARIANT: A's cleanup must NOT have erased B's staged evidence!
+    assert gated_provider._staged_evidence is not None
+    assert gated_provider._staged_evidence[1] == challenge_b
+    assert gated_provider._staged_evidence[0] is evidence_b
+
+    # Now verify that B can be processed successfully
+    unwrapped_b = gated_provider.unwrap_key(wrapped)
+    assert unwrapped_b == dek
+    assert inner_provider.unwrap_call_count == 2
+
+    # After B succeeds, its staged evidence and challenge are cleanly consumed
+    assert gated_provider._staged_evidence is None
+    assert challenge_b not in gated_provider._authorized_challenges
+
+
+def test_attestation_independent_challenge_ordering(signing_keys):
+    """E. Independent challenge ordering:
+    Exercise both possible completion orders when two separately authorized challenges
+    are processed concurrently. Ensure one operation's cleanup does not corrupt the other operation's state.
+    """
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-001"
+    golden = hashlib.sha256(b"confidential_app").hexdigest()
+    policy = AttestationPolicy(
+        allowed_platforms={PlatformType.NVIDIA_CC.value},
+        golden_measurements={golden},
+        allowed_signer_ids={signer_id},
+        require_signature=True,
+        require_fresh_nonce=True,
+    )
+
+    def create_evidence_for_challenge(ch: bytes) -> AttestationEvidence:
+        ts = time.time()
+        rd = hashlib.sha256(ch).hexdigest()
+        body = f"{PlatformType.NVIDIA_CC.value}:{golden}:{rd}:{ts:.3f}".encode("utf-8")
+        sig = priv_key.sign(body).hex()
+        return AttestationEvidence(
+            platform=PlatformType.NVIDIA_CC.value,
+            measurement=golden,
+            report_data=rd,
+            timestamp=ts,
+            signature=sig,
+            signer_id=signer_id,
+        )
+
+    # Order 1: Thread A finishes before Thread B
+    for finish_first in ("A", "B"):
+        inner_provider = CountingInnerKeyProvider()
+        event_a_entered = threading.Event()
+        event_b_entered = threading.Event()
+        release_first = threading.Event()
+        release_second = threading.Event()
+
+        first_target = None
+        second_target = None
+
+        class OrderVerifier(HardwareAttestationVerifier):
+            def verify(self, evidence, pol, expected_nonce=None) -> bool:
+                if expected_nonce == ch_a:
+                    event_a_entered.set()
+                    if finish_first == "A":
+                        release_first.wait(timeout=5.0)
+                    else:
+                        release_second.wait(timeout=5.0)
+                elif expected_nonce == ch_b:
+                    event_b_entered.set()
+                    if finish_first == "B":
+                        release_first.wait(timeout=5.0)
+                    else:
+                        release_second.wait(timeout=5.0)
+                return super().verify(evidence, pol, expected_nonce=expected_nonce)
+
+        verifier = OrderVerifier(trusted_root_public_keys={signer_id: pub_bytes})
+        provider = AttestationGatedKeyProvider(
+            inner_provider=inner_provider,
+            verifier=verifier,
+            policy=policy,
+        )
+        dek, wrapped = provider.generate_data_key()
+
+        ch_a = provider.create_challenge()
+        ev_a = create_evidence_for_challenge(ch_a)
+        provider.stage_evidence(ev_a, challenge=ch_a)
+
+        res_a = {}
+        res_b = {}
+
+        def runner_a():
+            try:
+                res_a["val"] = provider.unwrap_key(wrapped)
+            except Exception as e:
+                res_a["err"] = e
+
+        def runner_b():
+            try:
+                res_b["val"] = provider.unwrap_key(wrapped)
+            except Exception as e:
+                res_b["err"] = e
+
+        t_a = threading.Thread(target=runner_a)
+        t_a.start()
+        assert event_a_entered.wait(timeout=5.0)
+
+        # While A is in verify, stage B and start runner B
+        ch_b = provider.create_challenge()
+        ev_b = create_evidence_for_challenge(ch_b)
+        provider.stage_evidence(ev_b, challenge=ch_b)
+
+        t_b = threading.Thread(target=runner_b)
+        t_b.start()
+        assert event_b_entered.wait(timeout=5.0)
+
+        # Both A and B are now simultaneously in verify()
+        assert ch_a in provider._in_flight_challenges
+        assert ch_b in provider._in_flight_challenges
+
+        # Release the first thread to complete
+        release_first.set()
+        time.sleep(0.05)
+
+        # Release the second thread to complete
+        release_second.set()
+
+        t_a.join(timeout=10.0)
+        t_b.join(timeout=10.0)
+
+        assert res_a.get("val") == dek, f"Order {finish_first}: A failed with {res_a.get('err')}"
+        assert res_b.get("val") == dek, f"Order {finish_first}: B failed with {res_b.get('err')}"
+        assert inner_provider.unwrap_call_count == 2
+        assert len(provider._in_flight_challenges) == 0
+        assert ch_a not in provider._authorized_challenges
+        assert ch_b not in provider._authorized_challenges
+        assert provider._staged_evidence is None
+
+
+def test_attestation_verification_failure_preservation_and_recovery(signing_keys):
+    """D. Verification failure preservation:
+    Make evidence invalid. Verify that attestation fails closed, the underlying key provider
+    is never called, the failed operation releases its in-flight reservation, and diagnostic evidence
+    remains available. Then verify that re-staging valid evidence recovers cleanly.
+    """
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-001"
+    inner_provider = CountingInnerKeyProvider()
+    verifier = HardwareAttestationVerifier(trusted_root_public_keys={signer_id: pub_bytes})
+    golden = hashlib.sha256(b"confidential_app").hexdigest()
+    policy = AttestationPolicy(
+        allowed_platforms={PlatformType.NVIDIA_CC.value},
+        golden_measurements={golden},
+        allowed_signer_ids={signer_id},
+        require_signature=True,
+        require_fresh_nonce=True,
+    )
+    gated_provider = AttestationGatedKeyProvider(
+        inner_provider=inner_provider,
+        verifier=verifier,
+        policy=policy,
+    )
+    dek, wrapped = gated_provider.generate_data_key()
+
+    ch = gated_provider.create_challenge()
+    ts = time.time()
+    rd = hashlib.sha256(ch).hexdigest()
+    bad_measurement = "0" * 64
+    body = f"{PlatformType.NVIDIA_CC.value}:{bad_measurement}:{rd}:{ts:.3f}".encode("utf-8")
+    sig = priv_key.sign(body).hex()
+    bad_evidence = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=bad_measurement,
+        report_data=rd,
+        timestamp=ts,
+        signature=sig,
+        signer_id=signer_id,
+    )
+
+    gated_provider.stage_evidence(bad_evidence, challenge=ch)
+
+    with pytest.raises(AttestationError, match="does not match any golden measurements"):
+        gated_provider.unwrap_key(wrapped)
+
+    # 1. Inner key provider must NEVER have been called
+    assert inner_provider.unwrap_call_count == 0
+
+    # 2. In-flight reservation must be released
+    assert ch not in gated_provider._in_flight_challenges
+
+    # 3. Diagnostic evidence remains preserved
+    assert gated_provider._staged_evidence is not None
+    assert gated_provider._staged_evidence[0] is bad_evidence
+    assert gated_provider._staged_evidence[1] == ch
+
+    # 4. Correcting the evidence for the same authorized challenge succeeds
+    body_good = f"{PlatformType.NVIDIA_CC.value}:{golden}:{rd}:{ts:.3f}".encode("utf-8")
+    sig_good = priv_key.sign(body_good).hex()
+    good_evidence = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=rd,
+        timestamp=ts,
+        signature=sig_good,
+        signer_id=signer_id,
+    )
+    gated_provider.stage_evidence(good_evidence, challenge=ch)
+    unwrapped = gated_provider.unwrap_key(wrapped)
+    assert unwrapped == dek
+    assert inner_provider.unwrap_call_count == 1
+    assert gated_provider._staged_evidence is None
+
+
+def test_attestation_challenge_expiry_and_bounded_lifecycle(signing_keys):
+    """F. Challenge expiry and lifecycle cleanup:
+    - Opportunistically remove expired, non-in-flight challenges.
+    - Keep active in-flight challenges safe from premature deletion.
+    - Define and document a maximum number of outstanding authorized challenges.
+    - Fail closed when limit reached; reclaim eligible expired entries.
+    - Keep _active_challenge and staged evidence consistent when expired entries are removed.
+    """
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-001"
+    inner_provider = CountingInnerKeyProvider()
+    verifier = HardwareAttestationVerifier(trusted_root_public_keys={signer_id: pub_bytes})
+    golden = hashlib.sha256(b"confidential_app").hexdigest()
+    policy = AttestationPolicy(
+        allowed_platforms={PlatformType.NVIDIA_CC.value},
+        golden_measurements={golden},
+        allowed_signer_ids={signer_id},
+        max_age_seconds=10.0,
+    )
+
+    # Capacity bounded to 3 challenges
+    gated_provider = AttestationGatedKeyProvider(
+        inner_provider=inner_provider,
+        verifier=verifier,
+        policy=policy,
+        max_authorized_challenges=3,
+    )
+
+    ch1 = gated_provider.create_challenge()
+    ch2 = gated_provider.create_challenge()
+    ch3 = gated_provider.create_challenge()
+    assert len(gated_provider._authorized_challenges) == 3
+
+    # Capacity reached: creating a 4th challenge fails closed
+    with pytest.raises(AttestationError, match="Authorized challenge capacity exceeded"):
+        gated_provider.create_challenge()
+
+    # Simulate expiration of ch1 and ch2 by adjusting their timestamps back 100 seconds
+    gated_provider._authorized_challenges[ch1] = time.time() - 100.0
+    gated_provider._authorized_challenges[ch2] = time.time() - 100.0
+
+    # Next create_challenge cleans up ch1 and ch2, freeing capacity for ch4
+    ch4 = gated_provider.create_challenge()
+    assert ch1 not in gated_provider._authorized_challenges
+    assert ch2 not in gated_provider._authorized_challenges
+    assert ch3 in gated_provider._authorized_challenges
+    assert ch4 in gated_provider._authorized_challenges
+    assert len(gated_provider._authorized_challenges) == 2
+
+    # In-flight protection: mark ch3 in-flight and expire its timestamp
+    gated_provider._in_flight_challenges.add(ch3)
+    gated_provider._authorized_challenges[ch3] = time.time() - 100.0
+
+    # Run cleanup directly: ch3 MUST NOT be purged while in-flight!
+    with gated_provider._lock:
+        purged = gated_provider._cleanup_expired_challenges_locked()
+    assert purged == 0
+    assert ch3 in gated_provider._authorized_challenges
+
+    # Remove from in-flight and run cleanup again: ch3 is now purged
+    gated_provider._in_flight_challenges.discard(ch3)
+    with gated_provider._lock:
+        purged = gated_provider._cleanup_expired_challenges_locked()
+    assert purged == 1
+    assert ch3 not in gated_provider._authorized_challenges
+
+    # Consistency of _active_challenge and _staged_evidence on expiration
+    ch5 = gated_provider.create_challenge()
+    assert gated_provider._active_challenge == ch5
+    ev5 = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=hashlib.sha256(ch5).hexdigest(),
+        timestamp=time.time(),
+    )
+    gated_provider.stage_evidence(ev5, challenge=ch5)
+    assert gated_provider._staged_evidence is not None
+
+    # Expire ch5
+    gated_provider._authorized_challenges[ch5] = time.time() - 100.0
+    with gated_provider._lock:
+        gated_provider._cleanup_expired_challenges_locked()
+
+    # Both _active_challenge and _staged_evidence must be cleared to maintain consistency
+    assert gated_provider._active_challenge is None
+    assert gated_provider._staged_evidence is None

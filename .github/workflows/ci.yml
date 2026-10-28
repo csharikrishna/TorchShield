@@ -1,0 +1,74 @@
+name: TorchShield Security & Release Verification CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Security & Packaging Verification Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip build wheel setuptools
+          python -m pip install -e ".[test,aws]" moto[server] psutil
+
+      - name: Whitespace and format check (git diff --check)
+        run: |
+          git diff --check
+
+      - name: Run automated test suite (Pytest with JUnit XML)
+        run: |
+          pytest -v --junitxml=reports/pytest-junit.xml
+
+      - name: Run standalone local KMS verification suite
+        run: |
+          python scripts/verify_local_kms.py
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m build --outdir dist/
+
+      - name: Verify package metadata, wheel/sdist contents, and SHA-256 manifest
+        run: |
+          ls -la dist/
+          python -c "
+          import glob, os, hashlib
+          whls = glob.glob('dist/*.whl')
+          tar_gzs = glob.glob('dist/*.tar.gz')
+          assert len(whls) == 1, f'Expected 1 wheel, found {len(whls)}'
+          assert len(tar_gzs) == 1, f'Expected 1 sdist, found {len(tar_gzs)}'
+          for p in whls + tar_gzs:
+              h = hashlib.sha256(open(p, 'rb').read()).hexdigest()
+              sz = os.path.getsize(p)
+              print(f'{os.path.basename(p)}: {sz} bytes, SHA-256: {h}')
+          "
+
+      - name: Run isolated clean-room installation verification
+        run: |
+          python scripts/verify_isolated_wheel.py --expected-version 0.7.2
+
+      - name: Upload verification evidence and artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: torchshield-verification-artifacts
+          path: |
+            reports/pytest-junit.xml
+            dist/*

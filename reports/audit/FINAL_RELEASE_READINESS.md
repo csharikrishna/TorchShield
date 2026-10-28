@@ -1,9 +1,9 @@
-# TorchShield v0.7.1 Final Release Readiness & Audit Closeout Report
+# TorchShield v0.7.2 Final Release Readiness & Audit Closeout Report
 
 **Audit Date:** 2026-10-28
 **Repository:** `https://github.com/csharikrishna/TorchShield`
 **Inspected / Target Revision:** Latest remediation commits on `master`
-**Package Version:** `0.7.1`
+**Package Version:** `0.7.2`
 **Evaluation Status:** **Conditional Approval — Internal Staging / Research Candidate**
 
 ---
@@ -17,11 +17,11 @@ Across the 16 phases of this master security audit and architecture remediation 
 │ FINAL AUDIT METRICS                                    │
 ├───────────────────────────────┬────────────────────────┤
 │ Baseline Test Suite           │ 204 Passed, 0 Failed   │
-│ Final Pytest Test Suite       │ 263 Passed, 0 Failed   │
-│ Net New Regression Tests Added│ +59 Tests              │
-│ Identified Defects Remediated │ 18 / 18 (100% Fixed)   │
+│ Final Pytest Test Suite       │ 270 Passed, 0 Failed   │
+│ Net New Regression Tests Added│ +66 Tests              │
+│ Identified Defects Remediated │ 20 / 20 (100% Fixed)   │
 │ Standalone Local KMS Checks   │ 7 / 7 Local Moto Passed│
-│ Total Verified Checks         │ 270 / 270 Passed (100%)│
+│ Total Verified Checks         │ 277 / 277 Passed (100%)│
 │ Test Execution Duration       │ ~44s pytest + ~8s KMS  │
 │ Overall Pass Rate             │ 100.0%                 │
 └───────────────────────────────┴────────────────────────┘
@@ -31,23 +31,23 @@ Across the 16 phases of this master security audit and architecture remediation 
 
 ## 2. Test Execution & Baseline Comparison
 
-| Test Suite / Category | Baseline (v0.7.0 Pre-Audit) | Final (v0.7.1 Post-Remediation) | Delta & Focus Areas |
+| Test Suite / Category | Baseline (v0.7.0 Pre-Audit) | Final (v0.7.2 Post-Remediation) | Delta & Focus Areas |
 |---|:---:|:---:|---|
 | **AEAD Cryptography & Known Answer Tests** | 9 | 9 | AES-256-GCM / Poly1305 NIST KAT vectors |
 | **Artifact Signatures & Manifest Integrity** | 10 | 10 | Ed25519 publisher signature binding |
-| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **14** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation, failing `get_state_key` single call, duplicate keys rejection, restore vs rollback distinction |
+| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **17** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation, failing `get_state_key` single call, duplicate keys rejection, restore vs rollback distinction, provider key length validation, cached key reuse |
 | **Distributed Checkpoint Hardening** | 4 | **7** | Path traversal, symlink, duplicate rank mitigation |
 | **Hugging Face Trainer Integration** | 5 | **6** | Fail-closed on missing vault, two-phase file cleanup |
 | **Multi-Cloud Key Providers (GCP/Azure/Vault)** | 0 | **3** | Unified contract tests, retry backoff |
 | **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid framework plumbing with verified mock signature and fail-closed production policy |
-| **Hardware Attestation & Enclaves** | 0 | **19** | Freshness nonces, certificate chains, mandatory signatures, bound challenge lifecycle, non-destructive failure handling, production security classification |
+| **Hardware Attestation & Enclaves** | 0 | **23** | Freshness nonces, certificate chains, mandatory signatures, bound challenge lifecycle, non-destructive failure handling, production security classification, cross-challenge race elimination, bounded challenge capacity (1024), in-flight challenge eviction protection |
 | **GPUDirect Storage (GDS) Loading** | 0 | **5** | Capability detection, capability field semantics, streaming CUDA pipeline fallback |
 | **Native Inference Model Serving** | 0 | **6** | Direct in-memory load without plaintext disk landing, transactional rollback |
 | **Quorum Etcd Consensus Freshness** | 0 | **3** | CAS transactions, revision-based anti-rollback |
 | **Phase 2/4/6 Protocol & Edge Cases** | 176 | 176 | Monotonic nonces, chunk budgets, untrusted inputs |
-| **TOTAL PYTEST TEST COUNT** | **204** | **263** | **+59 Net New Tests (100% Passing)** |
+| **TOTAL PYTEST TEST COUNT** | **204** | **270** | **+66 Net New Tests (100% Passing)** |
 | **STANDALONE LOCAL KMS CHECKS** | 0 | **7** | Embedded Moto Local KMS Verification (100% Passing) |
-| **COMBINED TESTED CHECKS** | **204** | **270** | **+66 Net New Checks (100% Passing)** |
+| **COMBINED TESTED CHECKS** | **204** | **277** | **+73 Net New Checks (100% Passing)** |
 
 ---
 
@@ -88,18 +88,33 @@ Across the 16 phases of this master security audit and architecture remediation 
 17. **TS-FIND-17 (Medium): AEAD Benchmark Nonce Reuse & Aggregation Methodology**
    - *Fix:* Implemented NIST SP 800-38D session-wide monotonic counter with 4-byte random prefix; added 3-trial median throughput aggregation; removed unused nonce variables.
 18. **TS-FIND-18 (High - P1): Attestation Challenge Concurrency & Thread-Safety**
-   - *Fix:* Enforced synchronized challenge creation, staging, and single-use consumption under RLock; tracked in-flight challenges to block concurrent unwrap replay; verified via deterministic synchronization barrier regression tests.
+    - *Fix:* Enforced synchronized challenge creation, staging, and single-use consumption under RLock; tracked in-flight challenges to block concurrent unwrap replay; verified via deterministic synchronization barrier regression tests.
+19. **TS-FIND-19 (Critical - P0): Cross-Challenge Staging Race & Unbounded Challenge Growth**
+    - *Fix:* In `AttestationGatedKeyProvider.unwrap_key()`, cleared staged evidence in `finally` ONLY IF bound to the executing challenge (`_staged_evidence[1] == bound_challenge`), preventing concurrent operation A from wiping evidence staged by concurrent operation B; enforced `DEFAULT_MAX_AUTHORIZED_CHALLENGES = 1024` with fail-closed capacity limits; implemented locked opportunistic cleanup preserving active in-flight challenges from premature eviction.
+20. **TS-FIND-20 (High - P0): State-Provider Key Lifecycle & Rollback Helper Consistency**
+    - *Fix:* Enforced strict `provider_keys` length validation (`len(provider_keys) == len(providers)`) in `_snapshot_state_providers` and `_rollback_state_providers`, raising `TrainingStateError` rather than silently re-invoking `get_state_key()`; unified validated provider keys across pre-validation, snapshotting, restoration, and rollback in `load_training_checkpoint`.
 
 ---
 
 ## 4. Authoritative Built Artifacts & Provenance Hashes
 
-Distribution packages built via isolated `python -m build` from authoritative Git commit `9897e1c185180d5cf427e60da8d2b078de2adec1` (tree `e08fb736ee10da7932e66c0eb35c946447a85afc`) and verified in clean-room environment:
+### Authoritative Built Artifacts (v0.7.2 Release)
+
+Distribution packages built via isolated `python -m build` with `SOURCE_DATE_EPOCH=1730140800` and verified in clean-room environment:
+
+| Artifact | File Size | SHA-256 Digest |
+|---|---|---|
+| **Wheel (`.whl`)** (`torchshield-0.7.2-py3-none-any.whl`) | 78,514 bytes | `403EE55632BFE86CD59BCB4BAFEB9E0538AE6F558CDB534603E6554B6B85FE29` |
+| **Source Distribution (`.tar.gz`)** (`torchshield-0.7.2.tar.gz`) | 147,784 bytes | `AB477F9ED1763D6C654E8338F41C62E7BBE2982A8E5FACF0E8A5F3BC28076245` |
+| **Checksum Manifest** (`SHA256SUMS` / `SHA256SUMS_v0.7.2`) | 192 bytes | `341F0224AE39D2D639B00EC9A2FA7829CA5F4F504763853900BACB9A1CF45FF9` |
+
+### Historical v0.7.1 Reference Artifacts (Preserved)
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|
 | **Wheel (`.whl`)** (`torchshield-0.7.1-py3-none-any.whl`) | 77,692 bytes | `F764CD9A23632CF7D2320A6D70C3D28DF98BB5AFA4DFB663DEB9E2E0A95CA722` |
 | **Source Distribution (`.tar.gz`)** (`torchshield-0.7.1.tar.gz`) | 143,303 bytes | `E69DC4087AA50273DF41C564FA556BC64DE26A9A0F2B8A8972A8C08794A0A76E` |
+| **Checksum Manifest** (`SHA256SUMS_v0.7.1`) | 192 bytes | `9760A98DBF79653DC5E08ADC8E5D4F0955BC6D2544DC1A5A1AC6D49A413747B9` |
 
 *All release artifact digests are cryptographically anchored in [`dist/SHA256SUMS`](../../dist/SHA256SUMS) and tied to the authoritative Git tree.*
 
@@ -145,14 +160,14 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 ## 8. Final Readiness Recommendation
 
-- **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.1)**.
+- **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.2)**.
 - **Evidence Base:**
-  - 263 / 263 pytest unit, integration, and security regression tests passing.
+  - 270 / 270 pytest unit, integration, and security regression tests passing across 49 test files.
   - 7 / 7 standalone local Moto KMS envelope encryption tests passing.
-  - Combined total: 270 verified checks passed (100% pass rate).
+  - Combined total: 277 verified checks passed (100% pass rate).
   - Zero-pickle guarantee enforced and verified with fail-closed exceptions.
   - Two-stage transactional restoration with atomic rollback verified across model, optimizer (with strict parameter object identity preservation), scheduler, scaler, auxiliary state providers, and all 4 RNG generators.
-  - Clean-room virtual environment installation and execution verified outside repository directory.
+  - Genuinely isolated clean-room virtual environment installation and execution verified outside repository directory with pip dependency resolution.
 - **Prerequisites for Unrestricted Enterprise Production Deployment:**
   - Live multi-node cloud validation with production GCP, Azure, or Vault KMS credentials.
   - Post-quantum NIST FIPS 203/204 integration and linking with compiled, audited libraries (`liboqs`).

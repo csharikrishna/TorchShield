@@ -2,6 +2,17 @@
 
 All notable changes to the TorchShield GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.7.2] - 2026-10-28
+
+### Security Hardening & Concurrency Defect Remediation
+- **Attestation Cross-Challenge Race Remediation (TS-FIND-19):** Resolved critical cross-challenge race condition in `AttestationGatedKeyProvider.unwrap_key()` where the `finally` block cleared staged evidence unconditionally. Staged evidence is now cleared only if bound to the executing challenge (`self._staged_evidence[1] == bound_challenge`), preventing operation A from wiping evidence staged by concurrent operation B.
+- **Attestation Bounded Challenge Capacity & Lifecycle (TS-FIND-19):** Enforced `DEFAULT_MAX_AUTHORIZED_CHALLENGES = 1024` with fail-closed capacity limits on `create_challenge()`. Implemented locked opportunistic cleanup (`_cleanup_expired_challenges_locked`) that purges expired challenges while strictly preserving active in-flight challenges from premature eviction.
+- **Hardware Attestation Deterministic Regression Suite:** Added 4 synchronization barrier/event tests covering cross-challenge staging race (`test_attestation_cross_challenge_staging_race`), post-failure evidence preservation and recovery (`test_attestation_verification_failure_preservation_and_recovery`), independent challenge ordering across both completion permutations (`test_attestation_independent_challenge_ordering`), and bounded lifecycle capacity enforcement (`test_attestation_challenge_expiry_and_bounded_lifecycle`). Resolved signature bit-tampering flakiness via bitwise inversion. All 23 attestation tests pass.
+- **State-Provider Key Lifecycle & Rollback Hardening (TS-FIND-20):** Enforced strict provider key length validation (`len(provider_keys) == len(providers)`) in `_snapshot_state_providers` and `_rollback_state_providers`, raising `TrainingStateError` and guaranteeing callers never trigger repeated or fallback `get_state_key()` calls during failure recovery. Unified validated provider keys across pre-validation, snapshotting, restoration, and rollback in `load_training_checkpoint`. Added 3 regression tests in `tests/test_phase1_training_state_strict_transactional.py`. All 17 training state tests pass.
+- **Automated CI Workflow:** Created `.github/workflows/ci.yml` running on push and pull request to `master` with pytest execution, standalone Local Moto KMS verification, wheel and source distribution packaging, artifact SHA-256 verification, clean-room isolated wheel installation, and artifact archiving.
+- **Isolated Clean-Room Wheel Verification:** Rewrote `scripts/verify_isolated_wheel.py` to create a pristine virtual environment strictly without `--system-site-packages`, verifying full wheel installation with pip dependency resolution, CLI executable version output, checkpoint save/load roundtrip, exact single `get_state_key()` invocation, and cryptographic bitflip/wrong-key tamper rejection outside the repository root.
+- **Reconciled Audit Baseline:** Reconciled test accounting to 270 passed pytest tests across 49 test files + 7 standalone Local KMS checks = 277 total verification checks (100% pass rate).
+
 ## [0.7.1] - 2026-10-28
 
 ### Security Hardening & Concurrency Protection

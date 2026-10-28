@@ -466,6 +466,11 @@ def _snapshot_state_providers(
     """
     if not providers:
         return None
+    if provider_keys is not None and len(provider_keys) != len(providers):
+        raise TrainingStateError(
+            f"Inconsistent provider_keys length: got {len(provider_keys)} keys for {len(providers)} providers."
+        )
+
     snapshots: Dict[str, Dict[str, Any]] = {}
     seen_keys: Set[str] = set()
 
@@ -473,7 +478,7 @@ def _snapshot_state_providers(
         provider_name = type(p).__name__
         desc = f"provider index {idx} ({provider_name})"
         try:
-            if provider_keys is not None and idx < len(provider_keys):
+            if provider_keys is not None:
                 key = provider_keys[idx]
             else:
                 key = p.get_state_key()
@@ -507,13 +512,18 @@ def _rollback_state_providers(
     """
     if not providers or not snapshot:
         return
+    if provider_keys is not None and len(provider_keys) != len(providers):
+        raise TrainingStateError(
+            f"Inconsistent provider_keys length: got {len(provider_keys)} keys for {len(providers)} providers."
+        )
+
     errors: List[str] = []
 
     for idx, p in enumerate(providers):
         provider_name = type(p).__name__
         desc = f"provider index {idx} ({provider_name})"
         try:
-            if provider_keys is not None and idx < len(provider_keys):
+            if provider_keys is not None:
                 key = provider_keys[idx]
             else:
                 key = p.get_state_key()
@@ -939,7 +949,7 @@ def load_training_checkpoint(
             for idx, sp in enumerate(state_providers):
                 sp_key = (
                     validated_provider_keys[idx]
-                    if validated_provider_keys is not None and idx < len(validated_provider_keys)
+                    if validated_provider_keys is not None
                     else sp.get_state_key()
                 )
                 if sp_key in prov_dict:

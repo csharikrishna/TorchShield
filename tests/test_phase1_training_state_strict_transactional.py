@@ -927,3 +927,198 @@ def test_state_provider_key_lifecycle_called_once_and_stable_mapping():
     finally:
         if os.path.exists(path):
             os.remove(path)
+
+
+def test_state_provider_key_lifecycle_rollback_raising_and_cached_keys():
+    """5. A rollback method that also raises:
+    Verify that if a provider's restore_state raises during rollback, get_state_key() is NEVER
+    called a second time in diagnostic/error formatting, and the original exception context is preserved.
+    """
+    class ExplodingRollbackProvider(SafeStateProvider):
+        def __init__(self, key_name: str, value: int, fail_stage: str = "none"):
+            self.key_name = key_name
+            self.value = value
+            self.fail_stage = fail_stage  # "restore" or "rollback"
+            self.key_call_count = 0
+            self.capture_count = 0
+            self.restore_count = 0
+
+        def get_state_key(self) -> str:
+            self.key_call_count += 1
+            return self.key_name
+
+        def capture_state(self) -> dict:
+            self.capture_count += 1
+            return {"val": self.value}
+
+        def restore_state(self, state: dict) -> None:
+            self.restore_count += 1
+            if self.fail_stage == "restore" and self.restore_count == 1:
+                raise RuntimeError(f"Primary restoration failure in {self.key_name}")
+            if self.fail_stage == "rollback" and self.restore_count > 1:
+                raise RuntimeError(f"Secondary rollback failure in {self.key_name}")
+            self.value = state["val"]
+
+    key = os.urandom(32)
+    model = NetA()
+    src1 = ExplodingRollbackProvider("p1", 10)
+    src2 = ExplodingRollbackProvider("p2", 20)
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            key=key,
+            state_providers=[src1, src2],
+        )
+
+        dest_model = NetA()
+        # p1 will succeed on primary restore, but fail when rolled back!
+        dest1 = ExplodingRollbackProvider("p1", 1, fail_stage="rollback")
+        # p2 will trigger the rollback by failing on its primary restore
+        dest2 = ExplodingRollbackProvider("p2", 2, fail_stage="restore")
+
+        with pytest.raises(TrainingStateError) as exc_info:
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[dest1, dest2],
+            )
+
+        err_msg = str(exc_info.value)
+        assert "Primary restoration failure in p2" in err_msg
+        assert "rollback encountered errors" in err_msg
+        assert "Secondary rollback failure in p1" in err_msg
+        assert "provider 'p1'" in err_msg
+
+        # INVARIANT: get_state_key() must have been called EXACTLY ONCE for each provider,
+        # even through primary restore failure, rollback execution, and rollback error formatting!
+        assert dest1.key_call_count == 1, f"Expected 1 call on dest1, got {dest1.key_call_count}"
+        assert dest2.key_call_count == 1, f"Expected 1 call on dest2, got {dest2.key_call_count}"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_save_workflow_key_validation_contract():
+    """7. The save workflow's own key-validation contract, tested separately from load-time counts:
+    Verify save_training_checkpoint invokes get_state_key() exactly once per provider, rejects
+    duplicate provider keys, invalid keys, and properly chains exceptions when key lookup raises.
+    """
+    class TestSaveProvider(SafeStateProvider):
+        def __init__(self, key_name: str, fail_key: bool = False):
+            self.key_name = key_name
+            self.fail_key = fail_key
+            self.key_call_count = 0
+            self.capture_count = 0
+
+        def get_state_key(self) -> str:
+            self.key_call_count += 1
+            if self.fail_key:
+                raise ValueError(f"Injected key lookup crash for {self.key_name}")
+            return self.key_name
+
+        def capture_state(self) -> dict:
+            self.capture_count += 1
+            return {"k": "v"}
+
+        def restore_state(self, state: dict) -> None:
+            pass
+
+    key = os.urandom(32)
+    model = NetA()
+
+    # Case A: Successful save invokes get_state_key exactly once per provider
+    sp1 = TestSaveProvider("save_p1")
+    sp2 = TestSaveProvider("save_p2")
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+    try:
+        save_training_checkpoint(output_path=path, model=model, key=key, state_providers=[sp1, sp2])
+        assert sp1.key_call_count == 1, f"Expected 1 call during save, got {sp1.key_call_count}"
+        assert sp2.key_call_count == 1, f"Expected 1 call during save, got {sp2.key_call_count}"
+        assert sp1.capture_count == 1
+        assert sp2.capture_count == 1
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+    # Case B: Duplicate provider keys during save rejected fail-closed
+    dup1 = TestSaveProvider("same_save_key")
+    dup2 = TestSaveProvider("same_save_key")
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path2 = tmp.name
+    try:
+        with pytest.raises(TrainingStateError, match="Duplicate SafeStateProvider key: 'same_save_key'"):
+            save_training_checkpoint(output_path=path2, model=model, key=key, state_providers=[dup1, dup2])
+        assert dup1.key_call_count == 1
+        assert dup2.key_call_count == 1
+        assert dup2.capture_count == 0  # rejected before capture
+    finally:
+        if os.path.exists(path2):
+            os.remove(path2)
+
+    # Case C: Key lookup exception during save is chained and not called twice
+    crash_sp = TestSaveProvider("crash_p", fail_key=True)
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path3 = tmp.name
+    try:
+        with pytest.raises(TrainingStateError) as exc_info:
+            save_training_checkpoint(output_path=path3, model=model, key=key, state_providers=[crash_sp])
+        assert "Failed to obtain state key from provider index 0" in str(exc_info.value)
+        assert crash_sp.key_call_count == 1
+    finally:
+        if os.path.exists(path3):
+            os.remove(path3)
+
+
+def test_state_provider_helpers_strict_length_validation():
+    """Verify _snapshot_state_providers and _rollback_state_providers enforce strict length consistency
+    when provider_keys is supplied, and NEVER fall back to repeated get_state_key() calls on length mismatch.
+    """
+    from torchshield.training_state import _snapshot_state_providers, _rollback_state_providers
+
+    class SimpleProvider(SafeStateProvider):
+        def __init__(self, key: str):
+            self.key = key
+            self.calls = 0
+
+        def get_state_key(self) -> str:
+            self.calls += 1
+            return self.key
+
+        def capture_state(self) -> dict:
+            return {"val": 1}
+
+        def restore_state(self, state: dict) -> None:
+            pass
+
+    p1 = SimpleProvider("k1")
+    p2 = SimpleProvider("k2")
+    providers = [p1, p2]
+
+    # Inconsistent cached keys (length 1 for 2 providers) MUST raise TrainingStateError
+    with pytest.raises(TrainingStateError, match="Inconsistent provider_keys length"):
+        _snapshot_state_providers(providers, provider_keys=["k1"])
+
+    # INVARIANT: get_state_key was NOT called because incomplete list was rejected
+    assert p1.calls == 0
+    assert p2.calls == 0
+
+    # Inconsistent cached keys for rollback MUST also raise TrainingStateError without calling get_state_key
+    with pytest.raises(TrainingStateError, match="Inconsistent provider_keys length"):
+        _rollback_state_providers(providers, snapshot={"k1": {"val": 1}}, provider_keys=["k1"])
+    assert p1.calls == 0
+    assert p2.calls == 0
+
+    # Consistent cached keys: snapshot reuses cached keys with 0 get_state_key calls
+    snap = _snapshot_state_providers(providers, provider_keys=["k1", "k2"])
+    assert "k1" in snap
+    assert "k2" in snap
+    assert p1.calls == 0
+    assert p2.calls == 0

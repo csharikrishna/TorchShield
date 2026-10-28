@@ -2,7 +2,7 @@
 
 **Audit Date:** 2026-10-28  
 **Audit Scope:** Full codebase (`torchshield/`, `tests/`, `docs/`, `scripts/`, `benchmarks/`)
-**Resolution Summary:** 18 / 18 Issues Remediated (100% Pass Rate across 270 Verification Checks: 263 pytest + 7 Local KMS)
+**Resolution Summary:** 20 / 20 Issues Remediated (100% Pass Rate across 277 Verification Checks: 270 pytest + 7 Local KMS)
 
 ---
 
@@ -27,15 +27,18 @@
 | **TS-FIND-15** | `High` | `torchshield/pqc.py` | Mock backend claimed KAT/CAVP compliance; pure Python lattice mathematics implied | Renamed to `MockTestPQCBackend` using classical primitives strictly for test plumbing; production mode strictly fails closed | `tests/test_pqc_hybrid_crypto.py` | `pytest tests/test_pqc...` (0) |
 | **TS-FIND-16** | `Medium` | `torchshield/integrations/serving.py` | Stream weights claimed kernel-bypass / disk isolation with unverified flags | Clarified in-memory deserialization (no disk staging); removed unverified flags; preserved transactional rollback | `tests/test_serving_integration.py` | `pytest tests/test_serving...` (0) |
 | **TS-FIND-17** | `Medium` | `benchmarks/run_v070_benchmarks.py` | Benchmark reused nonces and lacked multi-trial median aggregation | NIST SP 800-38D session-wide monotonic counter; 3-trial median throughputs; unused nonces removed | `benchmarks/run_v070_benchmarks.py` | `python benchmarks/...` (0) |
+| **TS-FIND-18** | `High` (P1) | `torchshield/attestation.py` | Attestation challenge lifecycle lacked synchronized concurrency control | Thread-safe challenge creation, staging, and single-use consumption under RLock | `tests/test_hardware_attestation.py` | `pytest tests/test_hardware...` (0) |
+| **TS-FIND-19** | `Critical` (P0) | `torchshield/attestation.py` | Cross-challenge race where unwrap_key wiped concurrent evidence; unbounded challenge memory leak | Staged evidence cleared only if bound to challenge (`_staged_evidence[1] == bound_challenge`); bounded capacity (1024); opportunistic cleanup protecting in-flight challenges | `tests/test_hardware_attestation.py` | `pytest tests/test_hardware...` (0) |
+| **TS-FIND-20** | `High` (P0) | `torchshield/training_state.py` | Provider key length mismatch could trigger fallback `get_state_key()` calls during failure recovery | Strict length validation (`len(provider_keys) == len(providers)`) raising `TrainingStateError`; unified cached keys across rollback | `tests/test_phase1_training_state_strict_transactional.py` | `pytest tests/test_phase1...` (0) |
 
 ---
 
 ## Regression Test Suite Execution Summary
 
-- **Total Pytest Test Cases Executed:** 263
+- **Total Pytest Test Cases Executed:** 270
 - **Total Pytest Failures:** 0
 - **Total Standalone Local KMS Checks:** 7
-- **Total Combined Verification Checks:** 270
+- **Total Combined Verification Checks:** 277
 - **Total Errors:** 0
 - **Pass Rate:** **100.0%**
 - **Full Suite Execution Time:** ~44 seconds (pytest) + ~8s (Local KMS)

@@ -17,7 +17,7 @@ In accordance with Phase 14 and Phase 16 of the Master Audit, each of the six st
 │ Workstream       │ Code Module     │ Test Status       │ Production Cl.│
 ├──────────────────┼─────────────────┼───────────────────┼───────────────┤
 │ A. GPUDirect GDS │ gds.py          │ PASS (5 tests)    │ Fallback Mode │
-│ B. CC Attestation│ attestation.py  │ PASS (19 tests)   │ Signed Custom │
+│ B. CC Attestation│ attestation.py  │ PASS (23 tests)   │ Signed Custom │
 │ C. Multi-Cloud   │ gcp/azure/vault │ PASS (3 tests)    │ Mock-Verified │
 │ D. PQC Hybrid    │ pqc.py          │ PASS (5 tests)    │ Test Harness  │
 │ E. Model Serving │ serving.py      │ PASS (6 tests)    │ In-Memory Rest│
@@ -44,8 +44,8 @@ In accordance with Phase 14 and Phase 16 of the Master Audit, each of the six st
 - **Architecture:** Implements `AttestationEvidence`, `AttestationPolicy`, `AttestationVerifier`, and `AttestationGatedKeyProvider`.
 - **Truth in Advertising:** The present implementation verifies a custom signed evidence structure binding measurement hashes, nonces, and signer identities. It is not yet a vendor-native hardware quote verifier for Hopper/Blackwell CC or AMD SEV-SNP.
 - **Production Classification:** `AttestationGatedKeyProvider.is_production_secure` returns `False` whenever mock verification is active, trusted signing keys are missing, challenge nonces are unbound, or signature validation is disabled.
-- **Security Invariant:** Enforces fresh challenge-nonce binding (`create_challenge()`), expiration timestamps, and root Ed25519 signature checks. Verification failures do not prematurely destroy staged evidence so callers can inspect failure diagnostics. Challenge creation, staging, and single-use consumption are thread-safe; concurrent unwrap attempts on the same staged evidence are blocked fail-closed and verified via barrier regression tests.
-- **Test Status:** `PASS` (`tests/test_hardware_attestation.py` - 19 tests pass).
+- **Security Invariant:** Enforces fresh challenge-nonce binding (`create_challenge()`), bounded challenge capacity (`DEFAULT_MAX_AUTHORIZED_CHALLENGES = 1024`), opportunistic expired challenge cleanup under `_lock`, active in-flight challenge eviction protection, and root Ed25519 signature checks. Verification failures do not prematurely destroy staged evidence so callers can inspect failure diagnostics. In `unwrap_key()`, staged evidence is cleared in `finally` only if bound to the executing challenge, completely eliminating cross-challenge races where one operation could wipe evidence staged by a concurrent operation. All challenge lifecycle operations are thread-safe under `RLock` and verified via deterministic barrier regression tests.
+- **Test Status:** `PASS` (`tests/test_hardware_attestation.py` - 23 tests pass).
 
 ---
 
