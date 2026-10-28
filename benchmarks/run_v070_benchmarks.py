@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import secrets
+import struct
 import tempfile
 import time
 from typing import Any, Dict
@@ -46,21 +47,25 @@ def benchmark_aead_raw() -> Dict[str, Any]:
         aad = b"TorchShield-AEAD-Benchmark-AAD"
 
         # Warmup
-        ct = cipher.encrypt(nonce, data, aad)
-        _ = cipher.decrypt(nonce, ct, aad)
+        warmup_nonce = secrets.token_bytes(12)
+        ct = cipher.encrypt(warmup_nonce, data, aad)
+        _ = cipher.decrypt(warmup_nonce, ct, aad)
 
-        # Benchmark encryption
+        # Benchmark encryption with unique 12-byte nonces per iteration (NIST SP 800-38D compliant)
         iters = max(2, int(64 * 1024 * 1024 / size))
+        nonces = [struct.pack(">Q", i) + secrets.token_bytes(4) for i in range(iters)]
+        ciphertexts = []
         t0 = time.perf_counter()
-        for _ in range(iters):
-            ct = cipher.encrypt(nonce, data, aad)
+        for i in range(iters):
+            ct = cipher.encrypt(nonces[i], data, aad)
+            ciphertexts.append(ct)
         enc_time = time.perf_counter() - t0
         enc_throughput = (size * iters) / (1024 * 1024) / enc_time
 
         # Benchmark decryption
         t0 = time.perf_counter()
-        for _ in range(iters):
-            _ = cipher.decrypt(nonce, ct, aad)
+        for i in range(iters):
+            _ = cipher.decrypt(nonces[i], ciphertexts[i], aad)
         dec_time = time.perf_counter() - t0
         dec_throughput = (size * iters) / (1024 * 1024) / dec_time
 

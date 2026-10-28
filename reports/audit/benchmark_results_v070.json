@@ -1,5 +1,5 @@
 {
-  "timestamp": 1793178487.266072,
+  "timestamp": 1793189337.6967611,
   "platform": {
     "os": "Windows 11",
     "machine": "AMD64",
@@ -11,41 +11,41 @@
   "aead": {
     "64KB": {
       "chunk_bytes": 65536,
-      "encrypt_mb_s": 3583.33,
-      "decrypt_mb_s": 3641.89
+      "encrypt_mb_s": 1045.84,
+      "decrypt_mb_s": 2492.96
     },
     "1MB": {
       "chunk_bytes": 1048576,
-      "encrypt_mb_s": 1450.75,
-      "decrypt_mb_s": 1474.53
+      "encrypt_mb_s": 1392.74,
+      "decrypt_mb_s": 1047.61
     },
     "4MB": {
       "chunk_bytes": 4194304,
-      "encrypt_mb_s": 1528.48,
-      "decrypt_mb_s": 1496.43
+      "encrypt_mb_s": 1407.09,
+      "decrypt_mb_s": 1284.62
     },
     "16MB": {
       "chunk_bytes": 16777216,
-      "encrypt_mb_s": 1515.69,
-      "decrypt_mb_s": 1720.04
+      "encrypt_mb_s": 1384.05,
+      "decrypt_mb_s": 1365.22
     }
   },
   "checkpoint_pipeline": {
     "model_payload_mb": 48.0,
     "save": {
-      "time_seconds": 0.3466,
-      "throughput_mb_s": 138.47,
-      "peak_ram_delta_mb": 33.77,
+      "time_seconds": 0.3779,
+      "throughput_mb_s": 127.01,
+      "peak_ram_delta_mb": 33.81,
       "file_size_mb": 48.0
     },
     "load_cpu": {
-      "time_seconds": 0.2134,
-      "throughput_mb_s": 224.96,
-      "peak_ram_delta_mb": 48.07
+      "time_seconds": 0.2775,
+      "throughput_mb_s": 172.95,
+      "peak_ram_delta_mb": 48.06
     },
     "load_cuda": {
-      "time_seconds": 0.3853,
-      "throughput_mb_s": 124.57,
+      "time_seconds": 0.57,
+      "throughput_mb_s": 84.21,
       "device": "NVIDIA GeForce GTX 1650"
     }
   }

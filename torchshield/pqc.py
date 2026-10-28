@@ -113,6 +113,28 @@ class MockAuditedPQCBackend:
             info=ct + recip_pub,
         ).derive(raw_ss)
 
+    @staticmethod
+    def dsa_generate_keypair() -> Tuple[bytes, bytes]:
+        priv = Ed25519PrivateKey.generate()
+        return priv.private_bytes_raw(), priv.public_key().public_bytes_raw()
+
+    @staticmethod
+    def dsa_sign(manifest_digest: bytes, priv_bytes: bytes) -> bytes:
+        if len(manifest_digest) != 32:
+            raise ValueError("Manifest digest must be 32 bytes.")
+        priv = Ed25519PrivateKey.from_private_bytes(priv_bytes)
+        domain_digest = hashlib.sha256(b"TorchShield-TestBackend-MLDSA65-Domain::" + manifest_digest).digest()
+        return priv.sign(domain_digest)
+
+    @staticmethod
+    def dsa_verify(sig_bytes: bytes, manifest_digest: bytes, pub_bytes: bytes) -> bool:
+        if len(manifest_digest) != 32:
+            raise ValueError("Manifest digest must be 32 bytes.")
+        pub = Ed25519PublicKey.from_public_bytes(pub_bytes)
+        domain_digest = hashlib.sha256(b"TorchShield-TestBackend-MLDSA65-Domain::" + manifest_digest).digest()
+        pub.verify(sig_bytes, domain_digest)
+        return True
+
 
 ReferencePQCBackend = MockAuditedPQCBackend
 
@@ -291,18 +313,8 @@ class HybridSignatureEngine:
 
         # 2. Post-Quantum ML-DSA-65 signature
         if self._use_test_backend:
-            mldsa_sig = HKDF(
-                algorithm=hashes.SHA256(),
-                length=64,
-                salt=manifest_digest,
-                info=b"TorchShield-KAT-MLDSA65-Signature",
-            ).derive(mldsa_priv_bytes)
-            mldsa_pub = HKDF(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=b"TorchShield-MLDSA65-PubSalt",
-                info=b"MLDSA65-Keygen",
-            ).derive(mldsa_priv_bytes)
+            mldsa_sig = ReferencePQCBackend.dsa_sign(manifest_digest, mldsa_priv_bytes)
+            mldsa_pub = Ed25519PrivateKey.from_private_bytes(mldsa_priv_bytes).public_key().public_bytes_raw()
         else:
             if not is_pqc_hardware_or_library_available():
                 raise PQCUnavailableError("Production ML-DSA signing requires an audited PQC library.")
@@ -347,23 +359,12 @@ class HybridSignatureEngine:
 
         # 2. Verify Post-Quantum ML-DSA-65
         if self._use_test_backend:
-            # Reconstruct and compare in reference harness
-            expected_mldsa_sig = HKDF(
-                algorithm=hashes.SHA256(),
-                length=64,
-                salt=manifest_digest,
-                info=b"TorchShield-KAT-MLDSA65-Signature",
-            ).derive(
-                HKDF(
-                    algorithm=hashes.SHA256(),
-                    length=32,
-                    salt=mldsa_pub_bytes,
-                    info=b"TorchShield-KAT-PrivRecovery",
-                ).derive(mldsa_pub_bytes)
-            )
-            # In test harness, verify non-empty and well-formed
             if len(mldsa_sig_bytes) != 64:
                 raise PQCError("Invalid ML-DSA signature length.")
+            try:
+                ReferencePQCBackend.dsa_verify(mldsa_sig_bytes, manifest_digest, mldsa_pub_bytes)
+            except Exception as exc:
+                raise PQCError(f"Post-quantum ML-DSA signature verification failed: {exc}") from exc
         else:
             if not is_pqc_hardware_or_library_available():
                 raise PQCUnavailableError("Production ML-DSA verification requires audited liboqs.")

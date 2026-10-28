@@ -1,11 +1,14 @@
 """Native Model-Serving Integrations for TorchShield.
 
-Enables secure streaming model weight loading directly into production inference
-runtimes (vLLM, Triton Inference Server, TensorRT-LLM, PyTorch Inference) with:
-1. Zero Plaintext Disk Materialization: Weights stream-decrypt directly into GPU/CPU
-   tensor buffers without ever creating plaintext weight files on disk.
+Enforces in-memory loading into production inference runtimes (vLLM, Triton
+Inference Server, TensorRT-LLM, PyTorch Inference) with:
+1. Zero Plaintext Disk Materialization: Checkpoint loads and decrypts in memory
+   directly into model parameter buffers without intermediate plaintext files on disk.
+   (In-memory buffer deserialization; does not require kernel-bypass disk streaming).
 2. Fail-Closed Authentication: Every chunk is authenticated via AES-256-GCM AEAD
    before weights are loaded into serving runtime tensors.
+3. Transactional Destination Safety: Atomic rollback protects destination models
+   against partial weight corruption if mid-load errors occur.
 """
 from __future__ import annotations
 
@@ -89,38 +92,56 @@ class SecureInferenceLoader:
         encryption_context: Optional[Dict[str, str]] = None,
         strict: bool = True,
     ) -> nn.Module:
-        """Stream decrypted weights directly into the target model parameters.
-        
-        Enforces zero plaintext file staging.
+        """Load decrypted weights directly into target model parameters in memory.
+
+        Enforces zero plaintext file staging on disk. Provides transactional rollback
+        protection: if weight loading fails mid-operation, the target model's original
+        weights and buffers are cleanly restored.
         """
-        model_params = dict(model.named_parameters())
-        model_buffers = dict(model.named_buffers())
-        loaded_layers = set()
+        orig_params = {name: p.detach().clone() for name, p in model.named_parameters()}
+        orig_buffers = {name: b.detach().clone() for name, b in model.named_buffers()}
 
-        for name, tensor in self.stream_weights(
-            checkpoint_path=checkpoint_path,
-            key_bytes=key_bytes,
-            key_provider=key_provider,
-            encryption_context=encryption_context,
-        ):
-            if name in model_params:
-                with torch.no_grad():
-                    model_params[name].copy_(tensor.to(model_params[name].device))
-                loaded_layers.add(name)
-            elif name in model_buffers:
-                with torch.no_grad():
-                    model_buffers[name].copy_(tensor.to(model_buffers[name].device))
-                loaded_layers.add(name)
-            elif strict:
-                raise CheckpointError(f"Unexpected weight '{name}' in checkpoint not found in model.")
+        def _rollback():
+            with torch.no_grad():
+                for name, p in model.named_parameters():
+                    if name in orig_params:
+                        p.copy_(orig_params[name])
+                for name, b in model.named_buffers():
+                    if name in orig_buffers:
+                        b.copy_(orig_buffers[name])
 
-        if strict:
-            expected_keys = set(model_params.keys()).union(set(model_buffers.keys()))
-            missing_keys = expected_keys - loaded_layers
-            if missing_keys:
-                raise CheckpointError(f"Missing weights required by model: {sorted(missing_keys)}")
+        try:
+            model_params = dict(model.named_parameters())
+            model_buffers = dict(model.named_buffers())
+            loaded_layers = set()
 
-        return model
+            for name, tensor in self.stream_weights(
+                checkpoint_path=checkpoint_path,
+                key_bytes=key_bytes,
+                key_provider=key_provider,
+                encryption_context=encryption_context,
+            ):
+                if name in model_params:
+                    with torch.no_grad():
+                        model_params[name].copy_(tensor.to(model_params[name].device))
+                    loaded_layers.add(name)
+                elif name in model_buffers:
+                    with torch.no_grad():
+                        model_buffers[name].copy_(tensor.to(model_buffers[name].device))
+                    loaded_layers.add(name)
+                elif strict:
+                    raise CheckpointError(f"Unexpected weight '{name}' in checkpoint not found in model.")
+
+            if strict:
+                expected_keys = set(model_params.keys()).union(set(model_buffers.keys()))
+                missing_keys = expected_keys - loaded_layers
+                if missing_keys:
+                    raise CheckpointError(f"Missing weights required by model: {sorted(missing_keys)}")
+
+            return model
+        except Exception:
+            _rollback()
+            raise
 
     def create_vllm_weight_loader(
         self,

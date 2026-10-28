@@ -23,7 +23,38 @@ def signing_keys():
     return priv, pub
 
 
-def test_attestation_verification_success():
+def test_attestation_verification_success(signing_keys):
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-001"
+    verifier = HardwareAttestationVerifier(trusted_root_public_keys={signer_id: pub_bytes})
+    golden = hashlib.sha256(b"trusted_vmlinuz_image").hexdigest()
+    nonce = secrets.token_bytes(32)
+    timestamp = time.time()
+    report_data = hashlib.sha256(nonce).hexdigest()
+
+    quote_body = f"{PlatformType.NVIDIA_CC.value}:{golden}:{report_data}:{timestamp:.3f}".encode("utf-8")
+    sig = priv_key.sign(quote_body).hex()
+
+    evidence = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=report_data,
+        timestamp=timestamp,
+        signature=sig,
+        signer_id=signer_id,
+    )
+    policy = AttestationPolicy(
+        allowed_platforms={PlatformType.NVIDIA_CC.value},
+        golden_measurements={golden},
+        max_age_seconds=60.0,
+        allowed_signer_ids={signer_id},
+        require_signature=True,
+    )
+
+    assert verifier.verify(evidence, policy, expected_nonce=nonce) is True
+
+
+def test_attestation_missing_signature_fails_closed():
     verifier = HardwareAttestationVerifier()
     golden = hashlib.sha256(b"trusted_vmlinuz_image").hexdigest()
     nonce = secrets.token_bytes(32)
@@ -33,14 +64,18 @@ def test_attestation_verification_success():
         measurement=golden,
         report_data=hashlib.sha256(nonce).hexdigest(),
         timestamp=time.time(),
+        signature=None,
+        signer_id=None,
     )
     policy = AttestationPolicy(
         allowed_platforms={PlatformType.NVIDIA_CC.value},
         golden_measurements={golden},
         max_age_seconds=60.0,
+        require_signature=True,
     )
 
-    assert verifier.verify(evidence, policy, expected_nonce=nonce) is True
+    with pytest.raises(AttestationError, match="lacks required platform signature or signer_id"):
+        verifier.verify(evidence, policy, expected_nonce=nonce)
 
 
 def test_attestation_wrong_platform_fails_closed():
@@ -171,22 +206,32 @@ def test_attestation_signature_verification(signing_keys):
         verifier.verify(bad_evidence, policy, expected_nonce=nonce)
 
 
-def test_attestation_gated_key_provider_e2e():
+def test_attestation_gated_key_provider_e2e(signing_keys):
+    priv_key, pub_bytes = signing_keys
+    signer_id = "nvidia-cc-root-ca-001"
     inner_provider = LocalKeyProvider()
-    verifier = HardwareAttestationVerifier()
+    verifier = HardwareAttestationVerifier(trusted_root_public_keys={signer_id: pub_bytes})
     golden = hashlib.sha256(b"confidential_app").hexdigest()
     policy = AttestationPolicy(
         allowed_platforms={PlatformType.NVIDIA_CC.value},
         golden_measurements={golden},
+        allowed_signer_ids={signer_id},
+        require_signature=True,
     )
 
     # Evidence generator callback responding to challenge nonces
     def valid_evidence_provider(challenge_nonce: bytes) -> AttestationEvidence:
+        ts = time.time()
+        rd = hashlib.sha256(challenge_nonce).hexdigest()
+        body = f"{PlatformType.NVIDIA_CC.value}:{golden}:{rd}:{ts:.3f}".encode("utf-8")
+        sig = priv_key.sign(body).hex()
         return AttestationEvidence(
             platform=PlatformType.NVIDIA_CC.value,
             measurement=golden,
-            report_data=hashlib.sha256(challenge_nonce).hexdigest(),
-            timestamp=time.time(),
+            report_data=rd,
+            timestamp=ts,
+            signature=sig,
+            signer_id=signer_id,
         )
 
     gated_provider = AttestationGatedKeyProvider(
@@ -207,11 +252,18 @@ def test_attestation_gated_key_provider_e2e():
 
     # 3. Failing attestation gates unwrap
     def malicious_evidence_provider(challenge_nonce: bytes) -> AttestationEvidence:
+        ts = time.time()
+        rd = hashlib.sha256(challenge_nonce).hexdigest()
+        bad_measurement = "deadbeef" * 8
+        body = f"{PlatformType.NVIDIA_CC.value}:{bad_measurement}:{rd}:{ts:.3f}".encode("utf-8")
+        sig = priv_key.sign(body).hex()
         return AttestationEvidence(
             platform=PlatformType.NVIDIA_CC.value,
-            measurement="deadbeef" * 8,
-            report_data=hashlib.sha256(challenge_nonce).hexdigest(),
-            timestamp=time.time(),
+            measurement=bad_measurement,
+            report_data=rd,
+            timestamp=ts,
+            signature=sig,
+            signer_id=signer_id,
         )
 
     tampered_gated_provider = AttestationGatedKeyProvider(

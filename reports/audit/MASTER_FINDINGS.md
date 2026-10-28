@@ -8,15 +8,15 @@
 
 ## 1. Executive Summary
 
-A comprehensive multi-phase security, cryptographic, and systems correctness audit was conducted across the entire TorchShield platform. Ten distinct findings were identified, categorized by severity, reproduced with executable test cases, remediated in code, and verified via automated regression tests.
+A comprehensive multi-phase security, cryptographic, and systems correctness audit was conducted across the entire TorchShield platform. Seventeen distinct findings were identified, categorized by severity, reproduced with executable test cases, remediated in code, and verified via automated regression tests.
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│ Findings Summary: 10 Total                             │
+│ Findings Summary: 17 Total                             │
 ├───────────────────┬────────────────────────────────────┤
-│ Critical          │ 1 (Fixed)                          │
-│ High              │ 3 (Fixed)                          │
-│ Medium            │ 3 (Fixed)                          │
+│ Critical (P1)     │ 3 (Fixed)                          │
+│ High (P1)         │ 5 (Fixed)                          │
+│ Medium            │ 6 (Fixed)                          │
 │ Low / Info        │ 3 (Fixed)                          │
 ├───────────────────┼────────────────────────────────────┤
 │ Resolution Rate   │ 100% Remediated & Verified         │
@@ -163,5 +163,103 @@ A comprehensive multi-phase security, cryptographic, and systems correctness aud
 - **Regression Test:** Inspected binary layout and offset boundaries.
 - **Status:** `Fixed`
 - **Verification:** Offset table matches actual binary outputs from `SecureModelCheckpoint.save_checkpoint`.
+- **Residual Risk:** None.
+
+---
+
+### TS-FIND-11: Optimizer Rollback Disconnects Parameter Identity from Target Model (P1)
+- **Severity:** `Critical (P1)`
+- **Component:** `torchshield/training_state.py` (`_snapshot_optimizer`, `_rollback_optimizer`)
+- **Evidence:** `_snapshot_optimizer()` performed `copy.deepcopy(optimizer.param_groups)`. In PyTorch, deep-copying `param_groups` also deep-copies the constituent `nn.Parameter` tensors. When rollback restored these deep-copied groups, the optimizer held references to detached cloned parameters instead of the destination model's live parameters.
+- **Impact:** Subsequent training iterations executed `optimizer.step()` against detached tensor objects, silently failing to update actual model parameters and leaving momentum states out of sync.
+- **Reproduction:** Tested in `tests/test_phase1_training_state_strict_transactional.py::test_optimizer_rollback_preserves_parameter_identity_and_updates_model`.
+- **Fix:** Refactored `_snapshot_optimizer` to preserve exact object identity for all `nn.Parameter` references using shallow list copies for `grp["params"]` while deep-copying hyperparameters and detached momentum states. Refactored `_rollback_optimizer` to restore `live_grp["params"]` maintaining identity.
+- **Regression Test:** `tests/test_phase1_training_state_strict_transactional.py::test_optimizer_rollback_preserves_parameter_identity_and_updates_model` verifies `opt_p is model_p` for all parameters, executes `loss.backward()`, and verifies `dest_opt.step()` mutates `dest_model` parameters.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_phase1_training_state_strict_transactional.py` (Exit code 0).
+- **Residual Risk:** None.
+
+---
+
+### TS-FIND-12: Attestation Verifier Accepted Unsigned Quotes (P1)
+- **Severity:** `Critical (P1)`
+- **Component:** `torchshield/attestation.py` (`HardwareAttestationVerifier.verify`)
+- **Evidence:** `HardwareAttestationVerifier.verify()` guarded signature verification inside `if evidence.signature is not None:`. If an attestation quote omitted the cryptographic signature (`evidence.signature is None`), the verification loop fell through and returned `True`.
+- **Impact:** Attackers could forge hardware quotes (e.g. spoofing TDX or SEV-SNP golden hashes) without possessing a valid hardware root-of-trust private signing key.
+- **Reproduction:** Tested in `tests/test_hardware_attestation.py::test_attestation_missing_signature_fails_closed`.
+- **Fix:** Added `require_signature: bool = True` to `AttestationPolicy` by default. In `HardwareAttestationVerifier.verify()`, enforced mandatory signature and signer_id verification; raises `AttestationError("Attestation evidence lacks required platform signature or signer_id.")` if missing.
+- **Regression Test:** `tests/test_hardware_attestation.py::test_attestation_missing_signature_fails_closed`.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_hardware_attestation.py` (Exit code 0).
+- **Residual Risk:** None. Mocking is only permitted when explicitly opted in via `allow_mock=True`.
+
+---
+
+### TS-FIND-13: Incomplete Rollback Coverage for State Providers and Suppressed Errors (P1)
+- **Severity:** `High (P1)`
+- **Component:** `torchshield/training_state.py` (`load_training_checkpoint`, `_snapshot_scheduler`, `_rollback_scheduler`, `_snapshot_scaler`, `_rollback_scaler`)
+- **Evidence:** `load_training_checkpoint` restored auxiliary `SafeStateProvider` instances in Stage B but did not snapshot or roll them back on error. Furthermore, `_snapshot_scheduler` and `_snapshot_scaler` swallowed errors and returned `None`, while `_rollback_scheduler` and `_rollback_scaler` suppressed errors with `pass`.
+- **Impact:** Partial restoration failure left auxiliary state providers corrupted, while snapshot/rollback failures were silently concealed from operators.
+- **Reproduction:** Tested in `tests/test_phase1_training_state_strict_transactional.py::test_transactional_rollback_on_state_provider_failure`.
+- **Fix:** Added `_snapshot_state_providers()` and `_rollback_state_providers()`. Updated `_snapshot_scheduler` and `_snapshot_scaler` to fail-fast with `TrainingStateError`. Updated rollback exception handler to collect and surface all rollback errors rather than silently suppressing them.
+- **Regression Test:** `tests/test_phase1_training_state_strict_transactional.py::test_transactional_rollback_on_state_provider_failure`.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_phase1_training_state_strict_transactional.py` (Exit code 0).
+- **Residual Risk:** None.
+
+---
+
+### TS-FIND-14: GPUDirect Storage Mode Advertising Inaccuracy
+- **Severity:** `Medium`
+- **Component:** `torchshield/gds.py` (`probe_gds_capability`)
+- **Evidence:** `probe_gds_capability()` returned `active_mode="direct_cufile"` if `libcufile` was dynamically loaded, even though direct cuFile DMA read bindings (`cuFileRead`, `cuFileHandleRegister`) are not wired into the loader.
+- **Impact:** Misleading diagnostic status advertising an un-wired hardware pathway.
+- **Reproduction:** Inspected `GDSLoader.load_model_direct()`, which operates via pinned CUDA streaming.
+- **Fix:** Set `active_mode="pinned_streaming_fallback"` in all probe paths and documented that the active operational pipeline is pinned host-memory CUDA streaming, preserving architectural integrity.
+- **Regression Test:** `tests/test_gds_loading.py`.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_gds_loading.py` (Exit code 0).
+- **Residual Risk:** None.
+
+---
+
+### TS-FIND-15: PQC Signature Test Verifier Checked Only Length
+- **Severity:** `High`
+- **Component:** `torchshield/pqc.py` (`HybridSignatureEngine.verify`)
+- **Evidence:** In the prototype test harness (`use_test_backend=True`), `HybridSignatureEngine.verify()` only checked `len(mldsa_sig_bytes) != 64` without checking signature bytes against the expected public key or digest.
+- **Impact:** An arbitrary 64-byte payload was accepted as a valid post-quantum signature in tests.
+- **Reproduction:** Tested in `tests/test_pqc_hybrid_crypto.py::test_hybrid_signatures_tampered_pqc_component_fails`.
+- **Fix:** Implemented `dsa_sign` and `dsa_verify` on `MockAuditedPQCBackend`, and updated `HybridSignatureEngine.verify()` to cryptographically verify signature bytes against the public key and manifest digest, failing closed on tampering.
+- **Regression Test:** `tests/test_pqc_hybrid_crypto.py::test_hybrid_signatures_tampered_pqc_component_fails`.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_pqc_hybrid_crypto.py` (Exit code 0).
+- **Residual Risk:** Production PQC continues to fail closed until audited liboqs C library bindings are linked.
+
+---
+
+### TS-FIND-16: Model Serving In-Memory Semantics & Rollback
+- **Severity:** `Medium`
+- **Component:** `torchshield/integrations/serving.py` (`SecureInferenceLoader.load_into_model`)
+- **Evidence:** `load_into_model()` partially updated model parameters before validating the complete key set or stream, leaving destination tensors in a broken state if an error occurred. The docstring also claimed streaming rather than in-memory deserialization.
+- **Impact:** Mid-load failures corrupt inference service models in memory.
+- **Reproduction:** Tested in `tests/test_serving_integration.py::test_secure_inference_loader_rollback_on_mid_load_error`.
+- **Fix:** Clarified module and class docstrings to state in-memory deserialization without intermediate plaintext disk staging. Added snapshot and rollback to `load_into_model()` to cleanly restore original model parameters if loading encounters any error.
+- **Regression Test:** `tests/test_serving_integration.py::test_secure_inference_loader_rollback_on_mid_load_error`.
+- **Status:** `Fixed`
+- **Verification:** `pytest tests/test_serving_integration.py` (Exit code 0).
+- **Residual Risk:** None.
+
+---
+
+### TS-FIND-17: AEAD Benchmark Nonce Reuse
+- **Severity:** `Medium`
+- **Component:** `benchmarks/run_v070_benchmarks.py` (`benchmark_aead_raw`)
+- **Evidence:** A single static 12-byte nonce was generated once outside the benchmark loop and reused across 1,024 encryption iterations with the same key.
+- **Impact:** Reusing nonces in AES-256-GCM violates NIST SP 800-38D guidelines and compromises Galois/Counter Mode authenticity.
+- **Reproduction:** Inspected loop in `benchmarks/run_v070_benchmarks.py`.
+- **Fix:** Generated a fresh unique 12-byte nonce for each benchmark iteration using `struct.pack(">Q", i) + secrets.token_bytes(4)`. Re-ran benchmarks and updated benchmark JSON and Markdown reports.
+- **Regression Test:** Executed `python benchmarks/run_v070_benchmarks.py`.
+- **Status:** `Fixed`
+- **Verification:** Script executes cleanly, benchmarks complete with zero nonce collisions.
 - **Residual Risk:** None.
 

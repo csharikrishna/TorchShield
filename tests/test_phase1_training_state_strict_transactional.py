@@ -431,9 +431,15 @@ def test_transactional_rollback_on_scaler_failure(monkeypatch):
         init_sched = copy.deepcopy(dest_sched.state_dict())
         init_scaler = copy.deepcopy(dest_scaler.state_dict())
 
-        # Inject failure in scaler load_state_dict
+        # Inject failure in scaler load_state_dict on first invocation (restoration)
+        calls = [0]
+        real_load = dest_scaler.load_state_dict
+
         def faulty_scaler_load(*args, **kwargs):
-            raise RuntimeError("Injected scaler crash!")
+            calls[0] += 1
+            if calls[0] == 1:
+                raise RuntimeError("Injected scaler crash!")
+            return real_load(*args, **kwargs)
 
         monkeypatch.setattr(dest_scaler, "load_state_dict", faulty_scaler_load)
 
@@ -455,6 +461,157 @@ def test_transactional_rollback_on_scaler_failure(monkeypatch):
             assert torch.equal(b, init_bufs[n]), f"Buffer {n} not rolled back!"
         assert dest_sched.state_dict() == init_sched, "Scheduler not rolled back!"
         assert dest_scaler.state_dict() == init_scaler, "Scaler not rolled back!"
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_optimizer_rollback_preserves_parameter_identity_and_updates_model(monkeypatch):
+    """P1 Finding 1 Regression Test:
+    Verify that when restoration fails and triggers rollback, optimizer parameter groups
+    maintain exact object identity ('is') with the destination model's parameters,
+    and subsequent optimizer.step() properly mutates the model's weights.
+    """
+    key = os.urandom(32)
+    model = NetA()
+    optimizer = SGD(model.parameters(), lr=0.1)
+
+    # Do a step to populate optimizer state
+    x = torch.randn(2, 4)
+    loss = model(x).sum()
+    loss.backward()
+    optimizer.step()
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            optimizer=optimizer,
+            key=key,
+        )
+
+        dest_model = NetA()
+        dest_opt = SGD(dest_model.parameters(), lr=0.05)
+
+        # Record exact parameter object ids before attempting restoration
+        original_model_params = list(dest_model.parameters())
+        initial_opt_params = [p for grp in dest_opt.param_groups for p in grp["params"]]
+
+        for orig_p, opt_p in zip(original_model_params, initial_opt_params):
+            assert orig_p is opt_p, "Pre-condition: optimizer params must be identical to model params."
+
+        # Monkeypatch restore_all_rng to raise an error during rollback trigger
+        from torchshield import training_state
+        real_restore_rng = training_state.restore_all_rng
+        call_count = [0]
+
+        def faulty_restore_rng(rng_dict):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise RuntimeError("Simulated failure after optimizer restoration!")
+            return real_restore_rng(rng_dict)
+
+        monkeypatch.setattr(training_state, "restore_all_rng", faulty_restore_rng)
+
+        with pytest.raises(TrainingStateError, match="Restoration failed; rolled back all state mutations"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                optimizer=dest_opt,
+                key=key,
+                restore_rng=True,
+            )
+
+        # 1. Verify exact object identity is preserved for every parameter
+        rolled_back_opt_params = [p for grp in dest_opt.param_groups for p in grp["params"]]
+        assert len(rolled_back_opt_params) == len(original_model_params)
+
+        for model_p, opt_p in zip(dest_model.parameters(), rolled_back_opt_params):
+            assert model_p is opt_p, "Optimizer parameter disconnected from model parameter during rollback!"
+
+        # 2. Verify that a subsequent optimizer step updates the model parameters
+        dest_opt.zero_grad()
+        loss = dest_model(x).sum()
+        loss.backward()
+
+        before_step_weight = dest_model.fc1.weight.clone()
+        dest_opt.step()
+        after_step_weight = dest_model.fc1.weight.clone()
+
+        assert not torch.equal(before_step_weight, after_step_weight), (
+            "Optimizer step did not update model parameters! Parameter identity was broken."
+        )
+
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def test_transactional_rollback_on_state_provider_failure(monkeypatch):
+    """P1 Finding 3 Regression Test:
+    Verify that auxiliary state providers are snapshotted and atomically rolled back
+    if an error occurs during checkpoint restoration.
+    """
+    class TestStateProvider(SafeStateProvider):
+        def __init__(self, key="test_provider", value=100):
+            self.key = key
+            self.value = value
+
+        def get_state_key(self) -> str:
+            return self.key
+
+        def capture_state(self):
+            return {"value": self.value}
+
+        def restore_state(self, state):
+            self.value = state["value"]
+
+    key = os.urandom(32)
+    model = NetA()
+    src_provider = TestStateProvider(value=999)
+
+    with tempfile.NamedTemporaryFile(suffix=".shield", delete=False) as tmp:
+        path = tmp.name
+
+    try:
+        save_training_checkpoint(
+            output_path=path,
+            model=model,
+            key=key,
+            state_providers=[src_provider],
+        )
+
+        dest_model = NetA()
+        dest_provider = TestStateProvider(value=42)
+
+        # Inject failure in restore_all_rng so it fails after state provider restore
+        from torchshield import training_state
+        real_restore_rng = training_state.restore_all_rng
+        call_count = [0]
+
+        def faulty_restore_rng(rng_dict):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise RuntimeError("Simulated failure after provider restore!")
+            return real_restore_rng(rng_dict)
+
+        monkeypatch.setattr(training_state, "restore_all_rng", faulty_restore_rng)
+
+        with pytest.raises(TrainingStateError, match="Restoration failed; rolled back all state mutations"):
+            load_training_checkpoint(
+                input_path=path,
+                model=dest_model,
+                key=key,
+                state_providers=[dest_provider],
+                restore_rng=True,
+            )
+
+        # Verify state provider was rolled back to its initial value (42)
+        assert dest_provider.value == 42, f"State provider failed rollback: value is {dest_provider.value}, expected 42"
 
     finally:
         if os.path.exists(path):

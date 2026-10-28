@@ -126,3 +126,39 @@ def test_secure_inference_loader_tamper_fails_closed():
         target_model = InferenceNet()
         with pytest.raises(CheckpointError):
             loader.load_into_model(ckpt_path, target_model, key_bytes=key)
+
+
+def test_secure_inference_loader_rollback_on_mid_load_error(monkeypatch):
+    key = secrets.token_bytes(32)
+    model = InferenceNet()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ckpt_path = os.path.join(tmpdir, "serving_model.seal")
+        SecureModelCheckpoint.save_model(model, ckpt_path, key)
+
+        target_model = InferenceNet()
+        initial_params = {n: p.detach().clone() for n, p in target_model.named_parameters()}
+        initial_buffers = {n: b.detach().clone() for n, b in target_model.named_buffers()}
+
+        loader = SecureInferenceLoader()
+        orig_stream = loader.stream_weights
+
+        def failing_stream(*args, **kwargs):
+            first = True
+            for name, tensor in orig_stream(*args, **kwargs):
+                if first:
+                    yield name, tensor
+                    first = False
+                    raise RuntimeError("Simulated mid-load streaming disruption.")
+                yield name, tensor
+
+        monkeypatch.setattr(loader, "stream_weights", failing_stream)
+
+        with pytest.raises(RuntimeError, match="disruption"):
+            loader.load_into_model(ckpt_path, target_model, key_bytes=key)
+
+        # Verify atomic rollback: no weights partially updated
+        for name, param in target_model.named_parameters():
+            assert torch.allclose(param, initial_params[name]), f"Parameter {name} was not rolled back!"
+        for name, buf in target_model.named_buffers():
+            assert torch.allclose(buf, initial_buffers[name]), f"Buffer {name} was not rolled back!"

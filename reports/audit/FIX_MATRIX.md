@@ -1,8 +1,8 @@
 # TorchShield Remediation & Fix Verification Matrix
 
 **Audit Date:** 2026-10-28  
-**Audit Scope:** Full codebase (`torchshield/`, `tests/`, `docs/`, `scripts/`)  
-**Resolution Summary:** 10 / 10 Issues Remediated (100% Pass Rate across 240 Tests)
+**Audit Scope:** Full codebase (`torchshield/`, `tests/`, `docs/`, `scripts/`, `benchmarks/`)
+**Resolution Summary:** 17 / 17 Issues Remediated (100% Pass Rate across 254 Verification Checks: 247 pytest + 7 Local KMS)
 
 ---
 
@@ -20,15 +20,22 @@
 | **TS-FIND-08** | `Low` | `torchshield/secure.py` | Code comment stated magic was 8 bytes; actual byte sequence is 15 bytes | Docstrings and comments corrected to state exact 16-byte fixed prefix | `torchshield/secure.py` | Inspected (0) |
 | **TS-FIND-09** | `Info` | `docs/` | RFC 8785 claimed without documenting float/number representation boundaries | Formally specified as `TorchShield Canonical JSON v1` with strict serialization rules | `docs/TRAINING_CHECKPOINT_SCHEMA.md` | Inspected (0) |
 | **TS-FIND-10** | `Info` | `README.md`, `docs/index.html` | Header magic listed as `TSHD\x00CK5` (40B); actual code is `TSHDMOD5` (41B) | Synchronized README and docs to `b"TSHDMOD5"`; documented 2-tier envelope format | `README.md`, `docs/index.html` | Inspected (0) |
+| **TS-FIND-11** | `Critical` (P1) | `torchshield/training_state.py` | `_snapshot_optimizer()` deep-copied `param_groups`, disconnecting `nn.Parameter` references on rollback | Parameter references preserved with shallow copy (`is`); verified subsequent `step()` mutates weights | `tests/test_phase1_training_state_strict_transactional.py` | `pytest tests/test_phase1...` (0) |
+| **TS-FIND-12** | `Critical` (P1) | `torchshield/attestation.py` | `HardwareAttestationVerifier.verify()` allowed unsigned quotes (`evidence.signature is None`) | Mandatory signature and signer validation enforced by default (`require_signature=True`); fails closed | `tests/test_hardware_attestation.py` | `pytest tests/test_hardware...` (0) |
+| **TS-FIND-13** | `High` (P1) | `torchshield/training_state.py` | Auxiliary `state_providers` omitted from rollback; snapshot/rollback errors suppressed with `pass` | `_snapshot_state_providers` and `_rollback_state_providers` implemented; all rollback errors surfaced | `tests/test_phase1_training_state_strict_transactional.py` | `pytest tests/test_phase1...` (0) |
+| **TS-FIND-14** | `Medium` | `torchshield/gds.py` | `probe_gds_capability()` reported active mode as `direct_cufile` even though direct cuFile DMA read APIs are unhooked | Mode accurately labeled as `pinned_streaming_fallback` / CUDA stream pipeline; no false driver claims | `tests/test_gds_loading.py` | `pytest tests/test_gds...` (0) |
+| **TS-FIND-15** | `High` | `torchshield/pqc.py` | `HybridSignatureEngine.verify()` in test backend only checked signature length without verifying signature bytes | Wired `MockAuditedPQCBackend.dsa_sign` / `dsa_verify` to cryptographically verify signature against public key | `tests/test_pqc_hybrid_crypto.py` | `pytest tests/test_pqc...` (0) |
+| **TS-FIND-16** | `Medium` | `torchshield/integrations/serving.py` | `SecureInferenceLoader.load_into_model()` partially mutated destination on error; semantics claimed streaming | Clarified in-memory deserialization semantics (no disk staging) and added transactional parameter rollback | `tests/test_serving_integration.py` | `pytest tests/test_serving...` (0) |
+| **TS-FIND-17** | `Medium` | `benchmarks/run_v070_benchmarks.py` | Static 12-byte nonce was reused across 1,024 AES-GCM encryption benchmark iterations | Generated guaranteed unique 12-byte nonces per iteration per NIST SP 800-38D | `benchmarks/run_v070_benchmarks.py` | `python benchmarks/...` (0) |
 
 ---
 
 ## Regression Test Suite Execution Summary
 
-- **Total Pytest Test Cases Executed:** 242
+- **Total Pytest Test Cases Executed:** 247
 - **Total Pytest Failures:** 0
 - **Total Standalone Local KMS Checks:** 7
-- **Total Combined Verification Checks:** 249
+- **Total Combined Verification Checks:** 254
 - **Total Errors:** 0
 - **Pass Rate:** **100.0%**
-- **Full Suite Execution Time:** 48.89 seconds
+- **Full Suite Execution Time:** 55.41 seconds (pytest) + 8.2s (Local KMS)

@@ -17,12 +17,12 @@ Across the 16 phases of this master security audit and architecture remediation 
 │ FINAL AUDIT METRICS                                    │
 ├───────────────────────────────┬────────────────────────┤
 │ Baseline Test Suite           │ 204 Passed, 0 Failed   │
-│ Final Pytest Test Suite       │ 242 Passed, 0 Failed   │
-│ Net New Regression Tests Added│ +38 Tests              │
-│ Identified Defects Remediated │ 10 / 10 (100% Fixed)   │
+│ Final Pytest Test Suite       │ 247 Passed, 0 Failed   │
+│ Net New Regression Tests Added│ +43 Tests              │
+│ Identified Defects Remediated │ 17 / 17 (100% Fixed)   │
 │ Standalone Local KMS Checks   │ 7 / 7 Local Moto Passed│
-│ Total Verified Checks         │ 249 / 249 Passed (100%)│
-│ Test Execution Duration       │ 48.89 seconds          │
+│ Total Verified Checks         │ 254 / 254 Passed (100%)│
+│ Test Execution Duration       │ 55.41s pytest + 8.2s KMS│
 │ Overall Pass Rate             │ 100.0%                 │
 └───────────────────────────────┴────────────────────────┘
 ```
@@ -35,19 +35,19 @@ Across the 16 phases of this master security audit and architecture remediation 
 |---|:---:|:---:|---|
 | **AEAD Cryptography & Known Answer Tests** | 9 | 9 | AES-256-GCM / Poly1305 NIST KAT vectors |
 | **Artifact Signatures & Manifest Integrity** | 10 | 10 | Ed25519 publisher signature binding |
-| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **8** | `validate_model_checkpoint`, full transactional rollback |
+| **Strict Model, Optimizer, Scheduler, Scaler & RNG Validation** | 0 | **10** | `validate_model_checkpoint`, full transactional rollback, optimizer parameter identity preservation |
 | **Distributed Checkpoint Hardening** | 4 | **7** | Path traversal, symlink, duplicate rank mitigation |
 | **Hugging Face Trainer Integration** | 5 | **6** | Fail-closed on missing vault, two-phase file cleanup |
 | **Multi-Cloud Key Providers (GCP/Azure/Vault)** | 0 | **3** | Unified contract tests, retry backoff |
-| **Post-Quantum Cryptography (PQC)** | 0 | **4** | Hybrid ML-KEM-768 & ML-DSA-65 |
-| **Hardware Attestation & Enclaves** | 0 | **7** | Freshness nonces, certificate chains, measurements |
-| **GPUDirect Storage (GDS) Loading** | 0 | **4** | Capability detection, streaming CPU fallback |
-| **Native Inference Model Serving** | 0 | **5** | Direct in-memory load without plaintext disk landing |
+| **Post-Quantum Cryptography (PQC)** | 0 | **5** | Hybrid ML-KEM-768 & ML-DSA-65 with verified signature checks |
+| **Hardware Attestation & Enclaves** | 0 | **8** | Freshness nonces, certificate chains, mandatory root signatures |
+| **GPUDirect Storage (GDS) Loading** | 0 | **4** | Capability detection, streaming CUDA pipeline fallback |
+| **Native Inference Model Serving** | 0 | **6** | Direct in-memory load without plaintext disk landing, transactional rollback |
 | **Quorum Etcd Consensus Freshness** | 0 | **3** | CAS transactions, revision-based anti-rollback |
 | **Phase 2/4/6 Protocol & Edge Cases** | 176 | 176 | Monotonic nonces, chunk budgets, untrusted inputs |
-| **TOTAL PYTEST TEST COUNT** | **204** | **242** | **+38 Net New Tests (100% Passing)** |
+| **TOTAL PYTEST TEST COUNT** | **204** | **247** | **+43 Net New Tests (100% Passing)** |
 | **STANDALONE LOCAL KMS CHECKS** | 0 | **7** | Embedded Moto Local KMS Verification (100% Passing) |
-| **COMBINED TESTED CHECKS** | **204** | **249** | **+45 Net New Checks (100% Passing)** |
+| **COMBINED TESTED CHECKS** | **204** | **254** | **+50 Net New Checks (100% Passing)** |
 
 ---
 
@@ -73,6 +73,20 @@ Across the 16 phases of this master security audit and architecture remediation 
    - *Fix:* Formally documented serialization as `TorchShield Canonical JSON v1`.
 10. **TS-FIND-10 (Info): Container Magic Documentation Discrepancy**
    - *Fix:* Synchronized README and docs to canonical `b"TSHDMOD5"` 41-byte fixed header prefix (`0x00` to `0x28`).
+11. **TS-FIND-11 (Critical - P1): Optimizer Rollback Parameter Disconnection**
+   - *Fix:* Preserved `nn.Parameter` object identity (`is`) in optimizer rollback; regression test verifies subsequent `step()` updates weights.
+12. **TS-FIND-12 (Critical - P1): Attestation Verifier Accepted Unsigned Quotes**
+   - *Fix:* Enforced mandatory cryptographic signature and signer validation by default; fails closed when unsigned.
+13. **TS-FIND-13 (High - P1): Auxiliary State Providers Rollback & Error Concealment**
+   - *Fix:* Implemented `_snapshot_state_providers` / `_rollback_state_providers`, fail-fast on snapshot errors, and surfaced all rollback errors without suppression.
+14. **TS-FIND-14 (Medium): GPUDirect Storage Mode Advertising Inaccuracy**
+   - *Fix:* Kept operational mode labeled as `pinned_streaming_fallback` / CUDA stream pipeline; no unwired cuFile DMA claim.
+15. **TS-FIND-15 (High): PQC Test Verifier Checked Only Length**
+   - *Fix:* Cryptographically verified signature bytes against public key and manifest digest; tampered signature rejected fail-closed.
+16. **TS-FIND-16 (Medium): Model Serving In-Memory Semantics & Rollback**
+   - *Fix:* Clarified in-memory deserialization semantics (no disk staging) and added transactional parameter rollback on mid-load error.
+17. **TS-FIND-17 (Medium): AEAD Benchmark Nonce Reuse**
+   - *Fix:* Generated fresh unique 12-byte nonces per iteration per NIST SP 800-38D.
 
 ---
 
@@ -82,13 +96,13 @@ Packages built via isolated `python -m build`:
 
 ```
 dist/
-├── torchshield-0.7.0-py3-none-any.whl  (72,934 bytes)
-└── torchshield-0.7.0.tar.gz            (130,837 bytes)
+├── torchshield-0.7.0-py3-none-any.whl  (73,150 bytes)
+└── torchshield-0.7.0.tar.gz            (131,215 bytes)
 ```
 
 ### Cryptographic Hashes (SHA-256):
-- **Wheel:** `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601`
-- **Source Distribution (sdist):** `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2`
+- **Wheel:** `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685`
+- **Source Distribution (sdist):** `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077`
 
 ---
 
@@ -134,11 +148,11 @@ Measurements conducted on host system (Windows 11 AMD64, NVIDIA GeForce GTX 1650
 
 - **Current Status:** **Conditional Approval — Internal Staging / Research Candidate (v0.7.0)**.
 - **Evidence Base:**
-  - 242 / 242 pytest unit and integration tests passing.
+  - 247 / 247 pytest unit, integration, and security regression tests passing.
   - 7 / 7 standalone local Moto KMS envelope encryption tests passing.
-  - Combined total: 249 verified checks passed (100% pass rate).
+  - Combined total: 254 verified checks passed (100% pass rate).
   - Zero-pickle guarantee enforced and verified with fail-closed exceptions.
-  - Two-stage transactional restoration with atomic rollback verified across model, optimizer, scheduler, scaler, and all 4 RNG generators.
+  - Two-stage transactional restoration with atomic rollback verified across model, optimizer (with strict parameter object identity preservation), scheduler, scaler, auxiliary state providers, and all 4 RNG generators.
   - Clean-room virtual environment installation and execution verified outside repository directory.
 - **Prerequisites for Unrestricted Enterprise Production Deployment:**
   - Live multi-node cloud validation with production GCP, Azure, or Vault KMS credentials.

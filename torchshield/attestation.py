@@ -83,6 +83,7 @@ class AttestationPolicy:
     max_age_seconds: float = 300.0  # Freshness window to prevent stale quote replay
     allowed_signer_ids: Optional[Set[str]] = None
     require_fresh_nonce: bool = True
+    require_signature: bool = True
     allow_mock: bool = False
 
 
@@ -164,6 +165,11 @@ class HardwareAttestationVerifier:
                 raise AttestationError(f"Attestation signer '{evidence.signer_id}' is not an authorized platform signer.")
 
         # 6. Cryptographic signature verification
+        require_signature = getattr(policy, "require_signature", True)
+        if require_signature:
+            if not evidence.signature or not evidence.signer_id:
+                raise AttestationError("Attestation evidence lacks required platform signature or signer_id.")
+
         if evidence.signature is not None:
             if not evidence.signer_id:
                 raise AttestationError("Attestation evidence has signature but missing signer_id.")

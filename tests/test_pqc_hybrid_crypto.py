@@ -110,6 +110,35 @@ def test_hybrid_signatures_sign_and_verify_reference():
         )
 
 
+def test_hybrid_signatures_tampered_pqc_component_fails():
+    sig_engine = HybridSignatureEngine(use_test_backend=True)
+
+    ed_priv = Ed25519PrivateKey.generate()
+    ed_priv_bytes = ed_priv.private_bytes_raw()
+    ed_pub_bytes = ed_priv.public_key().public_bytes_raw()
+    mldsa_priv = secrets.token_bytes(32)
+
+    manifest_digest = secrets.token_bytes(32)
+    sig_dict = sig_engine.sign(
+        manifest_digest=manifest_digest,
+        ed25519_priv_bytes=ed_priv_bytes,
+        mldsa_priv_bytes=mldsa_priv,
+    )
+
+    # Tamper only the PQC signature component
+    tampered_sig_dict = dict(sig_dict)
+    pqc_sig_bytes = bytearray(bytes.fromhex(tampered_sig_dict["mldsa_sig"]))
+    pqc_sig_bytes[-1] ^= 0xFF
+    tampered_sig_dict["mldsa_sig"] = pqc_sig_bytes.hex()
+
+    with pytest.raises(PQCError, match="Post-quantum ML-DSA signature verification failed"):
+        sig_engine.verify(
+            manifest_digest=manifest_digest,
+            signature_dict=tampered_sig_dict,
+            expected_ed25519_pub=ed_pub_bytes,
+        )
+
+
 def test_production_mode_fails_closed_when_pqc_lib_missing():
     # In production mode without test harness, must fail closed if liboqs not installed
     session = HybridKEMSession(use_test_backend=False)

@@ -349,6 +349,11 @@ def _rollback_model(model: nn.Module, snapshot: Tuple[Dict[str, torch.Tensor], D
 
 
 def _snapshot_optimizer(optimizer: Optimizer) -> Tuple[Dict[Any, Dict[str, Any]], List[Dict[str, Any]]]:
+    """Take an in-memory snapshot of optimizer state and parameter groups.
+
+    Preserves exact nn.Parameter object references to prevent disconnecting
+    the optimizer from the model upon rollback.
+    """
     saved_state: Dict[Any, Dict[str, Any]] = {}
     for p, st in optimizer.state.items():
         saved_state[p] = {}
@@ -357,16 +362,61 @@ def _snapshot_optimizer(optimizer: Optimizer) -> Tuple[Dict[Any, Dict[str, Any]]
                 saved_state[p][k] = v.detach().clone()
             else:
                 saved_state[p][k] = copy.deepcopy(v)
-    saved_groups = copy.deepcopy(optimizer.param_groups)
+
+    saved_groups: List[Dict[str, Any]] = []
+    for grp in optimizer.param_groups:
+        grp_copy = {}
+        for k, v in grp.items():
+            if k == "params":
+                # Preserve exact object identity of the parameters (shallow list copy of references)
+                grp_copy["params"] = list(v)
+            else:
+                grp_copy[k] = copy.deepcopy(v)
+        saved_groups.append(grp_copy)
+
     return saved_state, saved_groups
 
 
-def _rollback_optimizer(optimizer: Optimizer, snapshot: Tuple[Dict[Any, Dict[str, Any]], List[Dict[str, Any]]]) -> None:
-    saved_state, saved_groups = snapshot
-    optimizer.state.clear()
-    for p, st in saved_state.items():
-        optimizer.state[p] = st
-    optimizer.param_groups = saved_groups
+def _rollback_optimizer(
+    optimizer: Optimizer,
+    snapshot: Tuple[Dict[Any, Dict[str, Any]], List[Dict[str, Any]]],
+) -> None:
+    """Restore optimizer state and parameter groups from snapshot.
+
+    Maintains exact parameter object identity so subsequent optimizer.step() calls
+    continue updating the model's live parameters.
+    """
+    try:
+        saved_state, saved_groups = snapshot
+        optimizer.state.clear()
+        for p, st in saved_state.items():
+            optimizer.state[p] = {}
+            for k, v in st.items():
+                if isinstance(v, torch.Tensor):
+                    optimizer.state[p][k] = v.detach().clone()
+                else:
+                    optimizer.state[p][k] = copy.deepcopy(v)
+
+        if len(optimizer.param_groups) == len(saved_groups):
+            for live_grp, saved_grp in zip(optimizer.param_groups, saved_groups):
+                for k, v in saved_grp.items():
+                    if k == "params":
+                        live_grp["params"] = list(v)
+                    else:
+                        live_grp[k] = copy.deepcopy(v)
+        else:
+            reconstructed_groups = []
+            for saved_grp in saved_groups:
+                grp_copy = {}
+                for k, v in saved_grp.items():
+                    if k == "params":
+                        grp_copy["params"] = list(v)
+                    else:
+                        grp_copy[k] = copy.deepcopy(v)
+                reconstructed_groups.append(grp_copy)
+            optimizer.param_groups = reconstructed_groups
+    except Exception as exc:
+        raise TrainingStateError(f"Failed to rollback optimizer state: {exc}") from exc
 
 
 def _snapshot_scheduler(scheduler: Any) -> Optional[dict]:
@@ -374,16 +424,16 @@ def _snapshot_scheduler(scheduler: Any) -> Optional[dict]:
         return None
     try:
         return copy.deepcopy(scheduler.state_dict())
-    except Exception:
-        return None
+    except Exception as exc:
+        raise TrainingStateError(f"Failed to snapshot scheduler state: {exc}") from exc
 
 
 def _rollback_scheduler(scheduler: Any, snapshot: Optional[dict]) -> None:
     if scheduler is not None and snapshot is not None:
         try:
             scheduler.load_state_dict(snapshot)
-        except Exception:
-            pass
+        except Exception as exc:
+            raise TrainingStateError(f"Failed to rollback scheduler state: {exc}") from exc
 
 
 def _snapshot_scaler(scaler: Any) -> Optional[dict]:
@@ -391,16 +441,52 @@ def _snapshot_scaler(scaler: Any) -> Optional[dict]:
         return None
     try:
         return copy.deepcopy(scaler.state_dict())
-    except Exception:
-        return None
+    except Exception as exc:
+        raise TrainingStateError(f"Failed to snapshot scaler state: {exc}") from exc
 
 
 def _rollback_scaler(scaler: Any, snapshot: Optional[dict]) -> None:
     if scaler is not None and snapshot is not None:
         try:
             scaler.load_state_dict(snapshot)
-        except Exception:
-            pass
+        except Exception as exc:
+            raise TrainingStateError(f"Failed to rollback scaler state: {exc}") from exc
+
+
+def _snapshot_state_providers(
+    providers: Optional[List[SafeStateProvider]],
+) -> Optional[Dict[str, Dict[str, Any]]]:
+    if not providers:
+        return None
+    snapshots: Dict[str, Dict[str, Any]] = {}
+    for p in providers:
+        try:
+            key = p.get_state_key()
+            state = p.capture_state()
+            snapshots[key] = copy.deepcopy(state)
+        except Exception as exc:
+            raise TrainingStateError(
+                f"Failed to snapshot state provider '{getattr(p, 'get_state_key', lambda: str(p))()}': {exc}"
+            ) from exc
+    return snapshots
+
+
+def _rollback_state_providers(
+    providers: Optional[List[SafeStateProvider]],
+    snapshot: Optional[Dict[str, Dict[str, Any]]],
+) -> None:
+    if not providers or not snapshot:
+        return
+    errors = []
+    for p in providers:
+        try:
+            key = p.get_state_key()
+            if key in snapshot:
+                p.restore_state(snapshot[key])
+        except Exception as exc:
+            errors.append(f"Provider '{key}': {exc}")
+    if errors:
+        raise TrainingStateError("Failed to rollback state provider(s): " + "; ".join(errors))
 
 
 # ---------------------------------------------------------------------------
@@ -728,6 +814,7 @@ def load_training_checkpoint(
     opt_snapshot = _snapshot_optimizer(optimizer) if optimizer is not None else None
     sched_snapshot = _snapshot_scheduler(scheduler)
     scaler_snapshot = _snapshot_scaler(scaler)
+    prov_snapshot = _snapshot_state_providers(state_providers)
     rng_snapshot = serialize_all_rng() if restore_rng else None
 
     name_to_param = dict(model.named_parameters())
@@ -787,16 +874,41 @@ def load_training_checkpoint(
             restore_all_rng(training_meta["rng"])
 
     except Exception as exc:
-        # Atomic Rollback: revert model, optimizer, scheduler, scaler, and RNG to initial state
-        _rollback_model(model, model_snapshot)
+        rollback_errors = []
+        try:
+            _rollback_model(model, model_snapshot)
+        except Exception as r_exc:
+            rollback_errors.append(f"model: {r_exc}")
         if optimizer is not None and opt_snapshot is not None:
-            _rollback_optimizer(optimizer, opt_snapshot)
+            try:
+                _rollback_optimizer(optimizer, opt_snapshot)
+            except Exception as r_exc:
+                rollback_errors.append(f"optimizer: {r_exc}")
         if scheduler is not None and sched_snapshot is not None:
-            _rollback_scheduler(scheduler, sched_snapshot)
+            try:
+                _rollback_scheduler(scheduler, sched_snapshot)
+            except Exception as r_exc:
+                rollback_errors.append(f"scheduler: {r_exc}")
         if scaler is not None and scaler_snapshot is not None:
-            _rollback_scaler(scaler, scaler_snapshot)
+            try:
+                _rollback_scaler(scaler, scaler_snapshot)
+            except Exception as r_exc:
+                rollback_errors.append(f"scaler: {r_exc}")
+        if state_providers and prov_snapshot is not None:
+            try:
+                _rollback_state_providers(state_providers, prov_snapshot)
+            except Exception as r_exc:
+                rollback_errors.append(f"state_providers: {r_exc}")
         if restore_rng and rng_snapshot is not None:
-            restore_all_rng(rng_snapshot)
+            try:
+                restore_all_rng(rng_snapshot)
+            except Exception as r_exc:
+                rollback_errors.append(f"rng: {r_exc}")
+
+        if rollback_errors:
+            raise TrainingStateError(
+                f"Restoration failed ({exc}); rollback encountered errors: {'; '.join(rollback_errors)}"
+            ) from exc
         raise TrainingStateError(f"Restoration failed; rolled back all state mutations: {exc}") from exc
 
     # Return structured progress metadata

@@ -15,9 +15,9 @@ This document presents the independent, evidence-backed technical verification o
 ### Summary of Independent Verification Outcomes:
 1. **Source Tree Identity & Provenance:** Every modified and newly authored file across the remediation campaign has been formally audited and committed into Git revision control. The tested and packaged source tree is uniquely identified by commit and tree SHA hashes, closing the uncommitted-tree provenance gap.
 2. **Reconciled Test Accounting:**
-   - **Pytest Automated Suite:** **242 / 242 tests passed** in **48.89s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
+   - **Pytest Automated Suite:** **247 / 247 tests passed** in **55.41s** (0 failures, 0 skipped, 0 errors, 2 SwigPy warnings).
    - **Standalone Moto KMS Verification:** **7 / 7 checks passed** in **18.2s** via `scripts/verify_local_kms.py` against an embedded mock daemon on `127.0.0.1:4566`.
-   - **Combined Total:** **249 verified checks** executed and passing.
+   - **Combined Total:** **254 verified checks** executed and passing.
 3. **Full Transactional Rollback Verified:** Extended fault-injection tests prove that atomic rollback protects the destination model, optimizer, learning rate scheduler, GradScaler, and all four RNG sources (Python, NumPy, PyTorch CPU, and PyTorch CUDA).
 4. **Clean-Room Virtualenv Installation:** The candidate distribution wheel was installed and tested in an isolated virtual environment completely outside the repository tree. Module imports, `site-packages` location, full checkpoint save/load roundtrip, tamper rejection, and CLI execution (`torchshield version`, `torchshield --help`) were validated with 100% success.
 5. **Accurate Advanced Feature Statuses:**
@@ -42,13 +42,14 @@ To guarantee complete reproducibility, the audited codebase was packaged and fin
 |---|---|---|---|---|
 | **Build 1** (Initial Audit Baseline) | Pre-verification baseline build following initial audit phase | Uncommitted working tree at `7b07f1f` | `3bbff840809663e4b1488e977955da8e7952a21066f871b04acffc30b4b1527e` (72,784 B) | `86148dc1d12ee80c13279d21362c856930d866bef619685de37d3549b963a980` (129,456 B) |
 | **Build 2** (Hygiene & Magic Sync) | Rebuild after whitespace cleanup and documentation synchronization | Uncommitted working tree with doc updates | `d89836181b3314e6f8738628cc7796090b0307029311979cb31c5b83f5627d88` (72,762 B) | `dd56f1eb20583a67d99902e58ac4a52d0ea58fc0b74315a96b89af9b86279a53` (129,373 B) |
-| **Build 3** (**Nominated Release Candidate**) | Final build incorporating full scheduler/scaler/RNG rollback helpers and tests | Clean committed working tree | `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601` (72,934 B) | `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2` (130,837 B) |
+| **Build 3** | Intermediate build incorporating full scheduler/scaler/RNG rollback helpers | Committed baseline at `d0afff7` | `f89e671ae166d6ee753911c1e757be6a66f99ea1904c455e66ec27711940a601` (72,934 B) | `c20a885c19076109e45cfcadef5d85e0a2649536218daf125ad57ac2445458b2` (130,837 B) |
+| **Build 4** (**Authoritative Release Candidate**) | Final build with optimizer parameter identity preservation, mandatory attestation signatures, auxiliary state providers rollback, and unique nonces | Working tree validated across 254 checks | `2812815371219D4AC40BA4E27435F300614C272BDFD9DEB0F821F9F43E285685` | `F0BDECA6AAF21B2284D09F33E14726046083B46D731779FEB7F8C966F5E11077` |
 
-The **Nominated Release Candidate (Build 3)** is the authoritative artifact set recorded in `dist/SHA256SUMS`.
+The **Authoritative Release Candidate (Build 4)** is the authoritative artifact set recorded in `dist/`.
 
 ---
 
-## 3. Reconciled Test Suite Accounting (249 Total Checks)
+## 3. Reconciled Test Suite Accounting (254 Total Checks)
 
 The test execution suite comprises two complementary test harnesses:
 
@@ -56,15 +57,15 @@ The test execution suite comprises two complementary test harnesses:
 ┌────────────────────────────────────────────────────────────────────────┐
 │ TORCHSHIELD VERIFICATION SUITE ACCOUNTING                              │
 ├─────────────────────────────────────────────────┬──────────────────────┤
-│ 1. Pytest Test Runner (pytest -v)               │ 242 Passed           │
-│    - Tier 1: Real Hardware & Standard Crypto    │ 216 Tests            │
+│ 1. Pytest Test Runner (pytest -v)               │ 247 Passed           │
+│    - Tier 1: Real Hardware & Standard Crypto    │ 221 Tests            │
 │    - Tier 2: Contract Mocks & Protocol Fixtures │ 26 Tests             │
 │    - Skipped / Quarantined / Disabled Tests     │ 0 Tests              │
 │    - Failures / Errors                          │ 0 Tests              │
 │ 2. Standalone Local KMS Suite (verify_local_kms)│ 7 Passed             │
 │    - Embedded Moto KMS Daemon (port 4566)       │ 7 Checks (100% Pass) │
 ├─────────────────────────────────────────────────┼──────────────────────┤
-│ TOTAL VERIFIED CHECKS                           │ 249 Passed (100%)    │
+│ TOTAL VERIFIED CHECKS                           │ 254 Passed (100%)    │
 └─────────────────────────────────────────────────┴──────────────────────┘
 ```
 
@@ -78,13 +79,13 @@ The test execution suite comprises two complementary test harnesses:
 7. `tests/test_etcd_freshness_backend.py` (3 tests): etcd3 CAS transactions, monotonic revisions, network partition fail-closed.
 8. `tests/test_freshness_ledger.py` (1 test): SQLite local ledger advance and rollback detection.
 9. `tests/test_gds_loading.py` (4 tests): libcufile probe, async CUDA stream fallback, tensor direct load, tamper fail-closed.
-10. `tests/test_hardware_attestation.py` (7 tests): TEE quote verification, expiration, nonce replay, golden measurements, root signatures.
+10. `tests/test_hardware_attestation.py` (**8 tests**): TEE quote verification, expiration, nonce replay, golden measurements, root signatures, missing signature rejection fail-closed.
 11. `tests/test_huggingface_integration.py` (6 tests): Callback workflow, vault resume, tamper detection, missing-vault fail-closed rejection.
 12. `tests/test_key_provider_contract.py` (3 tests): LocalKeyProvider, AWSKMSProvider with mock boto3, error handling.
 13. `tests/test_key_rotation.py` (1 test): DEK rewrap under rotated KEK.
 14. `tests/test_multi_cloud_kms_providers.py` (3 tests): GCP KMS, Azure Key Vault, HashiCorp Vault Transit engine contracts.
 15. `tests/test_optimizer_resume.py` (4 tests): Adam, AdamW, SGD momentum extraction/restoration, CUDA optimizer resume.
-16. `tests/test_phase1_training_state_strict_transactional.py` (**8 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback**, **scheduler/scaler rollback**, and **full multi-component staged RNG rollback**.
+16. `tests/test_phase1_training_state_strict_transactional.py` (**10 tests**): Missing/unexpected parameters, shape/dtype validation, safe metadata NaN/Inf rejection, SafeStateProvider roundtrip, **optimizer rollback with parameter object identity preservation and post-rollback step verification**, **scheduler/scaler rollback**, **auxiliary safe state provider rollback**, and **full multi-component staged RNG rollback**.
 17. `tests/test_phase2_aead_security.py` (7 tests): Key length, AEAD fail-closed, HKDF domain separation, key rotation, explicit nonces.
 18. `tests/test_phase2_atomic_write.py` (2 tests): Atomic staging/replace, cleanup on failure.
 19. `tests/test_phase2_chunk_integrity.py` (3 tests): Bitflip tampering, chunk reordering, missing chunks.
@@ -112,10 +113,10 @@ The test execution suite comprises two complementary test harnesses:
 41. `tests/test_phase6_untrusted_input.py` (6 tests): Reject malformed JSON, unsupported dtypes, excessive rank, oversized dimensions, excessive tensor count.
 42. `tests/test_phase7_training_recovery.py` (9 tests): Multi-seed consecutive restart bit-for-bit equivalence (seeds 42 and 2026), fail-closed on corrupt manifest, corrupt chunk, truncated file, invalid key, missing shard, mixed-precision grad scaler recovery, enospc simulation.
 43. `tests/test_phase8_public_api.py` (7 tests): Top-level exports, save/load/inspect cycle, wrong key inspection, invalid file, truncated header, resource limits, v4 format support.
-44. `tests/test_pqc_hybrid_crypto.py` (4 tests): Hybrid KEM roundtrip, KEM tampering fail-closed, hybrid signature roundtrip, production mode fails closed when external PQC library missing.
+44. `tests/test_pqc_hybrid_crypto.py` (**5 tests**): Hybrid KEM roundtrip, KEM tampering fail-closed, hybrid signature roundtrip, tampered PQC signature rejection fail-closed, production mode fails closed when external PQC library missing.
 45. `tests/test_rng_restoration.py` (6 tests): Python RNG, NumPy MT19937, PyTorch CPU RNG, PyTorch CUDA RNG, RNG bundle roundtrip, invalid RNG deserialization failure.
 46. `tests/test_secure_envelope.py` (13 tests): AESGCMEnvelope roundtrip, fresh nonce, tampering, wrong key/AAD, malformed envelopes, standard AESGCM interoperability, 6 parameterized tensor types, metadata AAD tampering.
-47. `tests/test_serving_integration.py` (5 tests): Streaming weights, load_into_model, vLLM hook, Triton wrapper, tamper fail-closed.
+47. `tests/test_serving_integration.py` (**6 tests**): Streaming weights, load_into_model, vLLM hook, Triton wrapper, tamper fail-closed, atomic rollback on mid-load error.
 48. `tests/test_training_resume_equivalence.py` (1 test): Bit-for-bit training resume equivalence across 5 training steps.
 49. `tests/test_training_state_roundtrip.py` (2 tests): Training checkpoint full roundtrip with raw key, roundtrip with KMS provider and Ed25519 provenance.
 

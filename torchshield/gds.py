@@ -65,8 +65,8 @@ def probe_gds_capability() -> GDSStatus:
             cufile_loaded=True,
             cuda_available=True,
             device_name=device_name,
-            active_mode="direct_cufile",
-            reason="NVIDIA GPUDirect Storage driver (cuFile) is operational.",
+            active_mode="pinned_streaming_fallback",
+            reason="libcufile driver detected; direct-DMA cuFile read APIs are not yet wired, active pipeline is pinned host-memory CUDA streaming.",
         )
 
     system = platform.system()
