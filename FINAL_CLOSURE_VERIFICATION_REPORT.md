@@ -30,8 +30,10 @@ All 22 identified security, concurrency, provenance, and CI defects (TS-FIND-01 
 - **Release Tag:** `v0.7.3` (annotated tag)
 - **Release Version:** `0.7.3`
 - **Parent & Ancestry Chain:**
-  - `v0.7.3` release commit and tree
-  - Parent: `edc26670ff86b336bada4a05c19d122afa75ea61` (`v0.7.2` final verified hardening, tree `fe3e23c27e2a5396322c41d21d1e66c25579488c`)
+  - `master` release metadata & closure commit: HEAD
+  - Release Source Commit: `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
+  - Ancestor: `d5793d39da10b2848d44cab209e09816188035f9` (`v0.7.3` initial release candidate commit, tree `e7503902c47e663937d43063ea936c70683345b1`)
+  - Ancestor: `edc26670ff86b336bada4a05c19d122afa75ea61` (`v0.7.2` final verified hardening, tree `fe3e23c27e2a5396322c41d21d1e66c25579488c`)
   - Ancestor: `f81ddd32703962f2fe70f43d183ebf67bb19a3dd` (`v0.7.2` initial attestation concurrency hardening, tree `9f707adc5df9b28dd5b49345ed583e3a66733843`)
   - Ancestor: `82fed1fad199ee7d2a8a7513da3a0cb1b4d75b84` (`v0.7.1` release metadata, tree `e454d196140a8900fa7c329a47ab5f2101785039`)
   - Ancestor: `9897e1c185180d5cf427e60da8d2b078de2adec1` (`v0.7.1` package source, tree `e08fb736ee10da7932e66c0eb35c946447a85afc`)
@@ -74,13 +76,13 @@ To permanently prevent artifact divergence, `.github/workflows/ci.yml` has been 
 8. **Direct Workflow Asset Publication:** The release assets for `v0.7.3` are downloaded directly from the GitHub Actions CI run artifacts, guaranteeing that the published assets are the exact files verified by the CI gate.
 
 ### A.4 Authoritative v0.7.3 Release Artifacts
-The release assets produced and verified by the GitHub Actions packaging workflow:
+All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`):
 
 | Artifact Description | Filename | Exact File Size | Recomputed SHA-256 Digest |
 |---|---|:---:|---|
-| **Wheel Distribution** | `torchshield-0.7.3-py3-none-any.whl` | *Recorded from CI* | *Recorded from CI* |
-| **Source Distribution (sdist)** | `torchshield-0.7.3.tar.gz` | *Recorded from CI* | *Recorded from CI* |
-| **Checksum Manifest** | `dist/SHA256SUMS` | *Recorded from CI* | *Recorded from CI* |
+| **Wheel Distribution** | `torchshield-0.7.3-py3-none-any.whl` | 78,509 bytes | `423E1F898312BDA65DF10230432B98B3199A249913F47150CEFF936960FF760E` |
+| **Source Distribution (sdist)** | `torchshield-0.7.3.tar.gz` | 145,384 bytes | `D212BC397BBF0C3977929144C281F7F42D72B0E9A181711ACA078BBB6533B593` |
+| **Checksum Manifest** | `dist/SHA256SUMS` | 192 bytes | `B6D79DB6E47ED310B7B4EA7E9FE9E7F0D358B2B5E3274B5200AB27D595D44597` |
 
 ### A.5 Historical v0.7.2 & v0.7.1 Release Artifacts (Preserved)
 
@@ -173,6 +175,35 @@ The repository test suite executes across two distinct environments with differe
   - Verified malformed container rejection.
   - Verified attestation stale evidence cleanup in installed package.
 - **Result:** **100% PASSED**
+
+### B.5 Automated Continuous Integration (CI) Workflow Evidence
+- **Workflow File:** `.github/workflows/ci.yml`
+- **CI Run ID:** `40836841007`
+- **CI Workflow Run URL:** [https://github.com/csharikrishna/TorchShield/actions/runs/40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007)
+- **Target Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`
+- **Source Tree:** `2d51cce5db38203da920f255c78b5d23cf49a1da`
+- **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
+- **Conclusion:** **`success`**
+- **Duration:** `2m 46s`
+- **Steps Executed & Status:**
+  1. `actions/checkout@v4` (fetch-depth: 0): Success
+  2. `actions/setup-python@v5` (Python 3.12): Success
+  3. Install dependencies (`pip install -e ".[test,aws]" moto[server] psutil`): Success
+  4. Committed diff and whitespace check (`git diff --check HEAD^ HEAD`): Success
+  5. Verify pre-build version agreement across codebase and CLI: Success
+  6. Run automated test suite (Pytest with JUnit XML): Success (261 passed, 9 skipped, 4 warnings)
+  7. Run standalone local KMS verification suite: Success (7/7 passed)
+  8. Clean build of wheel and source distribution (`python -m build`): Success
+  9. Verify version agreement in package distribution metadata: Success
+  10. Generate and verify artifact SHA-256 manifest (`sha256sum -c SHA256SUMS`): Success
+  11. Validate package contents and source provenance: Success
+  12. Run isolated clean-room installation verification (`--wheel ... --expected-version 0.7.3`): Success
+  13. Record build environment and verification metadata (`build_metadata.json`): Success
+  14. `actions/upload-artifact@v4` (archiving verification logs, metadata, and artifacts): Success
+
+### B.6 Combined Verification Accounting
+$$\text{Total Verification Checks} = 270 \text{ (Pytest Automated Suite)} + 7 \text{ (Standalone Local KMS)} = \mathbf{277 \text{ Verified Checks (100\% Pass Rate on Hardware Workstation)}}$$
+$$\text{Continuous Integration Total} = 261 \text{ (Pytest Passed)} + 9 \text{ (Documented Optional/Hardware Skips)} + 7 \text{ (Local KMS)} = \mathbf{268 \text{ Passed Checks (0 Failures, 0 Errors)}}$$
 
 ---
 

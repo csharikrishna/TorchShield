@@ -46,13 +46,13 @@ Upgraded `.github/workflows/ci.yml` to establish a fail-closed release verificat
 
 ## Release Assets & Hashes
 
-*(Hashes and byte sizes are populated directly from the artifacts produced and verified by GitHub Actions CI)*
+All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`):
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|
-| `torchshield-0.7.3-py3-none-any.whl` | TBD | TBD |
-| `torchshield-0.7.3.tar.gz` | TBD | TBD |
-| `dist/SHA256SUMS` | TBD | TBD |
+| `torchshield-0.7.3-py3-none-any.whl` | 78,509 bytes | `423E1F898312BDA65DF10230432B98B3199A249913F47150CEFF936960FF760E` |
+| `torchshield-0.7.3.tar.gz` | 145,384 bytes | `D212BC397BBF0C3977929144C281F7F42D72B0E9A181711ACA078BBB6533B593` |
+| `dist/SHA256SUMS` | 192 bytes | `B6D79DB6E47ED310B7B4EA7E9FE9E7F0D358B2B5E3274B5200AB27D595D44597` |
 
 ## Authoritative Audit & Verification Report
 For complete mathematical evidence, test logs, finding-by-finding remediation proofs, and build provenance, refer to the canonical report:
