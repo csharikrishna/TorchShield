@@ -945,13 +945,13 @@ def load_training_checkpoint(
 
         # 5. Restore auxiliary safe state providers if provided
         if state_providers and "state_providers" in training_meta and training_meta["state_providers"]:
+            if validated_provider_keys is None or len(validated_provider_keys) != len(state_providers):
+                raise TrainingStateError(
+                    f"Inconsistent provider keys: expected {len(state_providers)} cached keys."
+                )
             prov_dict = training_meta["state_providers"]
             for idx, sp in enumerate(state_providers):
-                sp_key = (
-                    validated_provider_keys[idx]
-                    if validated_provider_keys is not None
-                    else sp.get_state_key()
-                )
+                sp_key = validated_provider_keys[idx]
                 if sp_key in prov_dict:
                     try:
                         sp.restore_state(prov_dict[sp_key])

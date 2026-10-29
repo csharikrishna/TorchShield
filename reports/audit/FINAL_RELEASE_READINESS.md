@@ -104,9 +104,9 @@ Distribution packages built via isolated `python -m build` with `SOURCE_DATE_EPO
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|
-| **Wheel (`.whl`)** (`torchshield-0.7.2-py3-none-any.whl`) | 78,514 bytes | `403EE55632BFE86CD59BCB4BAFEB9E0538AE6F558CDB534603E6554B6B85FE29` |
-| **Source Distribution (`.tar.gz`)** (`torchshield-0.7.2.tar.gz`) | 147,784 bytes | `AB477F9ED1763D6C654E8338F41C62E7BBE2982A8E5FACF0E8A5F3BC28076245` |
-| **Checksum Manifest** (`SHA256SUMS` / `SHA256SUMS_v0.7.2`) | 192 bytes | `341F0224AE39D2D639B00EC9A2FA7829CA5F4F504763853900BACB9A1CF45FF9` |
+| **Wheel (`.whl`)** (`torchshield-0.7.2-py3-none-any.whl`) | 78,664 bytes | `B2B13F81949D917EDF84DC266FD3B9B534B4BB3DD001F1F5666DBB3FA4BF0544` |
+| **Source Distribution (`.tar.gz`)** (`torchshield-0.7.2.tar.gz`) | 147,993 bytes | `90683158D478211866C8442635A08E3F91F446D815AC934F0C4B96E578109D19` |
+| **Checksum Manifest** (`SHA256SUMS` / `SHA256SUMS_v0.7.2`) | 192 bytes | `C2C997F164CEA5D025C226A38A4D7A2D47A6F1DCE2C38F9F84B241EF45AA2B12` |
 
 ### Historical v0.7.1 Reference Artifacts (Preserved)
 

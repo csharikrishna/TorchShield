@@ -226,7 +226,7 @@ The complete documentation suite is available under [`docs/`](docs/):
 ## Security Model & Operational Boundaries
 
 > [!IMPORTANT]
-> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.1).
+> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.2).
 >
 > 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
 > 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.
@@ -277,4 +277,4 @@ Earlier research prototypes, paper cryptanalysis notes, and benchmark execution 
 
 - **Security Disclosures:** Please review [`SECURITY.md`](SECURITY.md) for vulnerability reporting procedures.
 - **Changelog:** Detailed version history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
-- **Release Audit:** The formal release closeout report is in [`docs/`](docs/).
+- **Release Audit:** The formal release closeout report is in [`FINAL_CLOSURE_VERIFICATION_REPORT.md`](FINAL_CLOSURE_VERIFICATION_REPORT.md).

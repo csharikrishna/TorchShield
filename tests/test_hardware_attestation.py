@@ -1329,3 +1329,18 @@ def test_attestation_challenge_expiry_and_bounded_lifecycle(signing_keys):
     # Both _active_challenge and _staged_evidence must be cleared to maintain consistency
     assert gated_provider._active_challenge is None
     assert gated_provider._staged_evidence is None
+
+    # Also verify unwrap_key on a staged challenge that expires purges _staged_evidence
+    dek, wrapped = gated_provider.generate_data_key()
+    ch6 = gated_provider.create_challenge()
+    ev6 = AttestationEvidence(
+        platform=PlatformType.NVIDIA_CC.value,
+        measurement=golden,
+        report_data=hashlib.sha256(ch6).hexdigest(),
+        timestamp=time.time(),
+    )
+    gated_provider.stage_evidence(ev6, challenge=ch6)
+    gated_provider._authorized_challenges[ch6] = time.time() - 100.0
+    with pytest.raises(AttestationError, match="Stale challenge"):
+        gated_provider.unwrap_key(wrapped)
+    assert gated_provider._staged_evidence is None
