@@ -133,11 +133,11 @@ jobs:
 
           # 3. Source-to-wheel tree comparison for all python code (bidirectional)
           with zipfile.ZipFile(whl, 'r') as z:
-              import os
+              import os, pathlib
               for root, _, files in os.walk('torchshield'):
                   for f in files:
                       if f.endswith('.py'):
-                          rel_path = os.path.join(root, f).replace('\\', '/')
+                          rel_path = pathlib.Path(root, f).as_posix()
                           assert rel_path in z.namelist(), f'Source file {rel_path} missing from wheel!'
               for member in z.namelist():
                   if member.startswith('torchshield/') and member.endswith('.py'):
