@@ -1,6 +1,6 @@
 # TorchShield v0.7.3 — Artifact Provenance, Hardened CI Gates & Environment Accounting
 
-**Classification:** Internal Staging / Research Candidate (Conditional Approval — Strictly Non-GA)
+**Classification:** Conditional Approval — Internal Staging / Research Candidate; Non-GA
 **Target Branch:** `master`
 **Release Tag:** `v0.7.3`
 
@@ -19,7 +19,10 @@ Upgraded `.github/workflows/ci.yml` to establish a fail-closed release verificat
 - **5-Point Version Agreement Gate:** Asserts exact version agreement across `pyproject.toml`, `torchshield.__version__`, CLI version output (`torchshield.cli version`), wheel metadata (`dist-info/METADATA`), and sdist metadata (`PKG-INFO`).
 - **Clean Build Workspace:** Purges build directories prior to building, guaranteeing that exactly one wheel and one source distribution archive are generated per build.
 - **Dynamic Manifest Generation & Hard Verification:** Generates `dist/SHA256SUMS` during the build and verifies artifact bytes using `sha256sum -c SHA256SUMS`, which fails closed on any mismatch.
-- **Package Content & Source Tree Diff Verification:** In-pipeline static analysis verifies that critical security fixes (attestation staged evidence purge, narrowed lock, provider key length validation) are present in the package files and matches the repository source tree with zero diffs.
+- **Package Content & Source Tree Diff Verification:** In-pipeline static analysis verifies that critical security fixes (attestation staged evidence purge, narrowed lock, provider key length validation) are present in the package files:
+  - *Original Packaging Gate:* CI run `40836841007` (build source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`) compared Python modules present in the wheel against the repository source, verifying 0 diffs. It did not yet assert that every repository Python module was present in the wheel.
+  - *Subsequent Mainline Gate:* Mainline revision `5dcc17e79353204f860fd22995bb1f49392adc91` introduced the full bidirectional source-module presence assertion (`rel_path in z.namelist()`) using `pathlib.Path.as_posix()`, validated in CI run [40843207678](https://github.com/csharikrishna/TorchShield/actions/runs/40843207678). Published artifacts were built under the original packaging gate, which is recorded separately from this subsequent gate.
+  - *Independent Module Inventory Result:* An independent inventory check comparing the published `v0.7.3` wheel against the repository source tree at build commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` established: 20 source Python modules, 20 wheel Python modules, 0 missing source modules, and 0 extra wheel modules.
 - **Deterministic Clean-Room Execution:** Explicitly invokes `scripts/verify_isolated_wheel.py` with `--wheel` and `--expected-version`, preventing silent fallback to older wheels.
 - **Metadata Archival:** Generates and uploads machine-readable build environment metadata, JUnit test reports, distribution archives, and SHA-256 manifests.
 
@@ -42,11 +45,18 @@ Upgraded `.github/workflows/ci.yml` to establish a fail-closed release verificat
 - **Post-Quantum Cryptography (PQC):** Hybrid protocol plumbing and mock testing verified; production deployment requires external audited C library (`liboqs`).
 - **Multi-Cloud KMS & Quorum Freshness:** Contract-tested with fail-closed mocks; live services require configured cloud credentials or cluster deployments.
 - **Local Ledger Anti-Rollback:** Local SQLite ledger detects local rollback but cannot resist whole-system VM/hypervisor snapshot rollback. High-assurance deployments must utilize `EtcdFreshnessBackend` or cloud consensus.
-- **Git Signature Status:** Git commits and tags are unsigned (no developer GPG key); authenticity is established via immutable commit/tree SHAs, CI provenance, and published SHA-256 checksums.
+- **Git Signature & Release Immutability Limits:** The release tag `v0.7.3` is unsigned in Git (no developer GPG key), and GitHub reports the release as non-immutable (`immutable: false`). Commit hashes, tree hashes, and SHA-256 checksums provide content integrity and artifact validation, but they do not alone authenticate the publisher or make a mutable GitHub release immutable.
+- **Classification:** Strictly **Conditional Approval — Internal Staging / Research Candidate; Non-GA**.
 
 ## Release Assets & Hashes
 
-All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`), with metadata closure validated in CI run [40837853422](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422) (commit `d43d02b8f8d0930aa02c96313e1585eef25932dd`, tag object `bba1681320dc26c21dbcedf9509a65b61bd65263`):
+The authoritative published release assets and verified build identifiers are:
+- **Packaging CI Run:** `40836841007` ([Run URL](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007))
+- **Build Source Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
+- **Release Tag Target Commit:** `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`, tag object `bba1681320dc26c21dbcedf9509a65b61bd65263`, validated in CI run [40837853422](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422))
+- **Subsequent Mainline Verification Head Commit:** `5dcc17e79353204f860fd22995bb1f49392adc91` (CI run [40843207678](https://github.com/csharikrishna/TorchShield/actions/runs/40843207678))
+
+*Note on Distinct Identifiers:* The build source commit (`47bbb5fde822b9fe0b8cfa9325574303ac9a476a`) and release tag target commit (`d43d02b8f8d0930aa02c96313e1585eef25932dd`) are distinct. The published binaries were built and verified from `47bbb5f` in CI run `40836841007` before tag `v0.7.3` was created on documentation commit `d43d02b`.
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|

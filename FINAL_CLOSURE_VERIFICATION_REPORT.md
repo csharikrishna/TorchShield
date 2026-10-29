@@ -29,7 +29,18 @@ All 22 identified security, concurrency, provenance, and CI defects (TS-FIND-01 
 - **Target Branch:** `master`
 - **Release Tag:** `v0.7.3` (annotated tag)
 - **Release Version:** `0.7.3`
-- **Parent & Ancestry Chain:**
+- **Distinct Provenance & Verification Identifiers:**
+  - **Packaging CI Run:** `40836841007` ([Run URL](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007))
+  - **Build Source Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`
+  - **Build Source Tree:** `2d51cce5db38203da920f255c78b5d23cf49a1da`
+  - **Release Tag Target Commit:** `d43d02b8f8d0930aa02c96313e1585eef25932dd`
+  - **Release Tag Object SHA:** `bba1681320dc26c21dbcedf9509a65b61bd65263`
+  - **Release Tag Target Tree:** `a89960e6d733676b27e11c81d57ae7446720790b`
+  - **Metadata Closure CI Run:** `40837853422` ([Run URL](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422))
+  - **Subsequent Mainline Verification CI Run:** `40843207678` ([Run URL](https://github.com/csharikrishna/TorchShield/actions/runs/40843207678))
+  - **Mainline Verification Head Commit:** `5dcc17e79353204f860fd22995bb1f49392adc91`
+- **Identifier Distinction:** The package build source commit (`47bbb5fde822b9fe0b8cfa9325574303ac9a476a`) and the release tag target commit (`d43d02b8f8d0930aa02c96313e1585eef25932dd`) are distinct identifiers and must not be conflated. Commit `47bbb5f` represents the clean code revision where the published wheel and sdist binaries were compiled in CI run `40836841007`. Commit `d43d02b` closed release metadata and documentation, serving as the target of annotated tag `v0.7.3`.
+- **Ancestry Chain:**
   - `master` release metadata & closure commit: `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`)
   - Release Source Commit: `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
   - Tag Object SHA: `bba1681320dc26c21dbcedf9509a65b61bd65263`
@@ -40,7 +51,7 @@ All 22 identified security, concurrency, provenance, and CI defects (TS-FIND-01 
   - Ancestor: `9897e1c185180d5cf427e60da8d2b078de2adec1` (`v0.7.1` package source, tree `e08fb736ee10da7932e66c0eb35c946447a85afc`)
   - Ancestor: `29ec568b20da1c90ea0dfb8fb5642a420b923985`
   - Ancestor: `edc5e3e29f3456903e54b6d4b5297fcad2be6ae2`
-- **Git Signature & Attestation Status:** Commits and annotated tags are unsigned in Git (no developer GPG/PGP key or hardware HSM signing token present in the environment). Authenticity and tamper-resistance are established via immutable Git commit and tree SHAs, public GitHub Actions CI job provenance, and cryptographic SHA-256 hashes of all release artifacts. GitHub does not enforce immutability on tags by default unless repository branch/tag rules are explicitly enabled.
+- **Signature and Immutability Limits:** The `v0.7.3` release tag is unsigned in Git (no developer GPG/PGP key or hardware HSM signing token is present). Furthermore, GitHub reports the release as non-immutable (`immutable: false`). Commit hashes, tree hashes, or SHA-256 checksums alone do NOT authenticate the publisher or make a mutable GitHub release immutable. The explicit release classification remains: **Conditional Approval — Internal Staging / Research Candidate; Non-GA**.
 
 ### A.2 Forensic Audit & Resolution of v0.7.2 Provenance Discrepancy
 An exhaustive byte-level and member-level investigation was conducted across the published `v0.7.2` release assets, commit `edc26670ff86b336bada4a05c19d122afa75ea61`, parent commit `f81ddd32703962f2fe70f43d183ebf67bb19a3dd`, and GitHub Actions CI run `40806273726`:
@@ -72,7 +83,15 @@ To permanently prevent artifact divergence, `.github/workflows/ci.yml` has been 
 3. **5-Point Version Agreement:** Asserts exact agreement across `pyproject.toml`, `torchshield.__version__`, CLI version output, wheel metadata (`dist-info/METADATA`), and sdist metadata (`PKG-INFO`).
 4. **Clean Build Isolation:** Cleans build directories and ensures exactly one wheel and one sdist are built per run.
 5. **Dynamic Manifest Generation & Hard Verification:** Generates `dist/SHA256SUMS` from the just-built artifacts on the runner, and verifies them using `sha256sum -c SHA256SUMS` (fails closed on mismatch).
-6. **Package Content & Source Tree Diff Verification:** Validates that required security fixes are present inside the wheel/sdist, and diffs all package Python files against the source tree with zero tolerance for deviations.
+6. **Package Content & Source Tree Diff Verification:** Validates that required security fixes are present inside the wheel/sdist, and diffs package Python files against the source tree with zero tolerance for deviations:
+   - *Original Packaging Gate (CI Run 40836841007 at build commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` and at tag `v0.7.3`):* The packaging workflow compared Python modules present in the candidate wheel against their repository source files (`for member in z.namelist(): if member.startswith('torchshield/') and member.endswith('.py'): ... diff(src, pkg)`), verifying 0 diffs. It did not yet assert that every repository Python module was present in the wheel (the repository-to-wheel completeness check).
+   - *Subsequent Mainline Gate (CI Run 40843207678 at head commit `5dcc17e79353204f860fd22995bb1f49392adc91`):* The bidirectional source-module presence assertion (`for root, _, files in os.walk('torchshield'): ... assert rel_path in z.namelist()`) was added in a later mainline workflow revision and passed in CI run 40843207678. The original published `v0.7.3` release artifacts were built under the original gate prior to this addition; the two gates are recorded separately.
+   - *Independent Module Inventory Result:* An independent inventory comparison of the published `v0.7.3` wheel against the repository source tree at build commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` established:
+     - Source Python modules: 20
+     - Wheel Python modules: 20
+     - Missing source modules: 0
+     - Extra wheel modules: 0
+     This is documented as an independent inventory check, not as proof that the later CI gate ran during the original packaging build.
 7. **Strict Wheel Path Resolution:** Explicitly runs `scripts/verify_isolated_wheel.py` with `--wheel "$WHEEL_PATH"` and `--expected-version "$VERSION"`, strictly prohibiting silent fallback to older wheels.
 8. **Direct Workflow Asset Publication:** The release assets for `v0.7.3` are downloaded directly from the GitHub Actions CI run artifacts, guaranteeing that the published assets are the exact files verified by the CI gate.
 
@@ -195,6 +214,7 @@ The repository test suite executes across two distinct environments with differe
 - **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
 - **Conclusion:** **`success`**
 - **Duration:** `2m 46s`
+- **Packaging Gate Scope:** In this build run, the packaging gate validated critical security tokens in the wheel/sdist and diffed Python modules present in the wheel against their repository source files (unidirectional check). It did not yet assert that every repository Python module was present in the wheel.
 - **Steps Executed & Status:**
   1. `actions/checkout@v4` (fetch-depth: 0): Success
   2. `actions/setup-python@v5` (Python 3.12): Success
@@ -224,6 +244,30 @@ The repository test suite executes across two distinct environments with differe
 - **Local KMS Suite:** 7 / 7 passed (100% success, exit code 0)
 - **Hard CI Provenance Gate:** Passed with exit code 0 (`sha256sum -c SHA256SUMS` verified dynamically)
 - **Note on Archive Determinism:** When packages are rebuilt without explicit `SOURCE_DATE_EPOCH` clamping, zip member and gzip header `mtime` fields default to the current checkout timestamp. While source files are 100% byte-for-byte identical, the resulting archive hashes vary by build timestamp. In strict adherence to release integrity principles, the authoritative published release assets are the exact files produced and verified in Run `40836841007`.
+
+#### B.5.3 Mainline Post-Release Bidirectional Packaging Gate (CI Run 40843207678)
+- **CI Run ID:** `40843207678`
+- **CI Workflow Run URL:** [https://github.com/csharikrishna/TorchShield/actions/runs/40843207678](https://github.com/csharikrishna/TorchShield/actions/runs/40843207678)
+- **Target Head Commit:** `5dcc17e79353204f860fd22995bb1f49392adc91`
+- **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
+- **Conclusion:** **`success`**
+- **Duration:** `2m 48s`
+- **Pytest Results:** 261 passed, 9 skipped, 4 warnings in 5.38s (exit code 0)
+- **Local KMS Suite:** 7 / 7 passed (100% success, exit code 0)
+- **Bidirectional Gate Enhancement:** Introduced the full bidirectional source-module presence assertion into `.github/workflows/ci.yml`. In addition to diffing wheel members against repository source files, it walks `torchshield/` and asserts every repository `.py` module is present in the candidate wheel using POSIX paths (`pathlib.Path(root, f).as_posix()`).
+- **Gate Separation:** Passed with exit code 0. Recorded separately to accurately reflect that this bidirectional check was merged and verified on mainline after the `v0.7.3` release and tag. Published `v0.7.3` release assets were built under the original gate (CI Run `40836841007`), not this subsequent mainline gate.
+
+#### B.5.4 Independent Module Inventory Verification (v0.7.3 Wheel vs Build Commit 47bbb5fde822b9fe0b8cfa9325574303ac9a476a)
+- **Check Type:** Independent inventory comparison
+- **Build Source Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`
+- **Evaluated Wheel:** `torchshield-0.7.3-py3-none-any.whl` (78,509 bytes, SHA-256 `423E1F898312BDA65DF10230432B98B3199A249913F47150CEFF936960FF760E`)
+- **Inventory Metrics:**
+  - Source Python modules: 20
+  - Wheel Python modules: 20
+  - Missing source modules: 0
+  - Extra wheel modules: 0
+- **Inventory Manifest:** Both source and wheel contain the complete set of 20 modules: `__init__.py`, `attestation.py`, `checkpoint.py`, `cli.py`, `distributed.py`, `gds.py`, `integrations/__init__.py`, `integrations/huggingface.py`, `integrations/serving.py`, `key_providers/__init__.py`, `key_providers/azure.py`, `key_providers/base.py`, `key_providers/gcp.py`, `key_providers/kms.py`, `key_providers/local.py`, `key_providers/vault.py`, `pqc.py`, `provenance.py`, `secure.py`, and `training_state.py`.
+- **Audit Clarification:** This metric is recorded as an independent inventory check proving complete package content without omission or surplus; it is not claimed as proof that the later CI gate ran during the original packaging build.
 
 ### B.6 Combined Verification Accounting
 $$\text{Total Verification Checks} = 270 \text{ (Pytest Automated Suite)} + 7 \text{ (Standalone Local KMS)} = \mathbf{277 \text{ Verified Checks (100\% Pass Rate on Hardware Workstation)}}$$
@@ -256,7 +300,7 @@ $$\text{Continuous Integration Total} = 261 \text{ (Pytest Passed)} + 9 \text{ (
 | **TS-FIND-19** | Cross-challenge race where unwrap_key wiped concurrent evidence; unbounded challenge memory leak; lingering stale evidence | Staged evidence cleared only if bound to challenge (`_staged_evidence[1] == bound_challenge`); bounded capacity (1024); opportunistic cleanup protecting in-flight challenges; stale evidence purged on expiry | `tests/test_hardware_attestation.py` | `test_attestation_cross_challenge_staging_race` PASSED, `test_attestation_challenge_expiry_and_bounded_lifecycle` PASSED | Maximum 1024 concurrent outstanding challenges within TTL | **Fixed & Verified** |
 | **TS-FIND-20** | Provider key length mismatch could trigger fallback `get_state_key()` calls during failure recovery | Strict length validation (`len(provider_keys) == len(providers)`) raising `TrainingStateError`; unified cached keys across rollback | `tests/test_phase1_training_state_strict_transactional.py` | `test_state_provider_helpers_strict_length_validation` PASSED | Provider list must remain unchanged during load lifecycle | **Fixed & Verified** |
 | **TS-FIND-21** | Platform line-ending drift (Windows CRLF vs Linux LF) caused artifact hash divergence across build environments | Source code forensic audit proved byte identity after LF normalization; release pipeline updated to publish exact artifacts produced and verified by GitHub Actions CI | Distribution package inspection & SHA-256 analysis | All source files 100% identical under line normalization | Requires publishing exact CI workflow build artifacts | **Fixed & Verified** |
-| **TS-FIND-22** | No-op clean-checkout `git diff --check` and stale committed manifest upload in CI | Replaced with `git diff --check HEAD^ HEAD`; dynamic in-situ SHA256SUMS generation verified by `sha256sum -c`; 5-point version agreement; source-to-wheel tree comparison | `.github/workflows/ci.yml` execution | Automated CI gate fails closed on any mismatch | None | **Fixed & Verified** |
+| **TS-FIND-22** | No-op clean-checkout `git diff --check` and stale committed manifest upload in CI | Replaced with `git diff --check HEAD^ HEAD`; dynamic in-situ SHA256SUMS generation verified by `sha256sum -c`; 5-point version agreement; wheel-to-source diff packaging gate; subsequent mainline bidirectional gate in CI run 40843207678 (commit `5dcc17e79353204f860fd22995bb1f49392adc91`); independent 20/20 module inventory | `.github/workflows/ci.yml` execution | Automated CI gate fails closed on any mismatch; independent inventory confirms 20/20 modules | None | **Fixed & Verified** |
 
 ---
 
@@ -279,6 +323,7 @@ $$\text{Continuous Integration Total} = 261 \text{ (Pytest Passed)} + 9 \text{ (
 
 ### Official Release Verdict:
 $$\mathbf{Verified\ for\ Internal\ Staging\ /\ Research\ Candidate\ (v0.7.3)}$$
+**Explicit Classification:** **Conditional Approval — Internal Staging / Research Candidate; Non-GA**
 
 TorchShield `v0.7.3` represents an exceptionally robust, cryptographically sound, zero-pickle checkpoint and training-state engine. All 22 audit findings have been remediated, verified by deterministic regression suites, validated in an isolated clean-room virtual environment, and confirmed via GitHub Actions continuous integration with hard artifact provenance gating.
 
