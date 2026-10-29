@@ -131,8 +131,14 @@ jobs:
               train_code_sdist = t.extractfile(f'torchshield-{expected_ver}/torchshield/training_state.py').read().decode('utf-8')
               assert 'Inconsistent provider keys: expected' in train_code_sdist, 'Provider keys consistency check missing from sdist!'
 
-          # 3. Source-to-wheel tree comparison for all python code
+          # 3. Source-to-wheel tree comparison for all python code (bidirectional)
           with zipfile.ZipFile(whl, 'r') as z:
+              import os
+              for root, _, files in os.walk('torchshield'):
+                  for f in files:
+                      if f.endswith('.py'):
+                          rel_path = os.path.join(root, f).replace('\\', '/')
+                          assert rel_path in z.namelist(), f'Source file {rel_path} missing from wheel!'
               for member in z.namelist():
                   if member.startswith('torchshield/') and member.endswith('.py'):
                       pkg_content = z.read(member).decode('utf-8').replace('\r\n', '\n')

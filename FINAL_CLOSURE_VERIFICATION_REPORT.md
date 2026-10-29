@@ -30,8 +30,9 @@ All 22 identified security, concurrency, provenance, and CI defects (TS-FIND-01 
 - **Release Tag:** `v0.7.3` (annotated tag)
 - **Release Version:** `0.7.3`
 - **Parent & Ancestry Chain:**
-  - `master` release metadata & closure commit: HEAD
+  - `master` release metadata & closure commit: `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`)
   - Release Source Commit: `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
+  - Tag Object SHA: `bba1681320dc26c21dbcedf9509a65b61bd65263`
   - Ancestor: `d5793d39da10b2848d44cab209e09816188035f9` (`v0.7.3` initial release candidate commit, tree `e7503902c47e663937d43063ea936c70683345b1`)
   - Ancestor: `edc26670ff86b336bada4a05c19d122afa75ea61` (`v0.7.2` final verified hardening, tree `fe3e23c27e2a5396322c41d21d1e66c25579488c`)
   - Ancestor: `f81ddd32703962f2fe70f43d183ebf67bb19a3dd` (`v0.7.2` initial attestation concurrency hardening, tree `9f707adc5df9b28dd5b49345ed583e3a66733843`)
@@ -83,6 +84,13 @@ All release assets were generated and verified by GitHub Actions CI workflow run
 | **Wheel Distribution** | `torchshield-0.7.3-py3-none-any.whl` | 78,509 bytes | `423E1F898312BDA65DF10230432B98B3199A249913F47150CEFF936960FF760E` |
 | **Source Distribution (sdist)** | `torchshield-0.7.3.tar.gz` | 145,384 bytes | `D212BC397BBF0C3977929144C281F7F42D72B0E9A181711ACA078BBB6533B593` |
 | **Checksum Manifest** | `dist/SHA256SUMS` | 192 bytes | `B6D79DB6E47ED310B7B4EA7E9FE9E7F0D358B2B5E3274B5200AB27D595D44597` |
+
+#### Verbatim Checksum Manifest Content (`dist/SHA256SUMS`):
+```text
+423e1f898312bda65df10230432b98b3199a249913f47150ceff936960ff760e  torchshield-0.7.3-py3-none-any.whl
+d212bc397bbf0c3977929144c281f7f42d72b0e9a181711aca078bbb6533b593  torchshield-0.7.3.tar.gz
+```
+Manifest SHA-256 Digest: `B6D79DB6E47ED310B7B4EA7E9FE9E7F0D358B2B5E3274B5200AB27D595D44597` (exact size: 192 bytes).
 
 ### A.5 Historical v0.7.2 & v0.7.1 Release Artifacts (Preserved)
 
@@ -177,10 +185,12 @@ The repository test suite executes across two distinct environments with differe
 - **Result:** **100% PASSED**
 
 ### B.5 Automated Continuous Integration (CI) Workflow Evidence
+
+#### B.5.1 Primary Release Candidate Packaging Gate (CI Run 40836841007)
 - **Workflow File:** `.github/workflows/ci.yml`
 - **CI Run ID:** `40836841007`
 - **CI Workflow Run URL:** [https://github.com/csharikrishna/TorchShield/actions/runs/40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007)
-- **Target Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`
+- **Target Source Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a`
 - **Source Tree:** `2d51cce5db38203da920f255c78b5d23cf49a1da`
 - **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
 - **Conclusion:** **`success`**
@@ -200,6 +210,20 @@ The repository test suite executes across two distinct environments with differe
   12. Run isolated clean-room installation verification (`--wheel ... --expected-version 0.7.3`): Success
   13. Record build environment and verification metadata (`build_metadata.json`): Success
   14. `actions/upload-artifact@v4` (archiving verification logs, metadata, and artifacts): Success
+- **Authoritative Release Assets:** The wheel (`torchshield-0.7.3-py3-none-any.whl`, 78,509B, SHA-256 `423E1F89...`), sdist (`torchshield-0.7.3.tar.gz`, 145,384B, SHA-256 `D212BC39...`), and manifest (`dist/SHA256SUMS`, 192B, SHA-256 `B6D79DB6...`) produced by this run are the exact published assets uploaded to GitHub Release `v0.7.3`.
+
+#### B.5.2 Metadata & Release Audit Closure Gate (CI Run 40837853422)
+- **CI Run ID:** `40837853422`
+- **CI Workflow Run URL:** [https://github.com/csharikrishna/TorchShield/actions/runs/40837853422](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422)
+- **Target Metadata Commit:** `d43d02b8f8d0930aa02c96313e1585eef25932dd` (Release Tag `v0.7.3`)
+- **Metadata Tree:** `a89960e6d733676b27e11c81d57ae7446720790b`
+- **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
+- **Conclusion:** **`success`**
+- **Duration:** `2m 54s`
+- **Pytest Results:** 261 passed, 9 skipped, 4 warnings in 5.36s (exit code 0)
+- **Local KMS Suite:** 7 / 7 passed (100% success, exit code 0)
+- **Hard CI Provenance Gate:** Passed with exit code 0 (`sha256sum -c SHA256SUMS` verified dynamically)
+- **Note on Archive Determinism:** When packages are rebuilt without explicit `SOURCE_DATE_EPOCH` clamping, zip member and gzip header `mtime` fields default to the current checkout timestamp. While source files are 100% byte-for-byte identical, the resulting archive hashes vary by build timestamp. In strict adherence to release integrity principles, the authoritative published release assets are the exact files produced and verified in Run `40836841007`.
 
 ### B.6 Combined Verification Accounting
 $$\text{Total Verification Checks} = 270 \text{ (Pytest Automated Suite)} + 7 \text{ (Standalone Local KMS)} = \mathbf{277 \text{ Verified Checks (100\% Pass Rate on Hardware Workstation)}}$$

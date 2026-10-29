@@ -46,13 +46,19 @@ Upgraded `.github/workflows/ci.yml` to establish a fail-closed release verificat
 
 ## Release Assets & Hashes
 
-All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`):
+All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`), with metadata closure validated in CI run [40837853422](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422) (commit `d43d02b8f8d0930aa02c96313e1585eef25932dd`, tag object `bba1681320dc26c21dbcedf9509a65b61bd65263`):
 
 | Artifact | File Size | SHA-256 Digest |
 |---|---|---|
 | `torchshield-0.7.3-py3-none-any.whl` | 78,509 bytes | `423E1F898312BDA65DF10230432B98B3199A249913F47150CEFF936960FF760E` |
 | `torchshield-0.7.3.tar.gz` | 145,384 bytes | `D212BC397BBF0C3977929144C281F7F42D72B0E9A181711ACA078BBB6533B593` |
 | `dist/SHA256SUMS` | 192 bytes | `B6D79DB6E47ED310B7B4EA7E9FE9E7F0D358B2B5E3274B5200AB27D595D44597` |
+
+### Verbatim SHA256SUMS Manifest:
+```text
+423e1f898312bda65df10230432b98b3199a249913f47150ceff936960ff760e  torchshield-0.7.3-py3-none-any.whl
+d212bc397bbf0c3977929144c281f7f42d72b0e9a181711aca078bbb6533b593  torchshield-0.7.3.tar.gz
+```
 
 ## Authoritative Audit & Verification Report
 For complete mathematical evidence, test logs, finding-by-finding remediation proofs, and build provenance, refer to the canonical report:
