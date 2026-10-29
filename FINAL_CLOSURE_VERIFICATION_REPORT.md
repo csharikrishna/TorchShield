@@ -41,8 +41,8 @@ All 22 identified security, concurrency, provenance, and CI defects (TS-FIND-01 
   - **Mainline Verification Head Commit:** `5dcc17e79353204f860fd22995bb1f49392adc91`
 - **Identifier Distinction:** The package build source commit (`47bbb5fde822b9fe0b8cfa9325574303ac9a476a`) and the release tag target commit (`d43d02b8f8d0930aa02c96313e1585eef25932dd`) are distinct identifiers and must not be conflated. Commit `47bbb5f` represents the clean code revision where the published wheel and sdist binaries were compiled in CI run `40836841007`. Commit `d43d02b` closed release metadata and documentation, serving as the target of annotated tag `v0.7.3`.
 - **Ancestry Chain:**
-  - `master` release metadata & closure commit: `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`)
-  - Release Source Commit: `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
+  - Release Tag Target Commit (`v0.7.3` release metadata & closure): `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`)
+  - Build Source Commit: `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
   - Tag Object SHA: `bba1681320dc26c21dbcedf9509a65b61bd65263`
   - Ancestor: `d5793d39da10b2848d44cab209e09816188035f9` (`v0.7.3` initial release candidate commit, tree `e7503902c47e663937d43063ea936c70683345b1`)
   - Ancestor: `edc26670ff86b336bada4a05c19d122afa75ea61` (`v0.7.2` final verified hardening, tree `fe3e23c27e2a5396322c41d21d1e66c25579488c`)
@@ -96,7 +96,13 @@ To permanently prevent artifact divergence, `.github/workflows/ci.yml` has been 
 8. **Direct Workflow Asset Publication:** The release assets for `v0.7.3` are downloaded directly from the GitHub Actions CI run artifacts, guaranteeing that the published assets are the exact files verified by the CI gate.
 
 ### A.4 Authoritative v0.7.3 Release Artifacts
-All release assets were generated and verified by GitHub Actions CI workflow run [40836841007](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007) from clean source commit `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`):
+The authoritative published release assets and verified build identifiers are:
+- **Packaging CI Run:** `40836841007` ([Run URL](https://github.com/csharikrishna/TorchShield/actions/runs/40836841007))
+- **Build Source Commit:** `47bbb5fde822b9fe0b8cfa9325574303ac9a476a` (tree `2d51cce5db38203da920f255c78b5d23cf49a1da`)
+- **Release Tag Target Commit:** `d43d02b8f8d0930aa02c96313e1585eef25932dd` (tree `a89960e6d733676b27e11c81d57ae7446720790b`, tag object `bba1681320dc26c21dbcedf9509a65b61bd65263`, validated in CI run [40837853422](https://github.com/csharikrishna/TorchShield/actions/runs/40837853422))
+- **Subsequent Mainline Verification Head Commit:** `5dcc17e79353204f860fd22995bb1f49392adc91` (CI run [40843207678](https://github.com/csharikrishna/TorchShield/actions/runs/40843207678))
+
+*Note on Distinct Identifiers:* The build source commit (`47bbb5fde822b9fe0b8cfa9325574303ac9a476a`) and release tag target commit (`d43d02b8f8d0930aa02c96313e1585eef25932dd`) are distinct identifiers and must not be conflated. The published binaries were built and verified from `47bbb5f` in CI run `40836841007` before tag `v0.7.3` was created on documentation commit `d43d02b`.
 
 | Artifact Description | Filename | Exact File Size | Recomputed SHA-256 Digest |
 |---|---|:---:|---|
@@ -240,6 +246,7 @@ The repository test suite executes across two distinct environments with differe
 - **Runner Environment:** Ubuntu 24.04 LTS (`Linux-7.0.0-1017-azure-x86_64`), Python 3.12.15
 - **Conclusion:** **`success`**
 - **Duration:** `2m 54s`
+- **Packaging Gate Scope:** At release tag `v0.7.3` target commit `d43d02b8f8d0930aa02c96313e1585eef25932dd`, the CI workflow (`.github/workflows/ci.yml`) was identical in packaging logic to the original build run: it validated critical security tokens in the package and diffed Python modules present in the candidate wheel against repository source files (`for member in z.namelist(): ...`). It did not yet assert that every repository Python module was present in the wheel (the bidirectional completeness check).
 - **Pytest Results:** 261 passed, 9 skipped, 4 warnings in 5.36s (exit code 0)
 - **Local KMS Suite:** 7 / 7 passed (100% success, exit code 0)
 - **Hard CI Provenance Gate:** Passed with exit code 0 (`sha256sum -c SHA256SUMS` verified dynamically)
@@ -316,6 +323,7 @@ $$\text{Continuous Integration Total} = 261 \text{ (Pytest Passed)} + 9 \text{ (
 | **Workstream F: Quorum-Backed Freshness (etcd)** | **Contract-tested; live quorum unverified** | `EtcdFreshnessBackend` implements transactional compare-and-swap (CAS) via etcd revisions; network partition fail-closed logic verified with mocked etcd3 client. | Production deployment requires a live multi-node etcd consensus cluster. |
 | **Local Freshness Ledger Anti-Rollback Boundary** | **Local rollback detected; VM snapshot unverified** | `FreshnessLedger` tracks `(run_id, max_step, max_epoch)` with atomic staging and fsync persistence. | Cannot resist whole-system VM snapshot rollback that reverts both the checkpoint file and local SQLite database simultaneously. High-assurance multi-node anti-rollback requires etcd or cloud consensus. |
 | **Canonical JSON & Serialization Boundary** | **Canonical JSON v1 verified; RFC 8785 not claimed** | `TorchShield Canonical JSON v1` implements strict sorted keys, compact separators, UTF-8 encoding, and deterministic float/integer formatting. | Does NOT implement full RFC 8785 IEEE-754 arbitrary precision float rounding algorithms. |
+| **Release Provenance & Immutability Boundary** | **Unsigned tag; GitHub release non-immutable** | Cryptographic SHA-256 digest manifest and Git commit/tree SHAs verify artifact byte integrity and build provenance against public CI logs. | The Git release tag `v0.7.3` is unsigned (no developer GPG/PGP key or hardware HSM signing token). GitHub reports the release as non-immutable (`immutable: false`). Checksums and commit SHAs alone do not authenticate publisher identity or render a mutable GitHub release immutable. |
 
 ---
 
