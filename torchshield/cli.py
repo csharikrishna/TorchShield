@@ -18,11 +18,17 @@ from torchshield.provenance import Ed25519Verifier, FreshnessLedger, ProvenanceE
 
 
 def cmd_version(args: argparse.Namespace) -> int:
-    from importlib.metadata import version, PackageNotFoundError
     try:
-        pkg_ver = version("torchshield")
-    except PackageNotFoundError:
-        pkg_ver = "0.7.2"
+        import torchshield
+        pkg_ver = getattr(torchshield, "__version__", None)
+    except Exception:
+        pkg_ver = None
+    if not pkg_ver:
+        from importlib.metadata import version, PackageNotFoundError
+        try:
+            pkg_ver = version("torchshield")
+        except PackageNotFoundError:
+            pkg_ver = "0.7.3"
 
     print(f"TorchShield Secure Checkpoint Engine v{pkg_ver}")
     print("Supported Container Formats: Version 1, Version 2, Version 4 (Hardened), Version 5 (KMS+Provenance)")

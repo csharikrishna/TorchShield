@@ -29,40 +29,155 @@ jobs:
           python -m pip install --upgrade pip build wheel setuptools
           python -m pip install -e ".[test,aws]" moto[server] psutil
 
-      - name: Whitespace and format check (git diff --check)
+      - name: Committed diff and whitespace check
         run: |
-          git diff --check
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            git diff --check HEAD^ HEAD
+          else
+            git show --check HEAD
+          fi
+
+      - name: Verify pre-build version agreement across codebase and CLI
+        run: |
+          python -c "
+          import tomllib, subprocess, sys
+          with open('pyproject.toml', 'rb') as f:
+              pyproj_ver = tomllib.load(f)['project']['version']
+          import torchshield
+          init_ver = torchshield.__version__
+          cli_res = subprocess.run([sys.executable, '-m', 'torchshield.cli', 'version'], capture_output=True, text=True, check=True)
+          cli_out = cli_res.stdout
+          print(f'pyproject.toml version: {pyproj_ver}')
+          print(f'torchshield.__version__: {init_ver}')
+          print(f'CLI output:\n{cli_out.strip()}')
+          assert pyproj_ver == init_ver, f'Mismatch: pyproject.toml ({pyproj_ver}) != __version__ ({init_ver})'
+          assert f'v{pyproj_ver}' in cli_out, f'CLI does not report v{pyproj_ver}'
+          "
 
       - name: Run automated test suite (Pytest with JUnit XML)
         run: |
+          mkdir -p reports
           pytest -v --junitxml=reports/pytest-junit.xml
 
       - name: Run standalone local KMS verification suite
         run: |
           python scripts/verify_local_kms.py
 
-      - name: Build wheel and source distribution
+      - name: Clean build of wheel and source distribution
         run: |
-          python -m build --outdir dist/
-
-      - name: Verify package metadata, wheel/sdist contents, and SHA-256 manifest
-        run: |
-          ls -la dist/
+          rm -rf build *.egg-info
+          rm -f dist/*.whl dist/*.tar.gz
+          python -m build --sdist --wheel --outdir dist/
           python -c "
-          import glob, os, hashlib
+          import glob
           whls = glob.glob('dist/*.whl')
-          tar_gzs = glob.glob('dist/*.tar.gz')
-          assert len(whls) == 1, f'Expected 1 wheel, found {len(whls)}'
-          assert len(tar_gzs) == 1, f'Expected 1 sdist, found {len(tar_gzs)}'
-          for p in whls + tar_gzs:
-              h = hashlib.sha256(open(p, 'rb').read()).hexdigest()
-              sz = os.path.getsize(p)
-              print(f'{os.path.basename(p)}: {sz} bytes, SHA-256: {h}')
+          sdists = glob.glob('dist/*.tar.gz')
+          assert len(whls) == 1, f'Expected exactly 1 wheel, found {len(whls)}: {whls}'
+          assert len(sdists) == 1, f'Expected exactly 1 sdist, found {len(sdists)}: {sdists}'
+          print(f'Built wheel: {whls[0]}')
+          print(f'Built sdist: {sdists[0]}')
+          "
+
+      - name: Verify version agreement in package distribution metadata
+        run: |
+          python -c "
+          import glob, zipfile, tarfile, tomllib
+          with open('pyproject.toml', 'rb') as f:
+              expected_ver = tomllib.load(f)['project']['version']
+          whl = glob.glob('dist/*.whl')[0]
+          sdist = glob.glob('dist/*.tar.gz')[0]
+
+          # Check wheel metadata
+          with zipfile.ZipFile(whl, 'r') as z:
+              meta = z.read(f'torchshield-{expected_ver}.dist-info/METADATA').decode('utf-8')
+              assert f'Version: {expected_ver}' in meta, f'Wheel METADATA missing Version: {expected_ver}'
+          print(f'Wheel metadata version {expected_ver} verified.')
+
+          # Check sdist metadata
+          with tarfile.open(sdist, 'r:gz') as t:
+              pkg_info = t.extractfile(f'torchshield-{expected_ver}/PKG-INFO').read().decode('utf-8')
+              assert f'Version: {expected_ver}' in pkg_info, f'sdist PKG-INFO missing Version: {expected_ver}'
+          print(f'sdist PKG-INFO version {expected_ver} verified.')
+          "
+
+      - name: Generate and verify artifact SHA-256 manifest
+        run: |
+          cd dist
+          sha256sum torchshield-*.whl torchshield-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Validate package contents and source provenance
+        run: |
+          python -c "
+          import glob, zipfile, tarfile, difflib, subprocess, tomllib
+          with open('pyproject.toml', 'rb') as f:
+              expected_ver = tomllib.load(f)['project']['version']
+          whl = glob.glob('dist/*.whl')[0]
+          sdist = glob.glob('dist/*.tar.gz')[0]
+
+          # 1. Attestation and state provider key lifecycle checks in wheel
+          with zipfile.ZipFile(whl, 'r') as z:
+              attest_code = z.read('torchshield/attestation.py').decode('utf-8')
+              assert 'staged_ch not in self._authorized_challenges' in attest_code, 'Attestation staged challenge purge missing from wheel!'
+              assert 'if self._evidence_provider is not None:\n            nonce = secrets.token_bytes(32)' in attest_code, 'Attestation narrowed lock missing from wheel!'
+              train_code = z.read('torchshield/training_state.py').decode('utf-8')
+              assert 'Inconsistent provider keys: expected' in train_code, 'Provider keys consistency check missing from wheel!'
+
+          # 2. Attestation and state provider key lifecycle checks in sdist
+          with tarfile.open(sdist, 'r:gz') as t:
+              attest_code_sdist = t.extractfile(f'torchshield-{expected_ver}/torchshield/attestation.py').read().decode('utf-8')
+              assert 'staged_ch not in self._authorized_challenges' in attest_code_sdist, 'Attestation staged challenge purge missing from sdist!'
+              train_code_sdist = t.extractfile(f'torchshield-{expected_ver}/torchshield/training_state.py').read().decode('utf-8')
+              assert 'Inconsistent provider keys: expected' in train_code_sdist, 'Provider keys consistency check missing from sdist!'
+
+          # 3. Source-to-wheel tree comparison for all python code
+          with zipfile.ZipFile(whl, 'r') as z:
+              for member in z.namelist():
+                  if member.startswith('torchshield/') and member.endswith('.py'):
+                      pkg_content = z.read(member).decode('utf-8').replace('\r\n', '\n')
+                      with open(member, 'r', encoding='utf-8') as src_f:
+                          src_content = src_f.read().replace('\r\n', '\n')
+                      diff = list(difflib.unified_diff(src_content.splitlines(), pkg_content.splitlines(), fromfile='source', tofile='wheel'))
+                      assert not diff, f'Source vs Wheel mismatch in {member}:\n' + '\n'.join(diff)
+          print('Package contents and source provenance successfully validated!')
           "
 
       - name: Run isolated clean-room installation verification
         run: |
-          python scripts/verify_isolated_wheel.py --expected-version 0.7.2
+          python -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          " > expected_version.txt
+          VERSION=$(cat expected_version.txt)
+          WHEEL_PATH=$(find dist -name "torchshield-${VERSION}*.whl" -type f)
+          echo "Candidate wheel: $WHEEL_PATH"
+          python scripts/verify_isolated_wheel.py --wheel "$WHEEL_PATH" --expected-version "$VERSION"
+
+      - name: Record build environment and verification metadata
+        if: always()
+        run: |
+          python -c "
+          import json, sys, os, platform, subprocess, hashlib, glob
+          env_info = {
+              'os': platform.platform(),
+              'python': sys.version,
+              'git_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip(),
+              'git_tree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}']).decode().strip(),
+              'artifacts': {}
+          }
+          for p in glob.glob('dist/*'):
+              if os.path.isfile(p):
+                  env_info['artifacts'][os.path.basename(p)] = {
+                      'size': os.path.getsize(p),
+                      'sha256': hashlib.sha256(open(p, 'rb').read()).hexdigest()
+                  }
+          os.makedirs('reports', exist_ok=True)
+          with open('reports/build_metadata.json', 'w') as f:
+              json.dump(env_info, f, indent=2)
+          print(json.dumps(env_info, indent=2))
+          "
 
       - name: Upload verification evidence and artifacts
         uses: actions/upload-artifact@v4
@@ -70,5 +185,5 @@ jobs:
         with:
           name: torchshield-verification-artifacts
           path: |
-            reports/pytest-junit.xml
+            reports/*
             dist/*

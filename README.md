@@ -60,7 +60,7 @@ pip install -e . --no-build-isolation --no-deps
 Or build and install the standalone wheel distribution:
 ```bash
 python -m build
-pip install dist/torchshield-0.7.2-py3-none-any.whl
+pip install dist/torchshield-0.7.3-py3-none-any.whl
 ```
 *(Pre-built wheels in `dist/` can be installed directly once built via `python -m build`).*
 
@@ -226,7 +226,7 @@ The complete documentation suite is available under [`docs/`](docs/):
 ## Security Model & Operational Boundaries
 
 > [!IMPORTANT]
-> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.2).
+> **Deployment Status:** Conditional Approval — Internal Staging / Research Candidate (v0.7.3).
 >
 > 1. **Derivation Salt vs Secret Key:** The 32-byte header salt is a non-secret public salt used for HKDF domain separation. The 32-byte master key is private input keying material (IKM).
 > 2. **Nonce Monotonicity Invariant:** Sequential intra-key counter nonces (`b"CHNK" + uint64_be`) guarantee strictly zero collision risk ($P=0$). Cross-key random collisions are bounded at $P \approx 2^{-128}$.

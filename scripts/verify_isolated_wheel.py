@@ -190,6 +190,44 @@ except (CheckpointError, TrainingStateError, ValueError):
 assert malformed_failed, "FAIL: Malformed file was accepted without error!"
 print("Malformed input rejection verified: failed closed with exception.")
 
+# 5. Attestation and provider-key lifecycle verification in installed package
+print("\nTesting attestation and provider-key lifecycle in installed package...")
+import time
+import hashlib
+from torchshield.attestation import (
+    AttestationGatedKeyProvider,
+    AttestationEvidence,
+    HardwareAttestationVerifier,
+    AttestationPolicy,
+    PlatformType,
+    AttestationError,
+)
+from torchshield.key_providers.local import LocalKeyProvider
+
+inner_provider = LocalKeyProvider()
+verifier = HardwareAttestationVerifier()
+policy = AttestationPolicy(
+    allowed_platforms={PlatformType.NVIDIA_CC.value},
+    golden_measurements={"gold"},
+    max_age_seconds=60.0,
+    require_signature=False,
+)
+gated = AttestationGatedKeyProvider(inner_provider, verifier, policy=policy)
+ch = gated.create_challenge()
+ev = AttestationEvidence(
+    platform=PlatformType.NVIDIA_CC.value,
+    measurement="gold",
+    report_data=hashlib.sha256(ch).hexdigest(),
+    timestamp=time.time(),
+)
+gated.stage_evidence(ev, challenge=ch)
+assert gated._staged_evidence is not None
+# Expire challenge and trigger cleanup
+gated._authorized_challenges[ch] = time.time() - 400.0
+gated._cleanup_expired_challenges_locked()
+assert gated._staged_evidence is None, "FAIL: Stale staged evidence was not purged in installed wheel!"
+print("Attestation staged evidence purge verified in installed package.")
+
 # Cleanup temporary secrets from memory
 del dek, wrong_dek
 print("\n[CLEAN-ROOM SUITE COMPLETED WITH 100% SUCCESS]")
@@ -198,8 +236,8 @@ print("\n[CLEAN-ROOM SUITE COMPLETED WITH 100% SUCCESS]")
 
 def main():
     parser = argparse.ArgumentParser(description="TorchShield Clean-Room Isolated Wheel Verification")
-    parser.add_argument("--wheel", default=None, help="Path to .whl file (defaults to latest in dist/)")
-    parser.add_argument("--expected-version", default="0.7.2", help="Expected package version")
+    parser.add_argument("--wheel", default=None, help="Path to .whl file (defaults to candidate in dist/)")
+    parser.add_argument("--expected-version", default="0.7.3", help="Expected package version")
     args = parser.parse_args()
 
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -207,17 +245,30 @@ def main():
 
     if args.wheel:
         whl_path = os.path.abspath(args.wheel)
+        if not os.path.isfile(whl_path):
+            raise FileNotFoundError(f"Specified candidate wheel not found: {whl_path}")
+        whl_filename = os.path.basename(whl_path)
+        expected_prefix = f"torchshield-{args.expected_version}"
+        if not whl_filename.startswith(expected_prefix):
+            raise ValueError(
+                f"Specified wheel '{whl_filename}' does not match expected version '{args.expected_version}'"
+            )
     else:
-        # Locate candidate wheel matching expected version, or latest wheel in dist/
+        # Strictly locate candidate wheel matching expected version; NEVER fall back to older wheels
         expected_pattern = os.path.join(dist_dir, f"torchshield-{args.expected_version}*.whl")
         matching = glob.glob(expected_pattern)
-        if matching:
+        if len(matching) == 1:
             whl_path = matching[0]
+        elif len(matching) > 1:
+            raise RuntimeError(
+                f"Multiple candidate wheels found matching {expected_pattern}: {matching}. "
+                "Specify --wheel explicitly."
+            )
         else:
-            all_whls = sorted(glob.glob(os.path.join(dist_dir, "*.whl")), key=os.path.getmtime)
-            if not all_whls:
-                raise FileNotFoundError(f"No wheels found in {dist_dir}. Run 'python -m build' first.")
-            whl_path = all_whls[-1]
+            raise FileNotFoundError(
+                f"No candidate wheel matching version {args.expected_version} found in {dist_dir}. "
+                "Explicitly provide --wheel or build the candidate first. Refusing silent fallback to older wheels."
+            )
 
     if not os.path.isfile(whl_path):
         raise FileNotFoundError(f"Candidate wheel not found at: {whl_path}")

@@ -2,6 +2,17 @@
 
 All notable changes to the TorchShield GPU Engine and Validated AI Data Protection project are documented in this file.
 
+## [0.7.3] - 2026-10-29
+
+### Release Integrity & CI Provenance Gate Closure
+- **Hard Artifact Provenance Gate in CI:** Upgraded `.github/workflows/ci.yml` to generate SHA-256 manifests dynamically from freshly built distribution archives and strictly verify them using `sha256sum -c SHA256SUMS`, failing closed on any hash mismatch or archive corruption.
+- **5-Point Version Agreement Enforcement:** CI asserts exact version agreement across `pyproject.toml`, `torchshield.__version__`, CLI version output (`torchshield.cli version`), wheel distribution metadata (`dist-info/METADATA`), and sdist distribution metadata (`PKG-INFO`).
+- **Clean Build Isolation & Single-Artifact Output:** Enforced clean build workspace that produces exactly one wheel and one source distribution archive per CI run, eliminating multi-artifact pollution and stale committed manifest overwrites.
+- **Strict Wheel Path Resolution in Clean-Room Verification:** Hardened `scripts/verify_isolated_wheel.py` to require explicit `--wheel` and `--expected-version` validation, strictly preventing silent fallback to older wheels in `dist/`. Added installed-package attestation stale evidence purge and provider key lifecycle verification within the clean-room virtual environment.
+- **Committed Diff & Whitespace Verification:** Replaced no-op clean-checkout `git diff --check` with committed diff verification (`git diff --check HEAD^ HEAD` / `git show --check HEAD`) that inspects committed changes and fails on whitespace errors.
+- **Package Content & Source Provenance Validation:** Added static and structural inspection in CI verifying that critical attestation concurrency fixes and state-provider key lifecycle checks are present in both the built wheel and sdist, with zero diffs against repository source code.
+- **Reconciled Test Environment Breakdown:** Explicitly documented the distinction between local Windows test results (270 passed, 0 skipped across 49 files) and Linux CI runner results (261 passed, 9 skipped: 5 Hugging Face tests due to uninstalled optional `transformers` library, 4 CUDA tests due to CPU-only GitHub Actions runners).
+
 ## [0.7.2] - 2026-10-28
 
 ### Security Hardening & Concurrency Defect Remediation
